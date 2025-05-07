@@ -4,6 +4,7 @@ import time
 from hardware.unitreeG1.arm import Arm
 from hardware.unitreeG1.leg import Leg
 from hardware.unitreeG1.waist import Waist
+from hardware.unitreeG1.camera import Camera
 
 from hardware.base.robot import Robot
 
@@ -20,6 +21,9 @@ import numpy as np
 
 import glog as log
 
+from unitree_sdk2py.idl.default import unitree_go_msg_dds__SportModeState_
+from unitree_sdk2py.idl.unitree_go.msg.dds_ import SportModeState_
+
 Kp = [
     60, 60, 60, 100, 40, 40,      # legs
     60, 60, 60, 100, 40, 40,      # legs
@@ -33,9 +37,12 @@ Kd = [
     1, 1, 1, 2, 1, 1,     # legs
     1, 1, 1,              # waist
     1, 1, 1, 1, 1, 1, 1,  # arms
-    1, 1, 1, 1, 1, 1, 1   # arms 
+    1, 1, 1, 1, 1, 1, 1   # arms
 ]
 
+# PR 模式：控制踝关节的 Pitch(P) 和 Roll(R) 电机 (默认模式，对应 URDF 模型)
+# AB 模式：直接控制踝关节的 A 和 B 电机 (需要用户自己计算并联机构运动学)
+# https://support.unitree.com/home/zh/G1_developer/basic_motion_routine
 class Mode:
     PR = 0  # Series Control for Pitch/Roll Joints
     AB = 1  # Parallel Control for A/B Joints
@@ -61,6 +68,11 @@ class Agent(Robot):
         # create subscriber # 
         self.lowstate_subscriber_ = ChannelSubscriber("rt/lowstate", LowState_)
         self.lowstate_subscriber_.Init(self.LowStateHandler, 10)
+
+        # https://support.unitree.com/home/zh/G1_developer/odometer_service_interface
+        # self.odom_sub_ = ChannelSubscriber("rt/odommodestate", SportModeState_)
+        # self.odom_sub_ = ChannelSubscriber("rt/lf/odommodestate", SportModeState_)
+        # self.odom_sub_.Init(self.HighStateHandler, 10)
 
         self.msc = MotionSwitcherClient()
         self.msc.SetTimeout(5.0)
@@ -88,13 +100,29 @@ class Agent(Robot):
         audio_client.Init()
         self.audio_client = audio_client
 
+        self.camera = Camera(config=config['camera'])
+
+    def CameraCapture(self):
+        return self.camera.capture()
+
     def SetVolume(self, volume: int):
         self.audio_client.SetVolume(volume)
-        time.sleep(8)
-        ret = self.audio_client.GetVolume()
-        log.info("debug GetVolume: ",ret)
-        time.sleep(8)
-        self.audio_client.TtsMaker(f"当前音量{ret}",0)
+        time.sleep(7)
+        ret, vol = self.audio_client.GetVolume()
+        time.sleep(1)
+
+        if 0 == ret:
+            log.info(f"debug GetVolume: {vol}")
+            self.audio_client.TtsMaker(f"当前音量{vol}",0)
+        else:
+            self.audio_client.TtsMaker(f"音量获取失败",0)
+    
+    def HighStateHandler(self, msg: SportModeState_):
+        log.info(f"Position: {msg.position}")
+        log.info(f"Velocity: {msg.velocity}")
+        log.info(f"Yaw velocity: {msg.yaw_speed}")
+        log.info(f"Foot position in body frame: {msg.foot_position_body}")
+        log.info(f"Foot velocity in body frame: {msg.foot_speed_body}")
         
     def LowStateHandler(self, msg: LowState_):
         self.low_state = msg

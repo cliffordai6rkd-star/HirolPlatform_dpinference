@@ -4,6 +4,7 @@ name: "unitreeG1"
 arm: !include arm.yaml
 leg: !include leg.yaml
 waist: !include waist.yaml
+camera: !include camera.yaml
 
 network_interface: 'eth0'
 
