@@ -52,7 +52,7 @@ class Arm(ArmBase):
         log.info(f"End Effector Position: {position}")
         return position
     
-    def get_ee_pose(self):
+    def get_tcp_pose(self):
         """
         Current end-effector pose (position and orientation) in robot base frame.
         """

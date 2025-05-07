@@ -8,17 +8,17 @@ class ArmBase(metaclass=abc.ABCMeta):
   def get_model(self):
       pass
   
-  @abc.abstractmethod
-  def get_ee_orientation(self):
-      pass
+#   @abc.abstractmethod
+#   def get_ee_orientation(self):
+#       pass
   
   @abc.abstractmethod
-  def get_ee_pose(self):
+  def get_tcp_pose(self):
       pass
 
-  @abc.abstractmethod
-  def get_ee_position(self):
-      pass
+#   @abc.abstractmethod
+#   def get_ee_position(self):
+#       pass
 
   @abc.abstractmethod
   def get_state(self):

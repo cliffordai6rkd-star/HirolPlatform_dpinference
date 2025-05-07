@@ -1,6 +1,10 @@
 from typing import Text, Mapping, Any
+from data_types import se3
 from hardware.unitreeG1.dex3 import Dex3
 from hardware.base.arm import ArmBase
+from motion.kinematics_model import KinematicsModel
+from tools import file_utils
+
 import glog as log
 import time,math
 from unitree_sdk2py.core.channel import ChannelSubscriber, ChannelPublisher, ChannelFactoryInitialize
@@ -81,6 +85,8 @@ class Arm(ArmBase):
 
         self._dex3 = Dex3(config['hand'], isLeft)
 
+        # self.urdf = KinematicsModel(urdf=file_utils.read_file(config['urdf']), base_link=config['base_link'], end_link=config['end_link'])
+
     def LowCmdUpdate(self, low_cmd: LowCmd_, low_state: LowState_, ratio: float):
         for i in self.jointIndices:
             low_cmd.motor_cmd[i].mode =  1 # 1:Enable, 0:Disable
@@ -98,20 +104,21 @@ class Arm(ArmBase):
     def get_model(self):
         pass
     
-    def get_ee_orientation(self):
-        pass
+    # def get_tcp_orientation(self):
+    #     pass
     
-    def get_ee_pose(self):
-        pass
+    def get_tcp_pose(self) -> se3.Transform:
+        raise NotImplementedError("get_tcp_pose not implemented")
 
-    def get_ee_position(self):
-        pass
+    # def get_tcp_position(self):
+    #     pass
 
     def get_state(self):
         pass
 
     def hand_grasp(self):
         self._dex3.grip_hand()
+
 
     #TODO, not ready
     # def hand_rotate_motors(self):

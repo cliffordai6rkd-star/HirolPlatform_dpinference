@@ -30,7 +30,7 @@ class Agent(Robot):
         self._arm.move_to_start()
 
     def get_pose(self):
-        return self._arm.get_ee_pose()
+        return self._arm.get_tcp_pose()
     
     def get_position(self):
         return self._arm.get_ee_position()
