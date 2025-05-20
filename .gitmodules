@@ -1,0 +1,12 @@
+[submodule "unitree_sdk2_python"]
+	path = unitree_sdk2_python
+	url = git@github.com:unitreerobotics/unitree_sdk2_python.git
+[submodule "unitree_sdk2"]
+	path = unitree_sdk2
+	url = git@github.com:unitreerobotics/unitree_sdk2.git
+[submodule "dependencies/libfranka-python"]
+	path = dependencies/libfranka-python
+	url = git@github.com:BigJohnn/libfranka-python.git
+[submodule "dependencies/libfranka-sim"]
+	path = dependencies/libfranka-sim
+	url = git@github.com:BigJohnn/libfranka-sim.git

@@ -1,0 +1,13 @@
+name: "fr3"
+
+ip: "127.0.0.1"
+
+username: "franka"
+passwd: "franka123"
+
+urdf_path: "assets/franka_fr3/fr3.urdf"
+
+arm: !include fr3arm.yaml
+
+control_rate: 1000
+control_mode: 'impedance'

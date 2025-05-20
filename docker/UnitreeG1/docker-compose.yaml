@@ -1,0 +1,30 @@
+services:
+  qemu-setup:
+    image: 666860.xyz/multiarch/qemu-user-static  # 使用官方镜像
+    command: ["--reset", "-p", "yes", "--credential=yes"]
+    privileged: true
+    volumes:
+      - /usr/bin/qemu-*-static:/usr/bin/qemu-*-static
+    networks:
+      - dummy-net
+    restart: "no"
+
+  unitree-g1-builder:
+    depends_on:
+      - qemu-setup
+    build:
+        context: .  # Assuming the Dockerfile is in the current directory
+        dockerfile: Dockerfile
+    platform: linux/arm64
+    privileged: true  # 如果后续需要设备访问
+    stdin_open: true
+    tty: true
+    volumes:
+      - ../../:/workspace
+      - /tmp:/tmp
+    command: bash -c "cd /workspace && bash"
+
+networks:
+  dummy-net:
+    driver: bridge
+    internal: true  # 创建隔离网络避免对外暴露

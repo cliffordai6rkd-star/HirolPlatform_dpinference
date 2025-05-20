@@ -1,0 +1,5 @@
+# 适用于arm64架构的ubuntu-ports镜像源
+deb http://mirrors.ustc.edu.cn/ubuntu-ports/ focal main restricted universe multiverse
+deb http://mirrors.ustc.edu.cn/ubuntu-ports/ focal-updates main restricted universe multiverse
+deb http://mirrors.ustc.edu.cn/ubuntu-ports/ focal-backports main restricted universe multiverse
+deb http://mirrors.ustc.edu.cn/ubuntu-ports/ focal-security main restricted universe multiverse

@@ -1,0 +1,23 @@
+name: "fr3"
+
+ip: "127.0.0.1"
+
+username: "franka"
+passwd: "franka123"
+
+urdf_path: "assets/franka_fr3/fr3.urdf"
+arm: !include fr3arm.yaml
+
+
+
+# flange_t_tcp:
+#   # robotiq_85: [0.063, 0.045, 0, -1.57079632679, 0, -0.52359877559]
+#   # offset = se3.Transform(xyz=[0, 0, 0.162])
+#   robotiq_85: [0.144, 0.1853, 0, -1.57079632679, 0, -0.52359877559]
+#   # wide_gripper: [0.10287532, -0.11199944, 0.012, 1.04719755119, 1.57079632679, 0]
+#   # offset = se3.Transform(xyz=[0, 0, 0.072])
+#   wide_gripper: [0.13887246, -0.17435492, 0.012, 1.04719755119, 1.57079632679, 0]
+
+# ft_sensor: !include ft_sensor_pb.yaml
+control_rate: 1000
+control_mode: 'position'
