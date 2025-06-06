@@ -1,0 +1,37 @@
+
+services:
+  quest3-monte03-teleop:
+    build:
+      context: .  # Assuming the Dockerfile is in the current directory
+      dockerfile: Dockerfile
+    volumes:
+      - ../../:/workspace
+      - /tmp/.X11-unix:/tmp/.X11-unix
+    environment:
+      - ROS_DOMAIN_ID=13
+      - DISPLAY=$DISPLAY
+      - http_proxy=
+      - https_proxy=
+      - no_proxy=
+      # - http_proxy=http://127.0.0.1:7897
+      # - https_proxy=http://127.0.0.1:7897
+      # - no_proxy=localhost,127.0.0.1
+    devices:
+      - /dev/bus/usb:/dev/bus/usb  # Mount USB devices
+      - /etc/udev/rules.d:/etc/udev/rules.d
+    privileged: true
+    user: teleophost
+    network_mode: host
+    stdin_open: true
+    group_add:
+      - "plugdev"  # 添加用户组
+    tty: true
+    command: ["tail", "-f", "/dev/null"]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu, graphics, display, utility, video, compute]
+

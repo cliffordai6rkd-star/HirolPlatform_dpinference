@@ -23,6 +23,8 @@ python test_sim2real.py --robot-ip 192.168.1.101 -g
 
 P.S. ensure your dm_robotics_panda && panda_py work!! 
 ```
+conda install pinocchio eigenpy -c conda-forge
+
 cd dependencies/dm_robotics_panda
 pip install -e .
 ```

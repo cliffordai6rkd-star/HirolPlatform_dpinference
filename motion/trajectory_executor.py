@@ -81,7 +81,7 @@ class OpenTrajectoryExecutor(object):
             duration, timeout)
     self._should_run = True
     self._thread = threading.Thread(target=self._execute)
-    self._thread.setDaemon(True)
+    self._thread.daemon = True
     self._start_time = self._time_func()
     self._max_time = self._start_time + timeout
     self._thread.start()

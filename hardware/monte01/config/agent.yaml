@@ -1,0 +1,7 @@
+name: "monte01"
+
+arm: !include arm.yaml
+
+joint_names_fixed: ["body_joint_1", "body_joint_2", "body_joint_3",
+                "head_joint_1", "head_joint_2",]
+

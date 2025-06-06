@@ -1,5 +1,5 @@
 from simulation.monte01_mujoco.monte01_mujoco import Monte01Mujoco
-from motion.kinematics_ import PinocchioKinematicsModel as KinematicsModel
+from motion.kinematics import PinocchioKinematicsModel as KinematicsModel
 import os
 import glog as log
 import numpy as np

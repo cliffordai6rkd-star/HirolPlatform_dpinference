@@ -15,7 +15,7 @@ from typing import Text, Mapping, Any, Callable, Sequence, Union
 from data_types import se3
 from hardware.base.arm import ArmBase
 
-from motion.kinematics_ import PinocchioKinematicsModel as KinematicsModel
+from motion.kinematics import PinocchioKinematicsModel as KinematicsModel
 
 from motion import trajectory_planner, trajectory_executor
 from tools import file_utils

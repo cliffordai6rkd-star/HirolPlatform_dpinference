@@ -1,3 +1,5 @@
 /data_types/__pycache__/
 */__pycache__/
 *.py[cod]
+MUJOCO_LOG.TXT
+HIROLRobotPlatform.egg-info/*

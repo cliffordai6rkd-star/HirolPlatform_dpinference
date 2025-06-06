@@ -16,3 +16,6 @@
 [submodule "dependencies/dm_robotics_panda"]
 	path = dependencies/dm_robotics_panda
 	url = git@github.com:BigJohnn/dm_robotics_panda.git
+[submodule "dependencies/monte01_sdk"]
+	path = dependencies/monte01_sdk
+	url = git@github.com:linkage-x/monte01_sdk.git
