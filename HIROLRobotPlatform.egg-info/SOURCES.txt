@@ -47,6 +47,8 @@ hardware/monte01/agent.py
 hardware/monte01/agent_xarm.py
 hardware/monte01/arm.py
 hardware/monte01/arm_xarm.py
+hardware/monte01/camera.py
+hardware/monte01/defs.py
 hardware/monte01/gripper_xarm.py
 hardware/monte01/trunk.py
 hardware/unitreeG1/__init__.py
@@ -56,11 +58,17 @@ hardware/unitreeG1/camera.py
 hardware/unitreeG1/dex3.py
 hardware/unitreeG1/leg.py
 hardware/unitreeG1/waist.py
+motion/RTB.py
 motion/__init__.py
 motion/kinematics.py
+motion/kinematics_bac.py
 motion/kinematics_model.py
+motion/kinematics_rtb.py
 motion/test_kinematics.py
+motion/test_trajectory_planning.py
 motion/trajectory_executor.py
+motion/trajectory_planning.py
+simulation/__init__.py
 tools/__init__.py
 tools/file_utils.py
 tools/yaml_loader.py

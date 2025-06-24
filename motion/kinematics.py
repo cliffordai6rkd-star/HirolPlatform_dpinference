@@ -13,6 +13,53 @@ import numpy.linalg as LA
 
 import glog as log
 import os
+import time
+from threading import Lock
+
+# --- URDF模型管理器 (共享加载机制) ---
+class UrdfModelManager:
+    """
+    URDF模型管理器，用于共享加载URDF模型，避免重复加载相同的URDF文件。
+    支持线程安全的单例模式。
+    """
+    _instance = None
+    _lock = Lock()
+    _loaded_models = {}  # 缓存已加载的模型 {urdf_path: (full_model, collision_model, visual_model)}
+    
+    def __new__(cls):
+        with cls._lock:
+            if cls._instance is None:
+                cls._instance = super().__new__(cls)
+            return cls._instance
+    
+    def get_full_model(self, urdf_path: str):
+        """
+        获取完整的URDF模型，如果已经加载过则直接返回缓存的版本。
+        
+        Args:
+            urdf_path: URDF文件路径
+            
+        Returns:
+            tuple: (full_model, collision_model, visual_model)
+        """
+        urdf_path = os.path.abspath(urdf_path)
+        
+        with self._lock:
+            if urdf_path not in self._loaded_models:
+                log.info(f"首次加载URDF模型: {urdf_path}")
+                t_start = time.time()
+                try:
+                    package_dir = str(os.path.dirname(urdf_path))
+                    full_model, collision_model, visual_model = pin.buildModelsFromUrdf(urdf_path, package_dir)
+                    self._loaded_models[urdf_path] = (full_model, collision_model, visual_model)
+                    t_end = time.time()
+                    log.info(f"URDF模型加载完成，耗时: {t_end - t_start:.3f} 秒")
+                except Exception as e:
+                    raise IOError(f"无法从 {urdf_path} 载入 URDF。请检查路径和档案内容。错误: {e}")
+            else:
+                log.info(f"使用缓存的URDF模型: {urdf_path}")
+                
+            return self._loaded_models[urdf_path]
 
 # --- 輔助函式 (解決舊版 Pinocchio 的相容性問題) ---
 def get_chain_joint_names_from_frame(model: pin.Model, frame_id: int) -> List[str]:
@@ -87,15 +134,13 @@ class PinocchioKinematicsModel(BaseKinematicsModel):
             base_link: 期望的運動鏈的基座連結名稱。
             end_effector_link: 期望的運動鏈的末端連結名稱。
         """
+        t_start = time.time()
         super().__init__()
 
-        # 1. 載入完整的模型
-        try:
-            # 傳入 URDF 所在的目錄路徑，以便 Pinocchio 找到 mesh 文件
-            package_dir = str(os.path.dirname(urdf_path))
-            full_model, collision_model, visual_model = pin.buildModelsFromUrdf(urdf_path, package_dir)
-        except Exception as e:
-            raise IOError(f"無法從 {urdf_path} 載入 URDF。請檢查路徑和檔案內容。錯誤: {e}")
+        # 1. 使用共享模型管理器載入完整的模型
+        model_manager = UrdfModelManager()
+
+        full_model, collision_model, visual_model = model_manager.get_full_model(urdf_path)
 
         if not full_model.existFrame(base_link):
             raise ValueError(f"Base link '{base_link}' 在模型中未找到！")
@@ -148,7 +193,9 @@ class PinocchioKinematicsModel(BaseKinematicsModel):
         log.info(f"成功建立從 '{base_link}' 到 '{end_effector_link}' 的縮減模型。")
         log.info(f"縮減後的模型關節數 (nq): {self.model.nq}")
         log.debug(f"保留的關節: {[self.model.names[i] for i in range(1, self.model.njoints)]}")
-
+        t_end = time.time()
+        log.info(f"PinocchioKinematicsModel 初始化總耗時: {t_end - t_start:.3f} 秒")
+    
     def fk(self, joint_positions: np.ndarray) -> np.ndarray:
         """為縮減後的模型計算正向運動學。"""
         if joint_positions.shape[0] != self.n_joints:
