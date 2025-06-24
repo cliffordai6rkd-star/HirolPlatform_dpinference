@@ -3,4 +3,6 @@
 */*/__pycache__/
 *.py[cod]
 MUJOCO_LOG.TXT
-HIROLRobotPlatform.egg-info/*
+/HIROLRobotPlatform.egg-info/*
+recv_response.txt
+send_request.txt

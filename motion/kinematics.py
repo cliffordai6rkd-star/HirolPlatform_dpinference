@@ -134,7 +134,6 @@ class PinocchioKinematicsModel(BaseKinematicsModel):
             base_link: 期望的運動鏈的基座連結名稱。
             end_effector_link: 期望的運動鏈的末端連結名稱。
         """
-        t_start = time.time()
         super().__init__()
 
         # 1. 使用共享模型管理器載入完整的模型
@@ -193,8 +192,6 @@ class PinocchioKinematicsModel(BaseKinematicsModel):
         log.info(f"成功建立從 '{base_link}' 到 '{end_effector_link}' 的縮減模型。")
         log.info(f"縮減後的模型關節數 (nq): {self.model.nq}")
         log.debug(f"保留的關節: {[self.model.names[i] for i in range(1, self.model.njoints)]}")
-        t_end = time.time()
-        log.info(f"PinocchioKinematicsModel 初始化總耗時: {t_end - t_start:.3f} 秒")
     
     def fk(self, joint_positions: np.ndarray) -> np.ndarray:
         """為縮減後的模型計算正向運動學。"""
@@ -213,7 +210,7 @@ class PinocchioKinematicsModel(BaseKinematicsModel):
             max_iter: int = 5000,
             tol: float = 1e-6,
             step_size: float = 1.0
-    ) -> np.ndarray:
+    ):
         """
         Solve inverse kinematics using the Gauss-Newton method.
 
@@ -298,10 +295,10 @@ class PinocchioKinematicsModel(BaseKinematicsModel):
 
                 # Project back to joint limits
                 q = np.clip(q, lower_limits, upper_limits)
-
+        
         if not converged:
             print(
                 f"Warning: Gauss-Newton IK did not converge after {max_iter} iterations. Best error: {np.linalg.norm(err_se3)}")
 
-        return q
+        return converged, q
     

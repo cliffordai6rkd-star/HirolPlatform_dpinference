@@ -62,9 +62,11 @@ class Agent(Robot):
         # --- 這裡是最耗時的部分 ---
         print("正在載入左臂...")
         self._arm_left_instance = Arm(config=config['arm'], hardware_interface=self.robot, simulator=self.sim, isLeft=True)
+        self._arm_left_instance._agent_ref = self  # Set agent reference for sync
         
         print("正在載入右臂...")
         self._arm_right_instance = Arm(config=config['arm'], hardware_interface=self.robot, simulator=self.sim, isLeft=False)
+        self._arm_right_instance._agent_ref = self  # Set agent reference for sync
         # --- 耗時部分結束 ---
 
         print("所有手臂模型已載入完成！")
@@ -91,3 +93,39 @@ class Agent(Robot):
     
     def head_front_camera(self) -> Camera:
         return self.camera
+    
+    def sync_dual_arms_to_simulator(self):
+        """Sync both arms' real robot joint states to simulator for visualization"""
+        if self.robot is not None and self.sim is not None:
+            try:
+                # Wait for arms to be ready
+                if not self._arms_ready.is_set():
+                    return
+                    
+                # Get body joint positions (shared by both arms)
+                body_positions = self._arm_left_instance.get_body_joint_positions()
+                all_joint_targets = {}
+                
+                # Add body joints
+                BODY_JOINT_IDS = [1, 2, 3]
+                for i, joint_id in enumerate(BODY_JOINT_IDS):
+                    all_joint_targets[joint_id] = body_positions[i]
+                
+                # Add left arm joints
+                left_positions = self._arm_left_instance.get_joint_positions()
+                LEFT_ARM_JOINT_IDS = [6, 7, 8, 9, 10, 11, 12]
+                for i, joint_id in enumerate(LEFT_ARM_JOINT_IDS):
+                    all_joint_targets[joint_id] = left_positions[i]
+                
+                # Add right arm joints  
+                right_positions = self._arm_right_instance.get_joint_positions()
+                RIGHT_ARM_JOINT_IDS = [20, 21, 22, 23, 24, 25, 26]
+                for i, joint_id in enumerate(RIGHT_ARM_JOINT_IDS):
+                    all_joint_targets[joint_id] = right_positions[i]
+                
+                # Set all joint positions in simulator at once
+                self.sim.set_joint_positions(all_joint_targets)
+                
+            except Exception as e:
+                import glog as log
+                log.warning(f"Failed to sync dual arms to simulator: {e}")

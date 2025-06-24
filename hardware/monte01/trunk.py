@@ -19,6 +19,8 @@ WAIST_YAW = 1
 WAIST_PITCH = 2
 KNEE_PITCH = 3
 
+BODY_KEYS_STRIDE = KNEE_PITCH
+
 HEAD_PITCH = 1
 HEAD_YAW = 2
 
@@ -62,5 +64,5 @@ class Trunk(TrunkBase):
         success, pos, vel, effort = self.robot.get_joint_state([WAIST_YAW, WAIST_PITCH, KNEE_PITCH])
         log.info(f"Trunk state: \nsuccess: {success}\npos: {pos}\nvel: {vel}\neffort: {effort}\n")
 
-        success, pos, vel, effort = self.robot.get_joint_state([HEAD_PITCH + 3, HEAD_YAW + 3])
+        success, pos, vel, effort = self.robot.get_joint_state([HEAD_PITCH + BODY_KEYS_STRIDE, HEAD_YAW + BODY_KEYS_STRIDE])
         log.info(f"Head state: \nsuccess: {success}\npos: {pos}\nvel: {vel}\neffort: {effort}\n")

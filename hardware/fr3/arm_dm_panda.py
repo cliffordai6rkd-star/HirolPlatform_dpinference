@@ -218,8 +218,14 @@ class Arm(ArmBase):
     def move_to_pose(self, target) -> bool:
         """Moves to the target that specifies TCP pose in base frame.
         """
-        self.set_joint_positions(
-        self.get_joint_target_from_pose(target))
+        success, jp = self.get_joint_target_from_pose(target)
+        if success:
+            self.set_joint_positions(
+                jp
+            )
+        else:
+            log.error(f"Failed to get joint target from pose: {target}")
+            return False
 
         r1,t1 = self.getRT(target)
         log.info(f"pose1 == \n{target}")

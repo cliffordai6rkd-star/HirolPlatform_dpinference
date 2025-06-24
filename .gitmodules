@@ -1,9 +1,3 @@
-[submodule "unitree_sdk2_python"]
-	path = unitree_sdk2_python
-	url = git@github.com:unitreerobotics/unitree_sdk2_python.git
-[submodule "unitree_sdk2"]
-	path = unitree_sdk2
-	url = git@github.com:unitreerobotics/unitree_sdk2.git
 [submodule "dependencies/libfranka-python"]
 	path = dependencies/libfranka-python
 	url = git@github.com:BigJohnn/libfranka-python.git
@@ -19,3 +13,9 @@
 [submodule "dependencies/monte01_sdk"]
 	path = dependencies/monte01_sdk
 	url = git@github.com:linkage-x/monte01_sdk.git
+[submodule "dependencies/unitree_sdk2"]
+	path = dependencies/unitree_sdk2
+	url = git@github.com:unitreerobotics/unitree_sdk2.git
+[submodule "dependencies/unitree_sdk2_python"]
+	path = dependencies/unitree_sdk2_python
+	url = git@github.com:unitreerobotics/unitree_sdk2_python.git

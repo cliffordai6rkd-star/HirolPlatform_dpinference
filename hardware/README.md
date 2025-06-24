@@ -1,5 +1,5 @@
 FR3
-使用[libfranka-sim](git@github.com:BigJohnn/libfranka-sim.git) 或者 [panda_py](https://jeanelsner.github.io/panda-py/panda_py.html)进行控制
+[panda_py](https://jeanelsner.github.io/panda-py/panda_py.html)进行控制
 在控制主机上切换到实时内核，
 ```
 pro attach

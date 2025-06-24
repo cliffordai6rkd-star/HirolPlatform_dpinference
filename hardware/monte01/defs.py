@@ -1,2 +1,21 @@
 #py310 is more stable, but should use ubuntu22.04 x ros2 humble, which can achieve by a docker container.
 ROBOTLIB_SO_PATH='../../dependencies/monte01_sdk/lib/RobotLib.cpython-310-x86_64-linux-gnu.so'
+
+ARM_ENABLE=1
+ARM_DENABLE=2
+GRIPPER_ENABLE = ARM_ENABLE
+GRIPPER_DENABLE = ARM_DENABLE
+
+COM_TYPE_LEFT=1
+COM_TYPE_RIGHT=2
+
+ARM_MODE_POSITION_CTRL = 0
+ARM_MODE_SERVO_MOTION = 1
+ARM_MODE_JOINT_TEACHING = 2
+
+GRIPPER_MODE_POSITION_CTRL = 1
+GRIPPER_MODE_TORQUE_CTRL = 2
+
+ARM_STATE_SPORT=0
+ARM_STATE_PAUSE=1
+ARM_STATE_STOP=2

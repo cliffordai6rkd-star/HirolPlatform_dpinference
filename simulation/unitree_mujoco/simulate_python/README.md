@@ -29,7 +29,7 @@ python3 ./unitree_mujoco.py
 ```
 在新终端运行
 ```bash
-python3 ./test/test_unitree_sdk2.py
+python3 ./test/test.py
 ```
 程序会输出机器人在仿真器中的姿态和位置信息，同时机器人的每个电机都会持续输出 1Nm 的转矩。
 

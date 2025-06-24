@@ -1,5 +1,0 @@
-data_types
-hardware
-motion
-simulation
-tools

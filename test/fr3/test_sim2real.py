@@ -59,8 +59,8 @@ def run_command_sequence(controller: Arm):
         pose = controller.get_tcp_pose()
         if pose is not None:
             pose[2, 3] -= 0.1  # 向下移動 10cm
-            q = controller.ik(pose)
-            if q is not None:
+            success, q = controller.ik(pose)
+            if success:
                 controller.set_joint_positions(q)
 
         logging.info(f"Controller time: {controller.get_controller_time()}")
@@ -122,7 +122,7 @@ if __name__ == "__main__":
 
     cur_path = os.path.dirname(os.path.abspath(__file__))
     robot_config_file = os.path.join(
-    cur_path, '../config/agent.yaml')
+    cur_path, '../../hardware/fr3/config/agent.yaml')
     config = file_utils.read_config(robot_config_file)
 
     print(config)
