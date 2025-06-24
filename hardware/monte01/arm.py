@@ -15,7 +15,7 @@ from typing import Text, Mapping, Any, Callable, Sequence, Union
 from data_types import se3
 from hardware.base.arm import ArmBase
 
-from motion.kinematics import PinocchioKinematicsModel as KinematicsModel
+from motion.kinematics import PinocchioKinematicsModel as KinematicsModel, UrdfModelManager
 
 from motion import trajectory_planner, trajectory_executor
 from tools import file_utils
@@ -51,7 +51,21 @@ LEFT_ARM_JOINT_IDS = [6,7,8,9,10,11,12,]
 RIGHT_ARM_JOINT_IDS = [13,14,15,16,17,18,19]
 
 DEFAULT_JP_LEFT = np.array([0.6265732, 1.64933479, -1.2618717, -1.65806019, -6.30063725, 1.58824956, 0.32637656])  # Default joint positions for left arm
+
 class Arm(ArmBase):
+    # 类级别的URDF预加载函数
+    @classmethod 
+    def preload_urdf(cls, urdf_path: str):
+        """
+        预加载URDF模型到共享缓存中。
+        这个函数可以在创建任何Arm实例之前调用，以加速后续的初始化。
+        
+        Args:
+            urdf_path: URDF文件的路径
+        """
+        model_manager = UrdfModelManager()
+        model_manager.get_full_model(urdf_path)
+        log.info(f"URDF模型已预加载: {urdf_path}")
     def __init__(self, config: Mapping[Text, Any], hardware_interface: RobotLib, simulator: Monte01Mujoco, isLeft: bool = True):
         super().__init__()
         self.config = config

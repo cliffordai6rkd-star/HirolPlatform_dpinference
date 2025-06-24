@@ -37,10 +37,17 @@ class Agent(Robot):
         sim_thread = Thread(target=sim.start)
         sim_thread.start()
 
-        self._arm_left = Arm(config=config['arm'], hardware_interface=self.robot, simulator=sim)
-        self._arm_right = Arm(config=config['arm'], hardware_interface=self.robot, simulator=sim, isLeft=False)
-        self.sim_thread = sim_thread
-        self.sim = sim
+        # --- 改进后的加载策略：先预加载URDF，再创建手臂实例 ---
+        print("正在预加载URDF模型...")
+        urdf_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', config['arm']['urdf_path']))
+        Arm.preload_urdf(urdf_path)
+        
+        print("正在创建左臂实例...")
+        self._arm_left_instance = Arm(config=config['arm'], hardware_interface=self.robot, simulator=self.sim, isLeft=True)
+        
+        print("正在创建右臂实例...")
+        self._arm_right_instance = Arm(config=config['arm'], hardware_interface=self.robot, simulator=self.sim, isLeft=False)
+        # --- 优化后的加载部分结束 ---
 
         self.camera = Camera()
 
