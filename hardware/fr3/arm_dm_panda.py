@@ -109,7 +109,9 @@ class Arm(ArmBase):
                 self._reset_controller_state()
                 # 如果沒有目標，保持靜止
                 self._move_done.set()  # 確保事件是設定狀態
-                return np.zeros(self._action_spec.shape, dtype=self._action_spec.dtype)
+                x = np.zeros(self._action_spec.shape, dtype=self._action_spec.dtype)
+                x[7] = self.gripper_open
+                return x
 
             # --- P 控制器邏輯 ---
             self._observation = timestep.observation

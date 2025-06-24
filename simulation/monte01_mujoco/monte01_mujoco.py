@@ -67,34 +67,13 @@ class Monte01Mujoco:
         self._joint_name_to_id = {name: i for i, name in enumerate(joint_names)}
 
         mujoco.mj_resetDataKeyframe(self.mj_model, self.mj_data, 0)
-        self.forward()
 
-        ###############################################
-        # 獲取 chest 和 hand 的 body id
-        # chest_id = self.mj_model.body('chest_link').id
-        # hand_id = self.mj_model.body('left_arm_link_7').id
-
-        # # 獲取它們在世界座標系下的姿態矩陣
-        # T_world_to_chest_mujoco = np.eye(4)
-        # T_world_to_chest_mujoco[:3, :3] = self.mj_data.xmat[chest_id].reshape(3, 3)
-        # T_world_to_chest_mujoco[:3, 3] = self.mj_data.xpos[chest_id]
-
-        # print("\n--- T_world_to_chest_mujoco ---")
-        # print(T_world_to_chest_mujoco)
-
-        # T_world_to_hand_mujoco = np.eye(4)
-        # T_world_to_hand_mujoco[:3, :3] = self.mj_data.xmat[hand_id].reshape(3, 3)
-        # T_world_to_hand_mujoco[:3, 3] = self.mj_data.xpos[hand_id]
-
-        # print('T_chest_to_hand_at_zero mujoco===')
-        # print(np.linalg.inv(T_world_to_chest_mujoco)@ T_world_to_hand_mujoco)
-
-        # print("\n--- MuJoCo (MJCF) Zero Pose mujoco---")
-        # print(T_world_to_hand_mujoco)
-        ###############################################
+        mujoco.mj_forward(self.mj_model, self.mj_data)
 
         self.jp_prev = np.zeros_like(self.mj_data.qpos)
         self.jp_prev[:] = self.mj_data.qpos[:]
+
+        self.b_set_jp = False # fixed drop in first a few frames.
 
     def get_joint_positions(self, joint_names) -> np.ndarray:
         """
@@ -144,24 +123,25 @@ class Monte01Mujoco:
             self.mj_data.qpos[ids] = target_pos #self.mj_data.qpos[ids] + (target_pos - self.mj_data.qpos[ids])*0.02
             self.mj_data.qvel[ids] = 0
             self.mj_data.ctrl[ids] = 0
+            self.b_set_jp = True
 
             # log.info(f"target_pos == {target_pos}")
             
             self.jp_prev[ids]=target_pos
 
-    def forward(self):
-        mujoco.mj_forward(self.mj_model, self.mj_data)
-        
     def _simulation_thread(self):
         """Main simulation loop."""
         print("Simulation thread started.")
-        time.sleep(10)
         while self.viewer.is_running():
             try:
                 step_start = time.perf_counter()
 
                 with self.locker:
-                    mujoco.mj_step(self.mj_model, self.mj_data)
+                    if self.b_set_jp:
+                        mujoco.mj_step(self.mj_model, self.mj_data)
+                    else:
+                        time.sleep(0.1)
+                    
 
                 time_until_next_step = self.mj_model.opt.timestep - (time.perf_counter() - step_start)
                 if time_until_next_step > 0:

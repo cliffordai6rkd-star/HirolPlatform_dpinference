@@ -79,46 +79,6 @@ class Arm(ArmBase):
             log.error(f"Failed to load URDF: {e}")
 
         self.ctrl_dt = 1.0 / config['control_rate']
-        # --- 新增：身體運動學模型 ---
-        # 這個模型描述從機器人底部到胸部的鏈
-        body_base_link = 'base_link' # URDF 的根
-        body_end_link = 'chest_link'
-        try:
-            self.body_kinematics = KinematicsModel(
-                urdf_path=urdf_path, 
-                base_link=body_base_link, 
-                end_effector_link=body_end_link
-            )
-            # 獲取身體部分的關節名稱列表
-            self.body_joint_names = [self.body_kinematics.model.names[i] for i in range(1, self.body_kinematics.model.njoints)]
-            log.info(f"載入 BODY 運動學模型成功，關節名稱: {self.body_joint_names}")
-        except Exception as e:
-            log.error(f"載入 BODY 運動學模型失敗: {e}")
-            self.body_kinematics = None
-
-        ###############################################
-        # arm_kin = self.kinematics
-        # body_kin = self.body_kinematics
-        # # 計算 body 在零位時的姿態
-        # body_q_zero = np.zeros(body_kin.n_joints)
-        # T_world_to_chest_at_zero = body_kin.fk(body_q_zero)
-
-        # # 計算 arm 在零位時的姿態 (相對於 chest)
-        # arm_q_zero = np.zeros(arm_kin.n_joints)
-        # T_chest_to_hand_at_zero = arm_kin.fk(arm_q_zero)
-
-        # # 計算 hand 在世界座標系下的理論姿態
-        # T_world_to_hand_at_zero_pinocchio = T_world_to_chest_at_zero @ T_chest_to_hand_at_zero
-
-        # print('T_world_to_chest pin===')
-        # print(T_world_to_chest_at_zero)
-
-        # print('T_chest_to_hand_at_zero pin===')
-        # print(T_chest_to_hand_at_zero)
-
-        # print("--- Pinocchio (URDF) Zero Pose ---")
-        # print(T_world_to_hand_at_zero_pinocchio)
-        ###############################################
 
         self.flange_t_tcp = np.eye(4)
 
@@ -159,6 +119,7 @@ class Arm(ArmBase):
 
         self.time_log = []
         self.jp_log = []
+
     def get_gripper(self):
         return self.gripper
     
@@ -308,27 +269,9 @@ class Arm(ArmBase):
             log.error(f"為真實機器人計算身體 FK 時出錯: {e}")
             return np.eye(4)
     
-    def convert_pose_to_world(self, local_pose: np.ndarray) -> np.ndarray:
-        world_to_chest_transform = self.get_world_to_chest_transform()
-        world_pose = world_to_chest_transform @ local_pose
-        return world_pose
-
-    def convert_pose_to_local(self, world_pose: np.ndarray) -> np.ndarray:
-        world_to_chest_transform = self.get_world_to_chest_transform()
-        try:
-            # 計算逆矩陣 T_chest_world = inv(T_world_chest)
-            chest_to_world_transform = np.linalg.inv(world_to_chest_transform)
-        except np.linalg.LinAlgError:
-            log.error("計算逆矩陣失敗。")
-            return world_pose # 返回原姿態以避免崩潰
-        
-        local_pose = chest_to_world_transform @ world_pose
-        return local_pose
-    
     def move_to_pose(self, target: np.matrix) -> bool:
         """Moves to the target that specifies TCP pose in base frame.
         """
-        current_pose = self.get_tcp_pose()
         return self.move_to_joint_target(
         self.get_joint_target_from_pose(target, self.get_joint_positions()))
         
