@@ -1,0 +1,29 @@
+<?xml version="0.0" ?>
+<robot name="transfer_plate">
+  <link name="base_link">
+  <contact>
+      <lateral_friction value="0.15"/>
+  </contact>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+       <mass value="0.05"/>
+       <inertia ixx="0.0002" ixy="0" ixz="0" iyy="0.0002" iyz="0" izz="0.0002"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+				<mesh filename="transfer_plate.obj" scale="1 1 1"/>
+      </geometry>
+       <material name="blueish">
+        <color rgba="0.5 0.5 0.7 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+				<mesh filename="transfer_plate_collision.obj" scale="1 1 1"/>
+      </geometry>
+    </collision>
+  </link>
+</robot>
+

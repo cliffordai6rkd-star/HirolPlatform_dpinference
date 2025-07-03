@@ -5,46 +5,46 @@ from typing import Text, Mapping, Any
 import glog as log
 import time
 XARM_GRIPPER_MAX_POSITION = 800
-# Gripper joint names in simulation
-LEFT_GRIPPER_JOINT = "left_drive_gear_joint"
-RIGHT_GRIPPER_JOINT = "right_drive_gear_joint"
-
-# All gripper joint IDs (driver + follower joints)
-LEFT_GRIPPER_JOINT_IDS = [13, 14, 15, 16, 17, 18, 19]  # left_drive_gear + all follower joints
-RIGHT_GRIPPER_JOINT_IDS = [27, 28, 29, 30, 31, 32, 33]  # right_drive_gear + all follower joints
-
-# Driver joint IDs (main control joints)
-LEFT_DRIVER_JOINT_ID = 13   # left_drive_gear_joint
-RIGHT_DRIVER_JOINT_ID = 27  # right_drive_gear_joint
+XARM_GRIPPER_MAX_POSITION_SIM = 8
 class Gripper(GripperBase):
-    def __init__(self, config: Mapping[Text, Any], ip:str, simulator: Monte01Mujoco, is_left:bool=True):
+    def __init__(self, config: Mapping[Text, Any], ip:str, simulator: Monte01Mujoco, driver_joint_id,driver_joint_name, is_left:bool=True):
         super().__init__()
         self.simulator = simulator
         self.hardware = None
         self.is_left = is_left  # True for left gripper, False for right gripper
-        
+        self.driver_joint_id = driver_joint_id
+        self.driver_joint_name = driver_joint_name
+        self.is_valid = True
         # Initialize hardware only if IP is provided and not in simulation-only mode
         if ip:
             self.hardware = XArmAPI(ip, default_gripper_baud=921600)
 
             code = self.hardware.set_control_modbus_baudrate(921600)
             print('set gripper baudrate: 921600, code={}'.format(code))
-
+            if 0!=code:
+                self.is_valid = False
             # 夹爪初始化
             code = self.hardware.set_gripper_mode(config['ctrl_mode'])
             print('set gripper mode: location mode, code={}'.format(code))
+            if 0!=code:
+                self.is_valid = False
             # 设置夹爪波特率为 921600
-            code = self.hardware.set_control_modbus_baudrate(921600)
-            print('set gripper baudrate: 921600, code={}'.format(code))
+            # code = self.hardware.set_control_modbus_baudrate(921600)
+            # print('set gripper baudrate: 921600, code={}'.format(code))
 
             code = self.hardware.set_gripper_enable(True)
             print('set gripper enable, code={}'.format(code))
-
+            if 0!=code:
+                self.is_valid = False
             code = self.hardware.set_gripper_speed(5000)
             print('set gripper speed, code={}'.format(code))
+            if 0!=code:
+                self.is_valid = False
 
-        self.print_state()
-
+    def valid(self) -> bool:
+        """Check if the gripper is valid (hardware communication successful)"""
+        return self.is_valid
+    
     def print_state(self) -> None:
         try:
             if self.hardware:
@@ -58,6 +58,20 @@ class Gripper(GripperBase):
                 print('gripper in simulation mode, hardware communication skipped')
         except Exception as e:
             print(f'gripper communication error: {e}')
+
+    def get_position(self):
+        pos = 1.0
+        try:
+            if self.hardware:
+                # 获取夹爪状态来验证通信是否正常
+                code, pos = self.hardware.get_gripper_position()
+                if code != 0:
+                    print(f'gripper communication test failed, code: {code}')
+            else:
+                pos = self.simulator.get_joint_positions([self.driver_joint_name])[0]
+        except Exception as e:
+            print(f'gripper communication error: {e}')
+        return pos
 
     def gripper_close(self):
         self.gripper_move(0)
@@ -81,67 +95,36 @@ class Gripper(GripperBase):
                     log.error(f"gripper move FAILED with code: {code}")
                     return False
                 else:
-                    log.debug(f"Hardware gripper moved to position {position_real}")
+                    log.info(f"Hardware gripper moved to position {position_real}")
             except Exception as e:
                 log.error(f"gripper move exception: {e}")
                 return False
         
         # Control simulation gripper
         if self.simulator:
-            # Drive gear joint: needs to map to appropriate range
             # Based on URDF analysis: drive gear joint controls gripper open/close
             # Scale to drive gear joint range (0 to 5.8469 radians)
-            drive_joint_value = position * 5.8469  # 0 (closed) to 5.8469 (open)
+            drive_joint_value = (1 - position) * XARM_GRIPPER_MAX_POSITION_SIM
             
-            # Get joint IDs and names
-            gripper_joint_ids = LEFT_GRIPPER_JOINT_IDS if self.is_left else RIGHT_GRIPPER_JOINT_IDS
-            driver_joint_id = LEFT_DRIVER_JOINT_ID if self.is_left else RIGHT_DRIVER_JOINT_ID
-            joint_name = LEFT_GRIPPER_JOINT if self.is_left else RIGHT_GRIPPER_JOINT
-            
-            # Define joint values based on axis directions and equality constraints
-            # For each gripper: right side (+Y axis), left side (-Y axis but same direction due to mimic)
-            base_follower_value = drive_joint_value * 0.1259
-            
-            # Get current position for smooth movement
+            # Get driver joint ID 
+            driver_joint_id = self.driver_joint_id
+            # Direct position setting for less jittering
             try:
-                current_pos = self.simulator.get_joint_positions([joint_name])[0]
+                joint_positions = {driver_joint_id: drive_joint_value}
+                self.simulator.set_joint_positions(joint_positions)
                 
-                # Use smooth movement with smaller steps
-                n = 5  # Reduce number of steps for much faster movement
-                for i in range(n + 1):
-                    # Smoothly interpolate from current to target position
-                    drive_val = current_pos + (drive_joint_value - current_pos) * (i / n)
-                    base_follower_val = drive_val * 0.1259
-                    
-                    # Set all gripper joint positions with correct values for each joint
-                    joint_positions = {}
-                    for joint_id in gripper_joint_ids:
-                        if joint_id == driver_joint_id:
-                            joint_positions[joint_id] = drive_val
-                        else:
-                            # All follower joints use the same value since axis directions are handled in XML
-                            # The negative axis joints will automatically move in the correct direction
-                            joint_positions[joint_id] = base_follower_val
-                    
-                    self.simulator.set_joint_positions(joint_positions)
-                    time.sleep(0.005)  # 5ms per step, much faster
-                
-                log.info(f"Simulation gripper moved to position {position} (drive joint: {drive_joint_value}, follower joints: {base_follower_value}, gripper: {'left' if self.is_left else 'right'})")
+                log.info(f"Simulation gripper moved to position {position} (drive joint: {drive_joint_value}, gripper: {'left' if self.is_left else 'right'})")
                 return True
                 
             except Exception as e:
                 log.error(f"Error controlling gripper in simulation: {e}")
-                # Fallback: direct position setting
-                joint_positions = {}
-                for joint_id in gripper_joint_ids:
-                    if joint_id == driver_joint_id:
-                        joint_positions[joint_id] = drive_joint_value
-                    else:
-                        joint_positions[joint_id] = base_follower_value
+                # Fallback: direct position setting - only control driver joint
+                joint_positions = {driver_joint_id: drive_joint_value}
                 self.simulator.set_joint_positions(joint_positions)
                 return True
         
         # If we reach here, no hardware or simulator was available
         return False
 
-        
+    def gripper_grasp(self, torque: float = 1.0):
+        log.warn(f"[gripper_grasp] This method is NOT supported for xArm gripper. Use gripper_move instead.")

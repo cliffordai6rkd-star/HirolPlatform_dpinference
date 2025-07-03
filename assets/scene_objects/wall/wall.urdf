@@ -1,0 +1,137 @@
+<?xml version="0.0" ?>
+<robot name="wall">
+
+  <link name="link_0">
+    <contact>
+        <lateral_friction value="0.5"/>
+        <rolling_friction value="0.001"/>
+        <spinning_friction value="0.01"/>
+    </contact>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+       <mass value="100"/>
+       <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.001"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+				<box size="0 0 0"/>
+      </geometry>
+       <material name="green">
+        <color rgba="0 1 0 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+				<box size="0 0 0"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="link_1">
+    <contact>
+        <lateral_friction value="0.5"/>
+        <rolling_friction value="0.001"/>
+        <spinning_friction value="0.01"/>
+    </contact>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+       <mass value="100"/>
+       <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.001"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+				<box size="0.3 2.0 2.3240000000000002"/>
+      </geometry>
+       <material name="green">
+        <color rgba="0 1 0 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+				<box size="0.3 2.0 2.3240000000000002"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="joint_0_1"
+    type="fixed">
+    <origin xyz="-0.15 -1.57 1.1620000000000001" rpy="0 0 0" />
+    <parent link="link_0" />
+    <child link="link_1" />
+  </joint>
+
+  <link name="link_2">
+    <contact>
+        <lateral_friction value="0.5"/>
+        <rolling_friction value="0.001"/>
+        <spinning_friction value="0.01"/>
+    </contact>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+       <mass value="100"/>
+       <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.001"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+				<box size="0.3 2.0 2.3240000000000002"/>
+      </geometry>
+       <material name="green">
+        <color rgba="0 1 0 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+				<box size="0.3 2.0 2.3240000000000002"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="joint_0_2"
+    type="fixed">
+    <origin xyz="-0.15 1.6 1.1620000000000001" rpy="0 0 0" />
+    <parent link="link_0" />
+    <child link="link_2" />
+  </joint>
+
+    <link name="link_3">
+    <contact>
+        <lateral_friction value="0.5"/>
+        <rolling_friction value="0.001"/>
+        <spinning_friction value="0.01"/>
+    </contact>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+       <mass value="100"/>
+       <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.001"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+				<box size="0.3 5.2 1.0"/>
+      </geometry>
+       <material name="green">
+        <color rgba="0 1 0 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+				<box size="0.3 5.2 1.0"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="joint_0_3"
+    type="fixed">
+    <origin xyz="-0.15 0 2.8240000000000003" rpy="0 0 0" />
+    <parent link="link_0" />
+    <child link="link_3" />
+  </joint>
+
+</robot>

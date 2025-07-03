@@ -1,0 +1,29 @@
+<?xml version="0.0" ?>
+<robot name="spice_holder_2">
+  <link name="base_link">
+  <contact>
+      <lateral_friction value="1"/>
+  </contact>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+       <mass value="0.2"/>
+       <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.001"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+				<mesh filename="Krujka-Me.obj" scale="1 1 1"/>
+      </geometry>
+       <material name="grayish">
+        <color rgba="0.3 1 0.3 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+				<mesh filename="holder_collision.obj" scale="1 1 1"/>
+      </geometry>
+    </collision>
+  </link>
+</robot>
+

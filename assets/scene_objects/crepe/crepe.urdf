@@ -1,0 +1,189 @@
+<?xml version="0.0" ?>
+<robot name="crepe">
+  <link name="link_5">
+  <contact>
+      <lateral_friction value="0.95"/>
+      <rolling_friction value="0.001"/>
+      <spinning_friction value="0.01"/>
+  </contact>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+       <mass value="0.1"/>
+       <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.001"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+				<mesh filename="d_5.obj" scale="1 1 1"/>
+      </geometry>
+       <material name="yellowish">
+        <color rgba="1 0.75 0.2 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+				<mesh filename="d_5collision.obj" scale="1 1 1"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <link
+    name="link_4">
+    <contact>
+      <lateral_friction value="0.95"/>
+      <rolling_friction value="0.001"/>
+      <spinning_friction value="0.01"/>
+    </contact>
+    <inertial>
+      <origin xyz="-0.04 0 0" rpy="0 0 0" />
+       <mass value="0.1"/>
+       <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.001"/>
+    </inertial>
+    <visual>
+      <origin xyz="0.04 0 0" rpy="0 0 0" />
+      <geometry>
+				<mesh filename="d_4.obj" scale="1 1 1"/>
+      </geometry>
+       <material name="yellowish">
+        <color rgba="1 0.75 0.2 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0.04 0 0" rpy="0 0 0" />
+      <geometry>
+				<mesh filename="d_4collision.obj" scale="1 1 1"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="joint_5_4"
+    type="revolute">
+    <origin xyz="-0.04 0 0" rpy="0 0 0" />
+    <parent link="link_5" />
+    <child link="link_4" />
+    <dynamics damping="0.01" friction="0.5"/>
+    <axis xyz="0 0 1" />
+    <limit lower="-0.1" upper="0.1" velocity="2.0" effort="0.1" />
+  </joint>
+  <link
+    name="link_6">
+    <contact>
+      <lateral_friction value="0.95"/>
+      <rolling_friction value="0.001"/>
+      <spinning_friction value="0.01"/>
+    </contact>
+    <inertial>
+      <origin xyz="0.04 0 0" rpy="0 0 0" />
+       <mass value="0.1"/>
+       <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.001"/>
+    </inertial>
+    <visual>
+      <origin xyz="-0.04 0 0" rpy="0 0 0" />
+      <geometry>
+				<mesh filename="d_6.obj" scale="1 1 1"/>
+      </geometry>
+       <material name="yellowish">
+        <color rgba="1 0.75 0.2 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="-0.04 0 0" rpy="0 0 0" />
+      <geometry>
+				<mesh filename="d_6collision.obj" scale="1 1 1"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="joint_5_6"
+    type="revolute">
+    <origin xyz="0.04 0 0" rpy="0 0 0" />
+    <parent link="link_5" />
+    <child link="link_6" />
+    <dynamics damping="0.01" friction="0.5"/>
+    <axis xyz="0 0 1" />
+    <limit lower="-0.1" upper="0.1" velocity="2.0" effort="0.1" />
+  </joint>
+
+
+  <link
+    name="link_2">
+    <contact>
+      <lateral_friction value="0.95"/>
+      <rolling_friction value="0.001"/>
+      <spinning_friction value="0.01"/>
+    </contact>
+    <inertial>
+      <origin xyz="0 0 -0.04" rpy="0 0 0" />
+       <mass value="0.1"/>
+       <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.001"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0.04" rpy="0 0 0" />
+      <geometry>
+				<mesh filename="d_2.obj" scale="1 1 1"/>
+      </geometry>
+       <material name="yellowish">
+        <color rgba="1 0.75 0.2 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.04" rpy="0 0 0" />
+      <geometry>
+				<mesh filename="d_2collision.obj" scale="1 1 1"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="joint_5_2"
+    type="revolute">
+    <origin xyz="0 0 -0.04" rpy="0 0 0" />
+    <parent link="link_5" />
+    <child link="link_2" />
+    <dynamics damping="0.01" friction="0.5"/>
+    <axis xyz="1 0 0" />
+    <limit lower="-3" upper="3" velocity="2.0" effort="0.1" />
+  </joint>
+
+
+  <link
+    name="link_8">
+    <contact>
+      <lateral_friction value="0.95"/>
+      <rolling_friction value="0.001"/>
+      <spinning_friction value="0.01"/>
+    </contact>
+    <inertial>
+      <origin xyz="0 0 0.04" rpy="0 0 0" />
+       <mass value="0.1"/>
+       <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.001"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 -0.04" rpy="0 0 0" />
+      <geometry>
+				<mesh filename="d_8.obj" scale="1 1 1"/>
+      </geometry>
+       <material name="yellowish">
+        <color rgba="1 0.75 0.2 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 -0.04" rpy="0 0 0" />
+      <geometry>
+				<mesh filename="d_8collision.obj" scale="1 1 1"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="joint_5_8"
+    type="revolute">
+    <origin xyz="0 0 0.04" rpy="0 0 0" />
+    <parent link="link_5" />
+    <child link="link_8" />
+    <dynamics damping="0.01" friction="0.5"/>
+    <axis xyz="1 0 0" />
+    <limit lower="-3" upper="3" velocity="2.0" effort="0.1" />
+  </joint>
+
+
+</robot>

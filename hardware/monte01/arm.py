@@ -1,5 +1,6 @@
 import importlib.util
 import os
+import xml.etree.ElementTree as ET
 from .defs import ROBOTLIB_SO_PATH
 spec = importlib.util.spec_from_file_location(
     "RobotLib", 
@@ -10,7 +11,7 @@ spec.loader.exec_module(RobotLib_module)
 RobotLib = RobotLib_module.Robot
 from simulation.monte01_mujoco.monte01_mujoco import Monte01Mujoco
 
-from typing import Text, Mapping, Any, Sequence
+from typing import Text, Mapping, Any, Sequence, Tuple
 
 from hardware.base.arm import ArmBase
 
@@ -21,28 +22,24 @@ from motion import trajectory_planner, trajectory_executor
 import glog as log
 import time,os
 import numpy as np
+from data_types.se3 import Transform
 
 #=================================== Switch gripper type!===================================
-from hardware.monte01.gripper_corenetic import Gripper
+# from hardware.monte01.gripper_corenetic import Gripper
 # from hardware.monte01.gripper_xarm import Gripper
 #=================================== =================== ===================================
 
-from hardware.monte01.trunk import Trunk
 
 from .defs import *
+from .trunk import Trunk
 
-BODY_JOINT_IDS = [1,2,3]
 HEAD_JOINT_IDS = [4,5]
-LEFT_ARM_JOINT_IDS = [6,7,8,9,10,11,12,]
-LEFT_GRIPPER_JOINT_IDS = [13, 14, 15, 16, 17, 18, 19]  # left_drive_gear + all follower joints
-RIGHT_ARM_JOINT_IDS = [20,21,22,23,24,25,26]  # Updated for new joint structure  
-RIGHT_GRIPPER_JOINT_IDS = [27, 28, 29, 30, 31, 32, 33]  # right_drive_gear + all follower joints
 
 DEFAULT_JP_LEFT = np.array([0.6265732, 1.64933479, -1.2618717, -1.65806019, -6.30063725, 1.58824956, 0.32637656])  # Default joint positions for left arm
 DEFAULT_JP_RIGHT = np.array([-1.484266996383667, 2.322235584259033, -1.3403406143188477, -2.110537052154541, -3.470266342163086, 1.7113285064697266, 0.9290168285369873])
 class Arm(ArmBase):
     # 类级别的URDF预加载函数
-    @classmethod 
+    @classmethod
     def preload_urdf(cls, urdf_path: str):
         """
         预加载URDF模型到共享缓存中。
@@ -54,28 +51,74 @@ class Arm(ArmBase):
         model_manager = UrdfModelManager()
         model_manager.get_full_model(urdf_path)
         log.info(f"URDF模型已预加载: {urdf_path}")
-    def __init__(self, config: Mapping[Text, Any], hardware_interface: RobotLib, simulator: Monte01Mujoco, isLeft: bool = True):
+
+    def _get_joint_count_from_xml(self, xml_path):
+        """Parses an XML file and returns the number of joints within the worldbody."""
+        try:
+            tree = ET.parse(xml_path)
+            root = tree.getroot()
+            # Only count joints that are part of the kinematic chain, not equality constraints
+            return len(root.findall('.//worldbody//joint'))
+        except (ET.ParseError, FileNotFoundError) as e:
+            log.error(f"Failed to parse or find XML file at {xml_path}: {e}")
+            return 0
+
+    def _get_actuator_joint_names_from_xml(self, xml_path):
+        """Parses a gripper XML file and returns the names of joints in actuators."""
+        try:
+            tree = ET.parse(xml_path)
+            root = tree.getroot()
+            actuator_joints = []
+            for actuator in root.findall('.//actuator/position'):
+                joint_name = actuator.get('joint')
+                if joint_name:
+                    actuator_joints.append(joint_name)
+            return actuator_joints
+        except (ET.ParseError, FileNotFoundError) as e:
+            log.error(f"Failed to parse or find XML file at {xml_path}: {e}")
+            return []
+
+    def __init__(self, config: Mapping[Text, Any], hardware_interface: RobotLib, simulator: Monte01Mujoco, isLeft: bool = True, trunk: Trunk = None):
         super().__init__()
         component_type = COM_TYPE_LEFT if isLeft else COM_TYPE_RIGHT
         self.component_type = COM_TYPE_LEFT if isLeft else COM_TYPE_RIGHT
         self.config = config
-        self.joint_ids = LEFT_ARM_JOINT_IDS if isLeft else RIGHT_ARM_JOINT_IDS
-        self.gripper_joint_ids = LEFT_GRIPPER_JOINT_IDS if isLeft else RIGHT_GRIPPER_JOINT_IDS
+        self.trunk = trunk
+
+        # Dynamically determine joint IDs
+        gripper_sim_config = config.get('gripper_sim', {}).get('robot', {}).get('grippers', {})
+        left_gripper_path = gripper_sim_config.get('left_gripper', {}).get('model_path')
+        right_gripper_path = gripper_sim_config.get('right_gripper', {}).get('model_path')
+
+        num_left_arm_joints = 7  # Assuming this is fixed
+        num_right_arm_joints = 7 # Assuming this is fixed
+        num_left_gripper_joints = self._get_joint_count_from_xml(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', left_gripper_path))) if left_gripper_path else 0
+        num_right_gripper_joints = self._get_joint_count_from_xml(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', right_gripper_path))) if right_gripper_path else 0
+        log.info(f"Left Arm Joints: {num_left_arm_joints}, Left Gripper Joints: {num_left_gripper_joints}")
+        log.info(f"Right Arm Joints: {num_right_arm_joints}, Right Gripper Joints: {num_right_gripper_joints}")
+
+        if left_gripper_path:
+            left_gripper_full_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', left_gripper_path))
+            left_actuator_joints = self._get_actuator_joint_names_from_xml(left_gripper_full_path)
+            log.info(f"Left Gripper Actuator Joints: {left_actuator_joints}")
+
+        if right_gripper_path:
+            right_gripper_full_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', right_gripper_path))
+            right_actuator_joints = self._get_actuator_joint_names_from_xml(right_gripper_full_path)
+            log.info(f"Right Gripper Actuator Joints: {right_actuator_joints}")
+        self.LEFT_ARM_JOINT_IDS = list(range(6, 6 + num_left_arm_joints))
+        self.LEFT_GRIPPER_JOINT_IDS = list(range(6 + num_left_arm_joints, 6 + num_left_arm_joints + num_left_gripper_joints))
+        self.RIGHT_ARM_JOINT_IDS = list(range(6 + num_left_arm_joints + num_left_gripper_joints, 6 + num_left_arm_joints + num_left_gripper_joints + num_right_arm_joints))
+        self.RIGHT_GRIPPER_JOINT_IDS = list(range(6 + num_left_arm_joints + num_left_gripper_joints + num_right_arm_joints, 6 + num_left_arm_joints + num_left_gripper_joints + num_right_arm_joints + num_right_gripper_joints))
+
+        self.joint_ids = self.LEFT_ARM_JOINT_IDS if isLeft else self.RIGHT_ARM_JOINT_IDS
+        self.gripper_joint_ids = self.LEFT_GRIPPER_JOINT_IDS if isLeft else self.RIGHT_GRIPPER_JOINT_IDS
+
         urdf_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', config['urdf_path']))
         base_link = 'chest_link'
         end_link = 'left_arm_link_7' if isLeft else 'right_arm_link_7'
         try:
             self.kinematics = KinematicsModel(urdf_path=urdf_path, base_link=base_link, end_effector_link=end_link)
-            
-            # Initialize body kinematics for coordinate transformations (both real robot and simulation)
-            try:
-                body_joint_names = ['body_joint_1', 'body_joint_2', 'body_joint_3']
-                self.body_joint_names = body_joint_names
-                self.body_kinematics = KinematicsModel(urdf_path=urdf_path, base_link='base_link', end_effector_link='chest_link')
-                log.info("Body kinematics initialized for coordinate transformations")
-            except Exception as e:
-                log.error(f"Failed to initialize body kinematics: {e}")
-                self.body_kinematics = None
         except Exception as e:
             log.error(f"Failed to load URDF: {e}")
 
@@ -101,16 +144,59 @@ class Arm(ArmBase):
         self.trajectory_executor = trajectory_executor.OpenTrajectoryExecutor(
         **trajectory_args)
 
+        # Determine gripper type and dynamically import the correct class
+        gripper_config = gripper_sim_config.get('left_gripper' if isLeft else 'right_gripper', {})
+        gripper_type = gripper_config.get('type')
+        
+        Gripper = None
+        if gripper_type == 'corenetic':
+            log.info("Using Corenetic gripper simulation")
+            from hardware.monte01.gripper_corenetic import Gripper
+        elif gripper_type == 'xarm7':
+            log.info("Using XArm7 gripper simulation")
+            from hardware.monte01.gripper_xarm import Gripper
+        else:
+            log.warning(f"Unknown or unspecified gripper type: {gripper_type}. Gripper will not be initialized.")
+
         time.sleep(0.1) # 給予一點緩衝時間
+        
+        # Determine the correct driver joint ID based on the actuator specified in the gripper's XML file
+        gripper_driver_joint_id = -1  # Default to an invalid ID
+        try:
+            gripper_path = gripper_config.get('model_path')
+            if gripper_path:
+                gripper_full_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', gripper_path))
+                actuator_joints = self._get_actuator_joint_names_from_xml(gripper_full_path)
+                
+                if actuator_joints:
+                    base_driver_name = actuator_joints[0]  # Assume the first actuator is the driver
+                    position = "left" if isLeft else "right"
+                    prefix = f"{position}_{gripper_type}_" if gripper_type else f"{position}_"
+                    full_driver_name = prefix + base_driver_name
+                    
+                    # Get the joint ID from the simulator using its full, prefixed name
+                    gripper_driver_joint_id = simulator.mj_model.joint(full_driver_name).id + 1
+                    log.info(f"Determined {'Left' if isLeft else 'Right'} Gripper Driver Joint: Name='{full_driver_name}', ID={gripper_driver_joint_id}")
+                    self.gripper_driver_name = full_driver_name
+                else:
+                    log.error(f"Could not find any actuator joint in {gripper_path}")
+            else:
+                log.warning("Gripper 'model_path' not found in config, cannot determine driver joint ID.")
+
+        except Exception as e:
+            log.error(f"Error determining gripper driver joint ID: {e}")
         if hardware_interface is not None:
+            hardware_interface.clean_arm_err_warn_code(component_type)
             hardware_interface.set_arm_enable(component_type, ARM_ENABLE)
             hardware_interface.set_arm_mode(component_type, ARM_MODE_SERVO_MOTION)
             hardware_interface.set_arm_state(component_type, ARM_STATE_SPORT)
+
             self.component_type = component_type
 
             gripper_ip = "192.168.11.11" if isLeft else "192.168.11.12"
             try:
-                self.gripper = Gripper(config=config['gripper'], ip=gripper_ip, simulator=simulator)
+                self.gripper = Gripper(config=config['gripper'], ip=gripper_ip, driver_joint_id=gripper_driver_joint_id,
+                                       driver_joint_name = self.gripper_driver_name,simulator=simulator)
                 # Test gripper communication using hardware interface
                 # success, _, _ = hardware_interface.get_gripper_position(component_type)
                 # if not success:
@@ -121,29 +207,37 @@ class Arm(ArmBase):
                 log.info("Gripper initialized and communication verified")
             except Exception as e:
                 log.error(f"Failed to initialize gripper: {e}, running arm without gripper")
-                self.gripper_available = False
                 self.gripper = None
 
-            self.trunk = Trunk(config, hardware_interface, simulator)
         else:
             try:
-                self.gripper = Gripper(config=config['gripper'], ip=None, simulator=simulator, is_left=isLeft)
+                self.gripper = Gripper(config=config['gripper'], ip=None, simulator=simulator, driver_joint_id=gripper_driver_joint_id,driver_joint_name=self.gripper_driver_name,is_left=isLeft)
                 log.info("Gripper initialized in simulation mode")
             except Exception as e:
                 log.error(f"Failed to initialize gripper in simulation: {e}")
-                self.gripper_available = False
                 self.gripper = None
 
         self.qs_prev = self.get_joint_positions()
         self.qs_last_valid = self.qs_prev.copy()  # Store last valid joint positions for IK safety check
-        self.gripper_available = True  # Track gripper availability
+
+        # Safety variables for pose movement tracking
+        self.last_tcp_pose_chest = None  # Track last TCP pose for safety checks
+        self.max_position_change = config.get('max_position_change', 0.01)  # Max position change in meters
+        self.max_rotation_change = config.get('max_rotation_change', 0.2)  # Max rotation change in radians
+        
+        # Initialize last TCP pose after arm is ready
+        try:
+            self.last_tcp_pose_chest = self.get_tcp_pose_chest()
+        except Exception as e:
+            log.warning(f"Could not initialize last TCP pose: {e}")
+            self.last_tcp_pose_chest = None
 
         self.time_log = []
         self.jp_log = []
 
     def get_gripper(self):
-        if not self.gripper_available:
-            log.warning("Gripper not available, returning None")
+        if not self.gripper.valid():
+            log.debug("Gripper not available, returning None")
             return None
         return self.gripper
     
@@ -177,9 +271,12 @@ class Arm(ArmBase):
             raise RuntimeError("Failed to get joint positions from the robot.")
         return np.array(angles)
     
+    def get_joint_ids(self):
+        return self.joint_ids
+    
     def hold_joint_positions(self):
         self.simulator.hold_joint_positions(self.joint_ids)
-        if self.gripper_available and self.gripper:
+        if self.gripper and self.gripper.valid():
             self.simulator.hold_joint_positions(self.gripper_joint_ids)
 
     def set_joint_velocities(self, velocities: np.ndarray):
@@ -200,8 +297,15 @@ class Arm(ArmBase):
     def get_flange_pose(self) -> np.matrix:
         """Gets the pose of the flange.
         """
+        if self.robot is not None:
+            success, pose = self.robot.get_arm_end_pose(self.component_type)
+            if not success:
+                raise RuntimeError("Failed to get flange pose from the robot.")
+            return Transform(xyz=pose[0:3], rot=pose[3:7]).matrix
+        
         return self.kinematics.fk(self.get_joint_positions())
-    def ik(self, target: np.ndarray, seed: np.ndarray = None) -> np.ndarray:
+    def ik(self, target: np.ndarray, seed: np.ndarray = None) -> Tuple[bool, np.ndarray]:
+
         """Gets joint configuration via IK.
         
         Args:
@@ -211,7 +315,8 @@ class Arm(ArmBase):
         Returns:
             Joint positions that achieve the target pose, or None if no solution is found.
         """
-        return self.kinematics.ik(target, seed=seed, max_iter=5000)
+        return self.kinematics.ik(target, seed=seed, max_iter=1000, tol=1e-3, step_size=0.5)
+    
     def get_tcp_pose_chest(self) -> np.matrix:
         """Get TCP pose in chest_link frame (legacy behavior)"""
         return self.get_flange_pose() @ self.flange_t_tcp
@@ -226,20 +331,11 @@ class Arm(ArmBase):
             tcp_in_chest = self.get_tcp_pose_chest()
             
             # Get transformation from base_link to chest_link
-            if self.robot is not None and self.body_kinematics is not None:
-                # For real robot: get actual body joint positions
-                body_positions = self.get_body_joint_positions()
-                world_to_chest = self.body_kinematics.fk(body_positions)
+            if self.trunk is not None:
+                world_to_chest = self.trunk.get_world_to_chest_transform()
             else:
-                # For simulation: get body joint positions from simulator  
-                if hasattr(self, 'body_joint_names') and self.simulator is not None:
-                    body_positions = self.simulator.get_joint_positions(self.body_joint_names)
-                    if self.body_kinematics is not None:
-                        world_to_chest = self.body_kinematics.fk(body_positions)
-                    else:
-                        world_to_chest = np.eye(4)
-                else:
-                    world_to_chest = np.eye(4)
+                world_to_chest = np.eye(4)
+                log.warning("No trunk component available, using identity transform")
             # Transform TCP pose from chest_link frame to world frame
             tcp_in_world = world_to_chest @ tcp_in_chest
             return tcp_in_world
@@ -341,17 +437,81 @@ class Arm(ArmBase):
         return True, jp
     
     def get_body_joint_positions(self) -> np.ndarray:
-        if self.robot is not None:
-            success,positions,_,_ = self.robot.get_joint_state(BODY_JOINT_IDS)
-            log.debug(f"get_body_joint_positions from robot: success={success}, positions={positions}")
-            if not success:
-                log.error(f"Failed to get body joint positions: {success}")
-                return np.zeros(len(BODY_JOINT_IDS))
-            return np.array(positions)
+        """Get body joint positions via trunk component"""
+        if self.trunk is not None:
+            return self.trunk.get_body_joint_positions()
         else:
-            positions = self.simulator.get_joint_positions(self.body_joint_names)
-            log.debug(f"get_body_joint_positions from simulator: positions={positions}")
-            return positions
+            log.warning("No trunk component available, returning zeros")
+            return np.zeros(3)
+
+    def _calculate_pose_difference(self, pose1: np.matrix, pose2: np.matrix) -> Tuple[float, float]:
+        """Calculate position and rotation differences between two poses.
+        
+        Args:
+            pose1: First pose matrix (4x4)
+            pose2: Second pose matrix (4x4)
+            
+        Returns:
+            Tuple of (position_diff, rotation_diff) in meters and radians
+        """
+        # Position difference (Euclidean distance)
+        pos1 = pose1[:3, 3]
+        pos2 = pose2[:3, 3]
+        position_diff = np.linalg.norm(pos1 - pos2)
+        
+        # Rotation difference (angle between rotation matrices)
+        R1 = pose1[:3, :3]
+        R2 = pose2[:3, :3]
+        
+        # Calculate relative rotation matrix
+        R_rel = R1.T @ R2
+        
+        # Extract angle from rotation matrix using trace
+        trace = np.trace(R_rel)
+        # Clamp trace to valid range to avoid numerical issues
+        trace = np.clip(trace, -1.0, 3.0)
+        rotation_diff = np.arccos((trace - 1) / 2)
+        
+        return float(position_diff), float(rotation_diff)
+    
+    def _is_pose_change_safe(self, target_pose: np.matrix) -> bool:
+        """Check if the pose change is within safe limits.
+        
+        Args:
+            target_pose: Target pose matrix (4x4)
+            
+        Returns:
+            True if the pose change is safe, False otherwise
+        """
+        if self.last_tcp_pose_chest is None:
+            # First call, always safe
+            return True
+        
+        try:
+            pos_diff, rot_diff = self._calculate_pose_difference(self.last_tcp_pose_chest, target_pose)
+            
+            if pos_diff > self.max_position_change:
+                log.warning(f"Large position change detected: {pos_diff:.4f}m > {self.max_position_change:.4f}m")
+                return False
+                
+            if rot_diff > self.max_rotation_change:
+                log.warning(f"Large rotation change detected: {rot_diff:.4f}rad > {self.max_rotation_change:.4f}rad")
+                return False
+                
+            return True
+            
+        except Exception as e:
+            log.error(f"Error calculating pose difference: {e}")
+            return False
+    
+    def reset_pose_safety_tracking(self):
+        """Reset pose safety tracking. Call this when arm position changes through other means."""
+        try:
+            self.last_tcp_pose_chest = self.get_tcp_pose_chest()
+            log.info("Pose safety tracking reset")
+        except Exception as e:
+            log.warning(f"Could not reset pose safety tracking: {e}")
+            self.last_tcp_pose_chest = None
 
     def sync_robot_state_to_simulator(self):
         """Sync current real robot joint states to simulator for visualization"""
@@ -363,74 +523,88 @@ class Arm(ArmBase):
                     self._agent_ref.sync_dual_arms_to_simulator()
                 else:
                     # Fallback to individual arm sync (original behavior)
-                    # Sync body joint positions
-                    body_positions = self.get_body_joint_positions()
-                    body_joint_targets = {}
-                    for i, joint_id in enumerate(BODY_JOINT_IDS):
-                        body_joint_targets[joint_id] = body_positions[i]
-                    
-                    # Sync current arm joint positions
+                    # Sync current arm joint positions only (body joints handled by trunk)
                     arm_positions = self.get_joint_positions()
                     arm_joint_targets = {}
                     for i, joint_id in enumerate(self.joint_ids):
                         arm_joint_targets[joint_id] = arm_positions[i]
                     
-                    # Combine and set all joint positions in simulator
-                    all_joint_targets = {**body_joint_targets, **arm_joint_targets}
-                    self.simulator.set_joint_positions(all_joint_targets)
+                    # Set arm joint positions in simulator
+                    self.simulator.set_joint_positions(arm_joint_targets)
                     log.debug(f"Synced real robot state to simulator")
                 
             except Exception as e:
                 log.warning(f"Failed to sync robot state to simulator: {e}")
 
     def move_to_pose(self, target: np.matrix, blocking: bool = True) -> bool:
-        """Moves to the target that specifies TCP pose in world/base frame.
-        Converts the target from world frame to chest_link frame before IK.
+        """Moves to the target that specifies TCP pose in chest_link frame.
+        For real robot: target should be in chest_link frame.
+        For simulation: target is converted from world frame to chest_link frame before IK.
         """
         # For real robot mode: sync all joint states to simulator for correct visualization
         self.sync_robot_state_to_simulator()
         
-        # Convert target pose from world frame to chest_link frame
-        try:
-            # Get current transformation from world to chest_link
-            if self.robot is not None and self.body_kinematics is not None:
-                # For real robot: get actual body joint positions
-                body_positions = self.get_body_joint_positions()
-                world_to_chest = self.body_kinematics.fk(body_positions)
-                log.info(f"Real robot body joints: {body_positions}")
-            else:
-                # For simulation: get body joint positions from simulator
-                if hasattr(self, 'body_joint_names') and self.simulator is not None:
-                    body_positions = self.simulator.get_joint_positions(self.body_joint_names)
-                    if self.body_kinematics is not None:
-                        world_to_chest = self.body_kinematics.fk(body_positions)
-                    else:
-                        world_to_chest = np.eye(4)
-                    log.info(f"Simulation body joints: {body_positions}")
-                else:
-                    world_to_chest = np.eye(4)
-                    log.warning("Using identity transform (no body kinematics)")
+        if self.robot is not None:
+            # Safety check: verify pose change is within safe limits
+            if not self._is_pose_change_safe(target):
+                log.error("Pose change exceeds safety limits, rejecting movement command")
+                return False
             
-            # Transform target from world frame to chest_link frame
-            # target_world -> target_chest = inv(world_to_chest) * target_world
-            chest_to_world = np.linalg.inv(world_to_chest)
-            target_in_chest_frame = chest_to_world @ target
+            target_pose = Transform(matrix=target)
             
-            # log.info(f"Target in world frame:\n{target}")
-            # log.info(f"World to chest transform:\n{world_to_chest}")
-            # log.info(f"Target in chest frame:\n{target_in_chest_frame}")
-            
-        except Exception as e:
-            log.error(f"Failed to transform target pose: {e}")
-            log.warning("Using target pose as-is (assuming it's already in chest frame)")
-            target_in_chest_frame = target
-        
-        success, jp = self.get_joint_target_from_pose(target_in_chest_frame, self.get_joint_positions())
-        if success:
-            self.move_to_joint_target(jp, blocking=blocking)
+            quaternion = target_pose.quaternion
+            position = target_pose.translation
+
+            current_pose =  Transform(matrix=self.get_flange_pose())
+
+            # Calculate quaternion difference (dot product for similarity)
+            quat_dot_product = sum(a * b for a, b in zip(quaternion, current_pose.quaternion))
+            log.debug(f"Quaternion similarity (dot product): {quat_dot_product:.4f} (1.0=identical, -1.0=opposite)")
+            if quat_dot_product < 0:
+                quaternion = -quaternion
+            success = True
+            pose_cmd = position.tolist() + (quaternion).tolist()
+            success = self.robot.set_arm_end_pose(self.component_type, pose_cmd)
+
+            # Update last TCP pose after successful movement
+            if success:
+                self.last_tcp_pose_chest = target.copy()
+
+            return success
         else:
-            log.error("Failed to get joint target from pose, will NOT move!!")
-        return success
+            #TODO: 移出去?
+
+            # Convert target pose from world frame to chest_link frame
+            # try:
+            #     # Get current transformation from world to chest_link
+            #     if self.trunk is not None:
+            #         world_to_chest = self.trunk.get_world_to_chest_transform()
+            #         body_positions = self.trunk.get_body_joint_positions()
+            #         log.info(f"Body joints: {body_positions}")
+            #     else:
+            #         world_to_chest = np.eye(4)
+            #         log.warning("No trunk component available, using identity transform")
+                
+            #     # Transform target from world frame to chest_link frame
+            #     # target_world -> target_chest = inv(world_to_chest) * target_world
+            #     chest_to_world = np.linalg.inv(world_to_chest)
+            #     target_in_chest_frame = chest_to_world @ target
+                
+            #     # log.info(f"Target in world frame:\n{target}")
+            #     # log.info(f"World to chest transform:\n{world_to_chest}")
+            #     # log.info(f"Target in chest frame:\n{target_in_chest_frame}")
+                
+            # except Exception as e:
+            #     log.error(f"Failed to transform target pose: {e}")
+            #     log.warning("Using target pose as-is (assuming it's already in chest frame)")
+            #     target_in_chest_frame = target
+
+            success, jp = self.get_joint_target_from_pose(target, self.get_joint_positions())
+            if success:
+                self.move_to_joint_target(jp, blocking=False)
+            else:
+                log.error("Failed to get joint target from pose, will NOT move!!")
+            return success
     
     def is_trajectory_done(self) -> bool:
         """Check if current trajectory execution is complete.
@@ -446,6 +620,8 @@ class Arm(ArmBase):
         """Move arm to start position, supporting both real robot and simulation modes"""
         try:
             if self.robot is not None:
+                init_duration = 5  # seconds
+                joint_velocity = 1.0 / init_duration  # rad/s
                 # Real robot mode
                 if self.component_type == COM_TYPE_LEFT:
                     # Left arm real robot
@@ -453,18 +629,27 @@ class Arm(ArmBase):
                     robot.set_arm_enable(self.component_type, ARM_ENABLE)
                     robot.set_arm_mode(self.component_type, ARM_MODE_POSITION_CTRL)
                     robot.set_arm_state(self.component_type, ARM_STATE_SPORT)
-                    success = robot.set_arm_servo_angle(self.component_type, DEFAULT_JP_LEFT, 1, 0, 1)
+                    success = robot.set_arm_servo_angle(self.component_type, DEFAULT_JP_LEFT, joint_velocity, 0, 1)
                     log.info(f"Left arm move to start position success: {success}")
-                    time.sleep(1)
+                    time.sleep(init_duration)
                 elif self.component_type == COM_TYPE_RIGHT:
                     # Right arm real robot 
                     robot = self.robot
                     robot.set_arm_enable(self.component_type, ARM_ENABLE)
                     robot.set_arm_mode(self.component_type, ARM_MODE_POSITION_CTRL)
                     robot.set_arm_state(self.component_type, ARM_STATE_SPORT)
-                    success = robot.set_arm_servo_angle(self.component_type, DEFAULT_JP_RIGHT, 1, 0, 1)
+                    success = robot.set_arm_servo_angle(self.component_type, DEFAULT_JP_RIGHT, joint_velocity, 0, 1)
                     log.info(f"Right arm move to start position success: {success}")
-                    time.sleep(1)
+                    time.sleep(init_duration)
+
+                robot.set_arm_mode(self.component_type, ARM_MODE_SERVO_MOTION)
+                robot.set_arm_state(self.component_type, ARM_STATE_SPORT)
+                
+                # Update last TCP pose after moving to start position
+                try:
+                    self.last_tcp_pose_chest = self.get_tcp_pose_chest()
+                except Exception as e:
+                    log.warning(f"Could not update last TCP pose after move_to_start: {e}")
             else:
                 # Simulation mode
                 if self.component_type == COM_TYPE_LEFT:
@@ -480,6 +665,11 @@ class Arm(ArmBase):
                 success = self.move_to_joint_target(start_positions, blocking=True)
                 if success:
                     log.info(f"Arm moved to start position successfully in simulation")
+                    # Update last TCP pose after moving to start position
+                    try:
+                        self.last_tcp_pose_chest = self.get_tcp_pose_chest()
+                    except Exception as e:
+                        log.warning(f"Could not update last TCP pose after move_to_start: {e}")
                 else:
                     log.warning(f"Failed to move arm to start position in simulation")
                     

@@ -1,0 +1,87 @@
+<!DOCTYPE MeshLabDocument>
+<MeshLabProject>
+ <MeshGroup>
+  <MLMesh label="Merged Mesh" visible="0" filename="1.obj">
+   <MLMatrix44>
+1 0 0 0 
+0 1 0 0 
+0 0 1 0 
+0 0 0 1 
+</MLMatrix44>
+   <RenderingOption wireColor="64 64 64 255" wireWidth="1" pointSize="3" solidColor="192 192 192 255" boxColor="234 234 234 255" pointColor="131 149 69 255">101001000000010000000100000001010100000010100000110100111011110000001001</RenderingOption>
+  </MLMesh>
+  <MLMesh label="Merged Mesh(1)" visible="0" filename="7.obj">
+   <MLMatrix44>
+1 0 0 0 
+0 1 0 0 
+0 0 1 0 
+0 0 0 1 
+</MLMatrix44>
+   <RenderingOption wireColor="64 64 64 255" wireWidth="1" pointSize="3" solidColor="192 192 192 255" boxColor="234 234 234 255" pointColor="131 149 69 255">101001000000010000000100000001010100000010100000110100111011110000001001</RenderingOption>
+  </MLMesh>
+  <MLMesh label="Merged Mesh(2)" visible="0" filename="9.obj">
+   <MLMatrix44>
+1 0 0 0 
+0 1 0 0 
+0 0 1 0 
+0 0 0 1 
+</MLMatrix44>
+   <RenderingOption wireColor="64 64 64 255" wireWidth="1" pointSize="3" solidColor="192 192 192 255" boxColor="234 234 234 255" pointColor="131 149 69 255">101001000000010000000100000001010100000010100000110100111011110000001001</RenderingOption>
+  </MLMesh>
+  <MLMesh label="Merged Mesh(3)" visible="0" filename="3.obj">
+   <MLMatrix44>
+1 0 0 0 
+0 1 0 0 
+0 0 1 0 
+0 0 0 1 
+</MLMatrix44>
+   <RenderingOption wireColor="64 64 64 255" wireWidth="1" pointSize="3" solidColor="192 192 192 255" boxColor="234 234 234 255" pointColor="131 149 69 255">101001000000010000000100000001010101000010100000110100111011100000001001</RenderingOption>
+  </MLMesh>
+  <MLMesh label="Merged Mesh(4)" visible="0" filename="6.obj">
+   <MLMatrix44>
+1 0 0 0 
+0 1 0 0 
+0 0 1 0 
+0 0 0 1 
+</MLMatrix44>
+   <RenderingOption wireColor="64 64 64 255" wireWidth="1" pointSize="3" solidColor="192 192 192 255" boxColor="234 234 234 255" pointColor="131 149 69 255">101001000000010000000100000001010100000010100000110100111011110000001001</RenderingOption>
+  </MLMesh>
+  <MLMesh label="Merged Mesh(5)" visible="0" filename="4.obj">
+   <MLMatrix44>
+1 0 0 0 
+0 1 0 0 
+0 0 1 0 
+0 0 0 1 
+</MLMatrix44>
+   <RenderingOption wireColor="64 64 64 255" wireWidth="1" pointSize="3" solidColor="192 192 192 255" boxColor="234 234 234 255" pointColor="131 149 69 255">101001000000010000000100000001010100000010100000110100111011110000001001</RenderingOption>
+  </MLMesh>
+  <MLMesh label="Merged Mesh(6)" visible="0" filename="4.obj">
+   <MLMatrix44>
+1 0 0 0 
+0 1 0 0 
+0 0 1 0 
+0 0 0 1 
+</MLMatrix44>
+   <RenderingOption wireColor="64 64 64 255" wireWidth="1" pointSize="3" solidColor="192 192 192 255" boxColor="234 234 234 255" pointColor="131 149 69 255">101001000000010000000100000001010100000010100000110100111011110000001001</RenderingOption>
+  </MLMesh>
+  <MLMesh label="Merged Mesh(7)" visible="0" filename="8.obj">
+   <MLMatrix44>
+1 0 0 0 
+0 1 0 0 
+0 0 1 0 
+0 0 0 1 
+</MLMatrix44>
+   <RenderingOption wireColor="64 64 64 255" wireWidth="1" pointSize="3" solidColor="192 192 192 255" boxColor="234 234 234 255" pointColor="131 149 69 255">101001000000010000000100000001010100000010100000110100111011110000001001</RenderingOption>
+  </MLMesh>
+  <MLMesh label="Merged Mesh(8)" visible="1" filename="2.obj">
+   <MLMatrix44>
+1 0 0 0 
+0 1 0 0 
+0 0 1 0 
+0 0 0 1 
+</MLMatrix44>
+   <RenderingOption wireColor="64 64 64 255" wireWidth="1" pointSize="3" solidColor="192 192 192 255" boxColor="234 234 234 255" pointColor="131 149 69 255">101001000000010000000100000001010101000010100000110100111011100000001001</RenderingOption>
+  </MLMesh>
+ </MeshGroup>
+ <RasterGroup/>
+</MeshLabProject>

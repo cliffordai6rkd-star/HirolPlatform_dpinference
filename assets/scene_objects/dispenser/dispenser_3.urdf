@@ -1,0 +1,68 @@
+<?xml version="0.0" ?>
+<robot name="dispenser_3">
+  <link name="base_link">
+  <contact>
+      <lateral_friction value="1"/>
+  </contact>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+       <mass value="0.2"/>
+       <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.001"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+				<mesh filename="dispenser.obj" scale="0.001 0.001 0.001"/>
+      </geometry>
+       <material name="blueish">
+        <color rgba="0.3 0.3 1 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+				<mesh filename="dispenser.obj" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+  </link>
+  <link
+    name="knob">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <mass
+        value="0.001" />
+      <inertia
+        ixx="2.66832029033166E-07"
+        ixy="1.66142314639824E-15"
+        ixz="1.45945633322873E-07"
+        iyy="1.3889233257419E-06"
+        iyz="2.82951161241588E-15"
+        izz="1.26603336914415E-06" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="../cube_like/cube.obj" scale="0.03 0.01 0.1" />
+      </geometry>
+      <material name="">
+        <color rgba="0.9 0.9 0.9 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="../cube_like/cube.obj" scale="0.03 0.01 0.1" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="knob_joint"
+    type="revolute">
+    <origin xyz="0 0.2 0.05" rpy="0 0 0" />
+    <parent link="base_link" />
+    <child link="knob" />
+    <axis xyz="1 0 0" />
+    <limit lower="-1.57" upper="1.57" velocity="2.0" effort="1" />
+  </joint>
+</robot>
+

@@ -1,0 +1,49 @@
+<robot name="tabletop">
+  <link name="base_link">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="0"/>
+      <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="box.obj" scale="2.04 3.587 0.58"/>
+      </geometry>
+      <material name="box_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0.001"/>
+      <geometry>
+	 			<box size=".235 .33 .002"/>
+      </geometry>
+    </collision>
+     <collision>
+      <origin rpy="0 0 0" xyz="0.1185 0 0.0291"/>
+      <geometry>
+	 			<box size=".002 .33 .0058"/>
+      </geometry>
+    </collision>
+		<collision>
+      <origin rpy="0 0 0" xyz="-0.1185 0 0.0291"/>
+      <geometry>
+	 			<box size=".002 .33 .0058"/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0.166 0.0291"/>
+      <geometry>
+	 			<box size=".235 .002 .0058"/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 -0.166 0.0291"/>
+      <geometry>
+	 			<box size=".235 .002 .0058"/>
+      </geometry>
+    </collision>
+
+  </link>
+</robot>

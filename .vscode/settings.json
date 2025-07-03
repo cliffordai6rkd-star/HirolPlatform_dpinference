@@ -70,5 +70,6 @@
         "typeinfo": "cpp",
         "variant": "cpp",
         "complex": "cpp"
-    }
+    },
+    "github.copilot.chat.codeGeneration.useInstructionFiles": true
 }

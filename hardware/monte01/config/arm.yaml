@@ -20,3 +20,5 @@ jacc_limit: [1.57,1.57,1.57,1.57,1.57,1.57,1.57,]
 max_deviation: 0.01
 
 gripper: !include gripper.yaml
+
+gripper_sim: !include ../../../simulation/scene_config/example.yaml # If used to ctrl hardware, this should always match the real hardware gripper type.

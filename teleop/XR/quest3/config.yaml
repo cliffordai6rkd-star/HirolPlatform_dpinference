@@ -1,0 +1,38 @@
+name: "TeleopRobot"
+
+movement_speed: 0.001  # m/s - default end-effector movement speed
+rotation_speed: 0.002  # rad/s - default end-effector rotation speed
+gripper_speed: 0.01  # m/s - default gripper opening/closing speed
+max_movement_speed: 0.008  # m/s
+min_movement_speed: 0.0005  # m/s
+max_gripper_speed: 0.05  # m/s
+min_gripper_speed: 0.001  # m/s
+max_gripper_position: 0.1  # m
+end_speed_step: 0.0005  # Speed adjustment step for end-effector
+gripper_speed_step: 0.001  # Speed adjustment step for gripper
+homing_speed: 0.1  # Speed of returning to zero position
+
+left_tcp_offset:
+  {
+    #    position: [ 2.89, 5.44, 256.98 ], # mm
+    position: [ 3, 3, 257 ], # mm
+    orientation: [ 0., 0., -0.7853981633974483 ] # rad
+  }
+left_tcp_load: {
+  "mass": 1.109,  # kg
+  "center_of_gravity": [ -2.59, -0.46, 45.01 ]
+}
+
+right_tcp_offset:
+  {
+    position: [ 0, 0, 233 ], # mm
+    orientation: [ 0., 0., -0.7853981633974483 ] # rad
+  }
+#"right_tcp_load": {
+#  "mass": 1.888,  # kg
+#  "center_of_gravity": [ 10.81, -5.45, 30.51 ]
+#}
+right_tcp_load: {
+  "mass": 1.899,  # kg
+  "center_of_gravity": [ 3.44, -14.74, 55.52 ]
+}

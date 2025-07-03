@@ -1,0 +1,603 @@
+<?xml version="0.0" ?>
+<robot name="door">
+
+  <link name="frame_base">
+    <contact>
+        <lateral_friction value="0.5"/>
+        <rolling_friction value="0.001"/>
+        <spinning_friction value="0.01"/>
+    </contact>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+       <mass value="500"/>
+       <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.001"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+				<box size="0 0 0"/>
+      </geometry>
+       <material name="blueish">
+        <color rgba="0.2 0.75 1.0 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+				<box size="0 0 0"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="frame_1">
+    <contact>
+        <lateral_friction value="0.5"/>
+        <rolling_friction value="0.001"/>
+        <spinning_friction value="0.01"/>
+    </contact>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+       <mass value="500"/>
+       <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.001"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+				<box size="0.022 0.1 2.3240000000000002"/>
+      </geometry>
+       <material name="blueish">
+        <color rgba="0.2 0.75 1.0 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+				<box size="0.022 0.1 2.3240000000000002"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="joint_base_1"
+    type="fixed">
+    <origin xyz="0 -0.21000000000000002 0.16200000000000014" rpy="0 0 0" />
+    <parent link="frame_base" />
+    <child link="frame_1" />
+  </joint>
+
+  <link name="frame_2">
+    <contact>
+        <lateral_friction value="0.5"/>
+        <rolling_friction value="0.001"/>
+        <spinning_friction value="0.01"/>
+    </contact>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+       <mass value="500"/>
+       <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.001"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+				<box size="0.022 0.1 2.3240000000000001"/>
+      </geometry>
+       <material name="blueish">
+        <color rgba="0.2 0.75 1.0 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+				<box size="0.022 0.1 2.3240000000000001"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="joint_base_2"
+    type="fixed">
+    <origin xyz="0 0.91 0.16200000000000014" rpy="0 0 0" />
+    <parent link="frame_base" />
+    <child link="frame_2" />
+  </joint>
+
+  <link name="frame_3">
+    <contact>
+        <lateral_friction value="0.5"/>
+        <rolling_friction value="0.001"/>
+        <spinning_friction value="0.01"/>
+    </contact>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+       <mass value="500"/>
+       <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.001"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+				<box size="0.022 1.2 0.1"/>
+      </geometry>
+       <material name="blueish">
+        <color rgba="0.2 0.75 1.0 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+				<box size="0.022 1.2 0.1"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="joint_base_3"
+    type="fixed">
+    <origin xyz="0 0.35 1.2740000000000002" rpy="0 0 0" />
+    <parent link="frame_base" />
+    <child link="frame_3" />
+  </joint>
+
+  <link name="frame_4">
+    <contact>
+        <lateral_friction value="0.5"/>
+        <rolling_friction value="0.001"/>
+        <spinning_friction value="0.01"/>
+    </contact>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+       <mass value="500"/>
+       <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.001"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+				<box size="0.022 0.1 2.3240000000000002"/>
+      </geometry>
+       <material name="blueish">
+        <color rgba="0.2 0.75 1.0 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+				<box size="0.022 0.1 2.3240000000000002"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="joint_base_4"
+    type="fixed">
+    <origin xyz="-0.041499999999999995 -0.21000000000000002 0.16200000000000014" rpy="0 0 0" />
+    <parent link="frame_base" />
+    <child link="frame_4" />
+  </joint>
+
+  <link name="frame_5">
+    <contact>
+        <lateral_friction value="0.5"/>
+        <rolling_friction value="0.001"/>
+        <spinning_friction value="0.01"/>
+    </contact>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+       <mass value="500"/>
+       <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.001"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+				<box size="0.022 0.1 2.3240000000000002"/>
+      </geometry>
+       <material name="blueish">
+        <color rgba="0.2 0.75 1.0 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+				<box size="0.022 0.1 2.3240000000000002"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="joint_base_5"
+    type="fixed">
+    <origin xyz="-0.041499999999999995 0.91 0.16200000000000014" rpy="0 0 0" />
+    <parent link="frame_base" />
+    <child link="frame_5" />
+  </joint>
+
+  <link name="frame_6">
+    <contact>
+        <lateral_friction value="0.5"/>
+        <rolling_friction value="0.001"/>
+        <spinning_friction value="0.01"/>
+    </contact>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+       <mass value="500"/>
+       <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.001"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+				<box size="0.022 1.2 0.1"/>
+      </geometry>
+       <material name="blueish">
+        <color rgba="0.2 0.75 1.0 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+				<box size="0.022 1.2 0.1"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="joint_base_6"
+    type="fixed">
+    <origin xyz="-0.041499999999999995 0.35 1.2740000000000002" rpy="0 0 0" />
+    <parent link="frame_base" />
+    <child link="frame_6" />
+  </joint>
+
+  <link name="link_door">
+    <contact>
+        <lateral_friction value="0.5"/>
+        <rolling_friction value="0.001"/>
+        <spinning_friction value="0.01"/>
+    </contact>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+       <mass value="0.1"/>
+       <inertia ixx="0.00001" ixy="0" ixz="0" iyy="0.00001" iyz="0" izz="0.00001"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+				<box size="0 0 0"/>
+      </geometry>
+       <material name="yellowish">
+        <color rgba="1 0.75 0.2 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+				<box size="0 0 0"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="joint_frame_door"
+    type="revolute">
+    <!-- <origin xyz="0.041499999999999995 1.0 1.10088" rpy="0 0 0" /> -->
+    <!-- <origin xyz="0.0 1.0 1.10088" rpy="0 0 0" /> -->
+    <origin xyz="0.0 0.87 1.10088" rpy="0 0 0" />
+    <parent link="frame_base" />
+    <child link="link_door" />
+    <dynamics damping="0.5" friction="0.001"/>
+    <axis xyz="0 0 1" />
+    <limit lower="0.0" upper="1.57" velocity="2.0" effort="0.1" />
+  </joint>
+
+  <link name="link_door_centered">
+    <contact>
+        <lateral_friction value="0.5"/>
+        <rolling_friction value="0.001"/>
+        <spinning_friction value="0.01"/>
+    </contact>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+       <mass value="0.1"/>
+       <inertia ixx="0.00001" ixy="0" ixz="0" iyy="0.00001" iyz="0" izz="0.00001"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+				<box size="0 0 0"/>
+      </geometry>
+       <material name="yellowish">
+        <color rgba="1 0.75 0.2 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+				<box size="0 0 0"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="joint_proxy"
+    type="fixed">
+    <!-- <origin xyz="-0.041499999999999995 -1.0 -1.10088" rpy="0 0 0" /> -->
+    <!-- <origin xyz="-0.0 -1.0 -1.10088" rpy="0 0 0" /> -->
+    <origin xyz="-0.0 -0.87 -1.10088" rpy="0 0 0" />
+    <parent link="link_door" />
+    <child link="link_door_centered" />
+  </joint>
+
+  <link name="link_0">
+    <contact>
+        <lateral_friction value="0.5"/>
+        <rolling_friction value="0.001"/>
+        <spinning_friction value="0.01"/>
+    </contact>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+       <mass value="0.1"/>
+       <inertia ixx="0.00001" ixy="0" ixz="0" iyy="0.00001" iyz="0" izz="0.00001"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+				<box size="0.022 1.0 2.20176"/>
+      </geometry>
+       <material name="yellowish">
+        <color rgba="1 0.75 0.2 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+				<box size="0.022 1.0 2.20176"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="joint_door_link"
+    type="fixed">
+    <origin xyz="0 0.35 0.1120000000000001" rpy="0 0 0" />
+    <parent link="link_door_centered" />
+    <child link="link_0" />
+  </joint>
+
+  <link name="knob_body_base">
+    <contact>
+        <lateral_friction value="0.84"/>
+        <rolling_friction value="0.003"/>
+        <spinning_friction value="0.002"/>
+    </contact>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+       <mass value="0.001"/>
+       <inertia ixx="0.00001" ixy="0" ixz="0" iyy="0.00001" iyz="0" izz="0.00001"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+				<box size="0 0 0"/>
+      </geometry>
+       <material name="blueish">
+        <color rgba="0.1 0.75 1.0 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+				<box size="0 0 0"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="joint_door_knob"
+    type="revolute">
+    <origin xyz="0.011 0 0" rpy="0 0 0" />
+    <parent link="link_door_centered" />
+    <child link="knob_body_base" />
+    <dynamics damping="1.72" friction="0.0"/>
+    <axis xyz="1 0 0" />
+    <limit lower="-1.5" upper="1.5" velocity="2.0" effort="0.001" />
+  </joint>
+
+  <link name="knob_body_4">
+    <contact>
+        <lateral_friction value="0.84"/>
+        <rolling_friction value="0.003"/>
+        <spinning_friction value="0.002"/>
+    </contact>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+       <mass value="0.001"/>
+       <inertia ixx="0.00001" ixy="0" ixz="0" iyy="0.00001" iyz="0" izz="0.00001"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+				<mesh filename="body_4.stl" scale="0.003 0.003 0.003"/>
+      </geometry>
+       <material name="blueish">
+        <color rgba="0.1 0.75 1.0 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+				<mesh filename="body_4.stl" scale="0.003 0.003 0.003"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="joint_knob_4"
+    type="fixed">
+    <origin xyz="0.011 0 0" rpy="1.57 3.14 1.57" />
+    <parent link="knob_body_base" />
+    <child link="knob_body_4" />
+  </joint>
+
+  <link name="knob_body_1">
+    <contact>
+        <lateral_friction value="0.84"/>
+        <rolling_friction value="0.003"/>
+        <spinning_friction value="0.002"/>
+    </contact>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+       <mass value="0.001"/>
+       <inertia ixx="0.00001" ixy="0" ixz="0" iyy="0.00001" iyz="0" izz="0.00001"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+				<mesh filename="body_1.stl" scale="0.003 0.003 0.003"/>
+      </geometry>
+       <material name="blueish">
+        <color rgba="0.1 0.75 1.0 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+				<mesh filename="body_1.stl" scale="0.003 0.003 0.003"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="joint_knob_1"
+    type="fixed">
+    <origin xyz="0.011 0 0" rpy="1.57 3.14 1.57" />
+    <parent link="knob_body_base" />
+    <child link="knob_body_1" />
+  </joint>
+
+  <link name="knob_body_2">
+    <contact>
+        <lateral_friction value="0.84"/>
+        <rolling_friction value="0.003"/>
+        <spinning_friction value="0.002"/>
+    </contact>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+       <mass value="0.001"/>
+       <inertia ixx="0.00001" ixy="0" ixz="0" iyy="0.00001" iyz="0" izz="0.00001"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+				<mesh filename="body_2.stl" scale="0.003 0.003 0.003"/>
+      </geometry>
+       <material name="blueish">
+        <color rgba="0.1 0.75 1.0 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+				<mesh filename="body_2.stl" scale="0.003 0.003 0.003"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="joint_knob_2"
+    type="fixed">
+    <origin xyz="0.011 0 0" rpy="1.57 3.14 1.57" />
+    <parent link="knob_body_base" />
+    <child link="knob_body_2" />
+  </joint>
+
+  <link name="knob_body_3">
+    <contact>
+        <lateral_friction value="0.84"/>
+        <rolling_friction value="0.003"/>
+        <spinning_friction value="0.002"/>
+    </contact>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+       <mass value="0.001"/>
+       <inertia ixx="0.00001" ixy="0" ixz="0" iyy="0.00001" iyz="0" izz="0.00001"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+				<mesh filename="body_3.stl" scale="0.003 0.003 0.003"/>
+      </geometry>
+       <material name="blueish">
+        <color rgba="0.1 0.75 1.0 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+				<mesh filename="body_3.stl" scale="0.003 0.003 0.003"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="joint_knob_3"
+    type="fixed">
+    <origin xyz="0.011 0 0" rpy="1.57 3.14 1.57" />
+    <parent link="knob_body_base" />
+    <child link="knob_body_3" />
+  </joint>
+
+
+  <link name="knob_body_5">
+    <contact>
+        <lateral_friction value="0.84"/>
+        <rolling_friction value="0.003"/>
+        <spinning_friction value="0.002"/>
+    </contact>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+       <mass value="0.001"/>
+       <inertia ixx="0.00001" ixy="0" ixz="0" iyy="0.00001" iyz="0" izz="0.00001"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+				<mesh filename="body_5.stl" scale="0.003 0.003 0.003"/>
+      </geometry>
+       <material name="blueish">
+        <color rgba="0.1 0.75 1.0 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+				<mesh filename="body_5.stl" scale="0.003 0.003 0.003"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="joint_knob_5"
+    type="fixed">
+    <origin xyz="0.011 0 0" rpy="1.57 3.14 1.57" />
+    <parent link="knob_body_base" />
+    <child link="knob_body_5" />
+  </joint>
+
+  <link name="knob_latch">
+    <contact>
+        <lateral_friction value="0.84"/>
+        <rolling_friction value="0.003"/>
+        <spinning_friction value="0.002"/>
+    </contact>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+       <mass value="0.001"/>
+       <inertia ixx="0.00001" ixy="0" ixz="0" iyy="0.00001" iyz="0" izz="0.00001"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+				<box size="0.015 0.36666666666666664 0.1"/>
+      </geometry>
+       <material name="red">
+        <color rgba="1.0 0.0 0.0 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+				<box size="0.015 0.36666666666666664 0.1"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="joint_knob_latch"
+    type="fixed">
+    <origin xyz="-0.03175 0 0" rpy="0 0 0" />
+    <parent link="knob_body_base" />
+    <child link="knob_latch" />
+  </joint>
+
+</robot>

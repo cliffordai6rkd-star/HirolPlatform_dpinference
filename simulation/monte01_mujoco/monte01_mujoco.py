@@ -4,67 +4,29 @@ import mujoco.viewer
 from threading import Thread, Lock
 import numpy as np
 import glog as log
-import time
-
-# Kp = np.array([1,1,1,1,1,
-#     # 1800, 1700, 1600, 1500, 1400, 1300, 1200, # left
-#     1800, 0,0,0,0,0,0, # left
-#     800, 700, 600, 500, 400, 300, 200, # right
-#     ])
-# Kd = Kp * 0.5
-
-# joints_fixed = [
-#     "body_joint_1",
-#     "body_joint_2",
-#     "body_joint_3",
-
-#     "head_joint_1",
-#     "head_joint_2",
-# ]
-
-# joints_all = [
-#     "body_joint_1",
-#     "body_joint_2",
-#     "body_joint_3",
-
-#     "head_joint_1",
-#     "head_joint_2",
-
-#     "left_arm_joint_1", 
-#     "left_arm_joint_2", 
-#     "left_arm_joint_3", 
-#     "left_arm_joint_4", 
-#     "left_arm_joint_5", 
-#     "left_arm_joint_6", 
-#     "left_arm_joint_7",
-
-#     "right_arm_joint_1", 
-#     "right_arm_joint_2", 
-#     "right_arm_joint_3",
-#     "right_arm_joint_4",
-#     "right_arm_joint_5",
-#     "right_arm_joint_6",
-#     "right_arm_joint_7",
-# ]
-joint_ids_all = [1,2,3,4,5,                              # Body + Head (5)
-                 6,7,8,9,10,11,12,                          # Left Arm (7)
-                 13,14,15,16,17,18,19,                      # Left Gripper (7) 
-                 20,21,22,23,24,25,26,                      # Right Arm (7)
-                 27,28,29,30,31,32,33]                      # Right Gripper (7)
+from simulation.mujoco_env_creator import MujocoEnvCreator
 
 # Gripper joint names
 LEFT_GRIPPER_JOINT = "left_drive_gear_joint"
 RIGHT_GRIPPER_JOINT = "right_drive_gear_joint"
 
 class Monte01Mujoco:
-    def __init__(self, xml_path="assets/monte_01/urdf/scene_monte01.xml", simulate_dt=0.001, viewer_dt=0.02):
+    def __init__(self, xml_path=None, config_path="simulation/scene_config/example.yaml", simulate_dt=0.001, viewer_dt=0.02):
         t0 = time.time()
         self.simulate_dt = simulate_dt
         self.viewer_dt = viewer_dt
         self.locker = Lock()
 
-        self.mj_model = mujoco.MjModel.from_xml_path(xml_path)
-        self.mj_data = mujoco.MjData(self.mj_model)
+        if xml_path is not None:
+            # Use static XML file (legacy mode)
+            self.mj_model = mujoco.MjModel.from_xml_path(xml_path)
+            self.mj_data = mujoco.MjData(self.mj_model)
+            log.info(f"Loaded static XML from: {xml_path}")
+        else:
+            # Use dynamic scene generation
+            env_creator = MujocoEnvCreator(config_path=config_path)
+            self.mj_model, self.mj_data = env_creator.create_model()
+            log.info(f"Generated dynamic scene from config: {config_path}")
         self.viewer = None
 
         self.mj_model.opt.timestep = self.simulate_dt
@@ -86,7 +48,7 @@ class Monte01Mujoco:
         log.info(f"MuJoCo model info: nq={self.mj_model.nq}, nu={self.mj_model.nu}, njnt={self.mj_model.njnt}")
         log.info(f"Joint ID to Actuator ID mapping: {self._joint_id_to_actuator_id}")
 
-        mujoco.mj_resetDataKeyframe(self.mj_model, self.mj_data, 0)
+        # mujoco.mj_resetDataKeyframe(self.mj_model, self.mj_data, 0)
 
         mujoco.mj_forward(self.mj_model, self.mj_data)
 
@@ -140,7 +102,13 @@ class Monte01Mujoco:
                     # 对于 position 类型的执行器，ctrl 值就是目标位置
                     self.mj_data.ctrl[actuator_id] = target_pos
                 else:
-                    log.warning(f"Joint {joint_id} has no position actuator, cannot set target.")
+                    # Only log warning once per joint to reduce noise
+                    if not hasattr(self, '_warned_joints'):
+                        self._warned_joints = set()
+                    if joint_id not in self._warned_joints:
+                        joint_name = self.mj_model.joint(joint_id - 1).name
+                        log.warning(f"Joint {joint_id} ({joint_name}) has no position actuator, cannot set target.")
+                        self._warned_joints.add(joint_id)
                     pass
 
                 self.jp_prev[joint_id - 1] = target_pos # check
@@ -165,10 +133,10 @@ class Monte01Mujoco:
                 step_start = time.perf_counter()
 
                 with self.locker:
-                    if self.b_set_jp:
-                        mujoco.mj_step(self.mj_model, self.mj_data)
-                    else:
-                        time.sleep(0.1)
+                    # if self.b_set_jp:
+                    mujoco.mj_step(self.mj_model, self.mj_data)
+                    # else:
+                    #     time.sleep(0.1)
                     
 
                 time_until_next_step = self.mj_model.opt.timestep - (time.perf_counter() - step_start)
@@ -189,12 +157,17 @@ class Monte01Mujoco:
                 return True
             return False
 
-    def start(self):
-        """Starts the simulation and viewer."""
+    def start_viewer_only(self):
+        """Starts only the viewer and simulation thread, but doesn't run the main viewer loop."""
         self.viewer = mujoco.viewer.launch_passive(self.mj_model, self.mj_data)
-
+        
         sim_thread = Thread(target=self._simulation_thread)
         sim_thread.start()
+        return sim_thread
+
+    def start(self):
+        """Starts the simulation and viewer with main loop."""
+        sim_thread = self.start_viewer_only()
 
         # Main rendering loop
         print("Viewer (main) thread started.")

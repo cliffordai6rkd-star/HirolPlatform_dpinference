@@ -1,0 +1,90 @@
+<!-- Monte01 gripper modular content for attachment to robot arms -->
+<mujoco model="gripper_modular">
+  <!-- Asset definitions -->
+  <asset>
+    <mesh name="gripper_base_link" file="monte_01/meshes/gripper/base_link.STL"/>
+    <mesh name="gripper_drive_gear" file="monte_01/meshes/gripper/drive_gear.STL"/>
+    <mesh name="gripper_left_outer_knuckle" file="monte_01/meshes/gripper/left_outer_knuckle.STL"/>
+    <mesh name="gripper_left_finger" file="monte_01/meshes/gripper/left_finger.STL"/>
+    <mesh name="gripper_left_inner_knuckle" file="monte_01/meshes/gripper/left_inner_knuckle.STL"/>
+    <mesh name="gripper_right_outer_knuckle" file="monte_01/meshes/gripper/right_outer_knuckle.STL"/>
+    <mesh name="gripper_right_finger" file="monte_01/meshes/gripper/right_finger.STL"/>
+    <mesh name="gripper_right_inner_knuckle" file="monte_01/meshes/gripper/right_inner_knuckle.STL"/>
+  </asset>
+  
+  <!-- Worldbody content for gripper -->
+  <worldbody>
+    <body name="gripper_base" quat="0 1 0 0">
+      <inertial pos="0.00044138 -0.002631 0.034655" mass="0.080694" diaginertia="6.4372E-05 4.4013E-05 4.3542E-05"/>
+      <geom type="mesh" contype="0" conaffinity="0" group="1" rgba="0.89804 0.91765 0.92941 1" mesh="gripper_base_link"/>
+      
+      <body name="drive_gear" pos="0.0011556 0.0121 0.036">
+        <inertial pos="-3.30863181733608E-05 1.50920942409982E-16 1.19033587394138E-05" mass="0.01" diaginertia="1e-06 1e-06 1e-06"/>
+        <joint name="drive_gear_joint" pos="0 0 0" axis="0 1 0" range="0 58.469" damping="0.01" armature="0.001"/> 
+        <geom type="mesh" contype="0" conaffinity="0" group="1" rgba="1 1 1 1" mesh="gripper_drive_gear"/>
+      </body>
+      
+      <body name="right_outer_knuckle" pos="0.03375 0.0121 0.055535">
+        <inertial pos="0.0101367391300856 -0.0106013199589881 0.0269089551812032" mass="0.0201205438364704" diaginertia="1.63979540077483E-05 1.52274787360094E-05 2.9521867062562E-06"/>
+        <joint name="right_outer_knuckle_joint" pos="0 0 0" axis="0 1 0" range="0 0.75" damping="0.01"/>
+        <geom type="mesh" contype="0" conaffinity="0" group="1" rgba="1 1 1 1" mesh="gripper_right_outer_knuckle"/>
+        
+        <body name="right_finger" pos="0.0185705506993471 -0.0120999999999998 0.0778147456895092">
+          <inertial pos="-0.0327726846908557 -0.000698948037922109 0.0346731629390936" mass="0.0363119735949383" diaginertia="4.93104908908506E-06 5.68381883190717E-06 3.25543613051104E-06"/>
+          <joint name="right_finger_joint" pos="0 0 0" axis="0 -1 0" range="0 0.75" damping="0.01"/>
+          <geom type="mesh" contype="0" conaffinity="0" group="1" rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" mesh="gripper_right_finger"/>
+          <geom name="right_finger_collision" type="box" size="0.0001 0.013 0.020" pos="-0.052 -0.001 0.05" group="3" priority="1" rgba="0.5 0.5 0.5 0.3"/>
+        </body>
+      </body>
+      
+      <body name="right_inner_knuckle" pos="0.007 -0.0004 0.086606">
+        <inertial pos="0.0165754431154624 1.41151802017514E-08 0.0308729804866049" mass="0.0178591264569997" diaginertia="1.3661171617545E-05 1.25649999783808E-05 2.36260193451048E-06"/>
+        <joint name="right_inner_knuckle_joint" pos="0 0 0" axis="0 1 0" range="0 0.75" damping="0.01"/>
+        <geom type="mesh" contype="0" conaffinity="0" group="1" rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" mesh="gripper_right_inner_knuckle"/>
+      </body>
+      
+      <body name="left_outer_knuckle" pos="-0.03375 0.0146 0.055535">
+        <inertial pos="-0.0187019317711781 -0.0139950556017495 0.0249288855358612" mass="0.038624346273152" diaginertia="3.28987042431633E-05 2.08577688249856E-05 1.57360122074111E-05"/>
+        <joint name="left_outer_knuckle_joint" pos="0 0 0" axis="0 -1 0" range="0 0.75" damping="0.01"/>
+        <geom type="mesh" contype="0" conaffinity="0" group="1" rgba="1 1 1 1" mesh="gripper_left_outer_knuckle"/>
+        
+        <body name="left_finger" pos="-0.018576411114186 -0.00599999999999792 0.0778133468636117">
+          <inertial pos="0.0368552847617587 -0.00948093376934073 0.0371391646401583" mass="0.0455797748456277" diaginertia="6.38046372437533E-06 7.56060232542587E-06 3.74336534504737E-06"/>
+          <joint name="left_finger_joint" pos="0 0 0" axis="0 1 0" range="0 0.75" damping="0.01"/>
+          <geom type="mesh" contype="0" conaffinity="0" group="1" rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" mesh="gripper_left_finger"/>
+          <geom name="left_finger_collision" type="box" size="0.0001 0.013 0.020" pos="0.052 -0.009 0.05" group="3" priority="1" rgba="0.5 0.5 0.5 0.3"/>
+        </body>
+      </body>
+      
+      <body name="left_inner_knuckle" pos="-0.007 0.0189 0.086606">
+        <inertial pos="-0.0251382642949832 -0.0192999857180728 0.0202389822183351" mass="0.0371734367635767" diaginertia="2.84354757958156E-05 1.48412957804551E-05 1.62302311388252E-05"/>
+        <joint name="left_inner_knuckle_joint" pos="0 0 0" axis="0 -1 0" range="0 0.75" damping="0.01"/>
+        <geom type="mesh" contype="0" conaffinity="0" group="1" rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" mesh="gripper_left_inner_knuckle"/>
+      </body>
+      
+      <site name="tcp" pos="7.0199E-05 -0.0004 0.19142"/>
+    </body>
+  </worldbody>
+  
+  <!-- Equality constraints -->
+  <equality>
+    <joint name="right_outer_knuckle_constraint" joint1="right_outer_knuckle_joint" joint2="drive_gear_joint" polycoef="0 0.1259 0 0 0"/>
+    <joint name="left_outer_knuckle_constraint" joint1="left_outer_knuckle_joint" joint2="drive_gear_joint" polycoef="0 0.1259 0 0 0"/>
+    <joint name="right_inner_knuckle_constraint" joint1="right_inner_knuckle_joint" joint2="drive_gear_joint" polycoef="0 0.1259 0 0 0"/>
+    <joint name="left_inner_knuckle_constraint" joint1="left_inner_knuckle_joint" joint2="drive_gear_joint" polycoef="0 0.1259 0 0 0"/>
+    <joint name="right_finger_constraint" joint1="right_finger_joint" joint2="drive_gear_joint" polycoef="0 0.1259 0 0 0"/>
+    <joint name="left_finger_constraint" joint1="left_finger_joint" joint2="drive_gear_joint" polycoef="0 0.1259 0 0 0"/>
+  </equality>
+  
+  <!-- Actuator definitions -->
+  <actuator>
+    <position name="drive_gear_joint_ctrl" joint="drive_gear_joint" ctrlrange="0 58.469" kp="10" dampratio="1" />
+  </actuator>
+  
+  <!-- Keyframe definitions -->
+  <keyframe>
+    <key name="gripper_home" qpos="0 0 0 0 0 0 0" />
+    <key name="gripper_open" qpos="58.469 7.3612471 7.3612471 7.3612471 7.3612471 7.3612471 7.3612471" />
+    <key name="gripper_closed" qpos="0 0 0 0 0 0 0" />
+  </keyframe>
+</mujoco>

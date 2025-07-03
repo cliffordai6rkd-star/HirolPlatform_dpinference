@@ -6,7 +6,7 @@
   <default>
     <default class="fr3">
       <joint armature="0.1" damping="1"/>
-      <position inheritrange="1"/>
+      <!-- <position inheritrange="1"/> -->
       <default class="visual">
         <geom type="mesh" group="2" contype="0" conaffinity="0"/>
       </default>
@@ -26,43 +26,43 @@
     <material name="button_red" rgba="0.520996 0.008023 0.013702 1"/>
     <material name="button_blue" rgba="0.024157 0.445201 0.737911 1"/>
 
-    <mesh file="link0_0.obj"/>
-    <mesh file="link0_1.obj"/>
-    <mesh file="link0_2.obj"/>
-    <mesh file="link0_3.obj"/>
-    <mesh file="link0_4.obj"/>
-    <mesh file="link0_5.obj"/>
-    <mesh file="link0_6.obj"/>
-    <mesh file="link1.obj"/>
-    <mesh file="link2.obj"/>
-    <mesh file="link3_0.obj"/>
-    <mesh file="link3_1.obj"/>
-    <mesh file="link4_0.obj"/>
-    <mesh file="link4_1.obj"/>
-    <mesh file="link5_0.obj"/>
-    <mesh file="link5_1.obj"/>
-    <mesh file="link5_2.obj"/>
-    <mesh file="link6_0.obj"/>
-    <mesh file="link6_1.obj"/>
-    <mesh file="link6_2.obj"/>
-    <mesh file="link6_3.obj"/>
-    <mesh file="link6_4.obj"/>
-    <mesh file="link6_5.obj"/>
-    <mesh file="link6_6.obj"/>
-    <mesh file="link6_7.obj"/>
-    <mesh file="link7_0.obj"/>
-    <mesh file="link7_1.obj"/>
-    <mesh file="link7_2.obj"/>
-    <mesh file="link7_3.obj"/>
+    <mesh file="franka_fr3/assets/link0_0.obj"/>
+    <mesh file="franka_fr3/assets/link0_1.obj"/>
+    <mesh file="franka_fr3/assets/link0_2.obj"/>
+    <mesh file="franka_fr3/assets/link0_3.obj"/>
+    <mesh file="franka_fr3/assets/link0_4.obj"/>
+    <mesh file="franka_fr3/assets/link0_5.obj"/>
+    <mesh file="franka_fr3/assets/link0_6.obj"/>
+    <mesh file="franka_fr3/assets/link1.obj"/>
+    <mesh file="franka_fr3/assets/link2.obj"/>
+    <mesh file="franka_fr3/assets/link3_0.obj"/>
+    <mesh file="franka_fr3/assets/link3_1.obj"/>
+    <mesh file="franka_fr3/assets/link4_0.obj"/>
+    <mesh file="franka_fr3/assets/link4_1.obj"/>
+    <mesh file="franka_fr3/assets/link5_0.obj"/>
+    <mesh file="franka_fr3/assets/link5_1.obj"/>
+    <mesh file="franka_fr3/assets/link5_2.obj"/>
+    <mesh file="franka_fr3/assets/link6_0.obj"/>
+    <mesh file="franka_fr3/assets/link6_1.obj"/>
+    <mesh file="franka_fr3/assets/link6_2.obj"/>
+    <mesh file="franka_fr3/assets/link6_3.obj"/>
+    <mesh file="franka_fr3/assets/link6_4.obj"/>
+    <mesh file="franka_fr3/assets/link6_5.obj"/>
+    <mesh file="franka_fr3/assets/link6_6.obj"/>
+    <mesh file="franka_fr3/assets/link6_7.obj"/>
+    <mesh file="franka_fr3/assets/link7_0.obj"/>
+    <mesh file="franka_fr3/assets/link7_1.obj"/>
+    <mesh file="franka_fr3/assets/link7_2.obj"/>
+    <mesh file="franka_fr3/assets/link7_3.obj"/>
 
-    <mesh name="link0_coll" file="link0.stl"/>
-    <mesh name="link1_coll" file="link1.stl"/>
-    <mesh name="link2_coll" file="link2.stl"/>
-    <mesh name="link3_coll" file="link3.stl"/>
-    <mesh name="link4_coll" file="link4.stl"/>
-    <mesh name="link5_coll" file="link5.stl"/>
-    <mesh name="link6_coll" file="link6.stl"/>
-    <mesh name="link7_coll" file="link7.stl"/>
+    <mesh name="link0_coll" file="franka_fr3/assets/link0.stl"/>
+    <mesh name="link1_coll" file="franka_fr3/assets/link1.stl"/>
+    <mesh name="link2_coll" file="franka_fr3/assets/link2.stl"/>
+    <mesh name="link3_coll" file="franka_fr3/assets/link3.stl"/>
+    <mesh name="link4_coll" file="franka_fr3/assets/link4.stl"/>
+    <mesh name="link5_coll" file="franka_fr3/assets/link5.stl"/>
+    <mesh name="link6_coll" file="franka_fr3/assets/link6.stl"/>
+    <mesh name="link7_coll" file="franka_fr3/assets/link7.stl"/>
   </asset>
 
   <worldbody>
@@ -132,7 +132,7 @@
                       <geom mesh="link7_2" material="white" class="visual"/>
                       <geom mesh="link7_3" material="black" class="visual"/>
                       <geom name="fr3_link7_collision" class="collision" mesh="link7_coll"/>
-                      <site name="attachment_site" pos="0 0 0.107"/>
+                      <site name="attachment_site" pos="0 0 0.107" euler="0 0 -0.7853981633974483"/>
                     </body>
                   </body>
                 </body>

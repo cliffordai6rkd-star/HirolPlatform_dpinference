@@ -1,1 +1,3 @@
 ctrl_mode: 0
+type: "xarm7"
+model_path: "assets/monte_01/urdf/gripper_xarm7.xml"

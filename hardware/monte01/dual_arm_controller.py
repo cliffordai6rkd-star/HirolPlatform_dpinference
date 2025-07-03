@@ -252,4 +252,4 @@ def create_demo_right_arm_actions():
             gripper.gripper_open()
             arm.hold_position_for_duration(0.5)
     
-    return [move_forward, wave_motion, move_back]
+    return [operate_gripper, wave_motion, move_back]
