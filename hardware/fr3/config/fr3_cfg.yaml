@@ -1,0 +1,30 @@
+fr3:
+  dof: 7
+  ip: "192.168.8.15"
+  # damping: [10, 10, 10, 10, 10, 10, 10]
+  # damping: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
+  stiffness: [100, 100, 100, 100, 100, 100, 100]
+  filter_coeff: 1.0
+
+
+# model:
+#   urdf_path: '../fr3.urdf'
+#   base_link: 'base'
+#   end_effector_link: 'fr3_ee'
+  
+duo_arm:
+  left:
+      type: "fr3"
+      dof: 7
+      ip: "192.168.1.101"
+      damping: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
+      stiffness: [100, 100, 100, 100, 100, 100, 100]
+      filter_coeff: None
+  right:
+      type: "fr3"
+      dof: 7
+      ip: "192.168.1.105"
+      damping: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
+      stiffness: [100, 100, 100, 100, 100, 100, 100]
+      filter_coeff: None
+

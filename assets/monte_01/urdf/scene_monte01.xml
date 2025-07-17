@@ -2,6 +2,7 @@
   <include file="robot_description.xml"/>
 
   <statistic center="0 0 0.5" extent="2.0"/>
+  <option gravity="0 0 0.0" />
 
   <visual>
     <headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3" specular="0 0 0"/>
@@ -19,5 +20,25 @@
   <worldbody>
     <light pos="0 0 1.5" dir="0 0 -1" directional="true"/>
     <geom name="floor" size="0 0 0.05" type="plane" material="groundplane"/>
+
+    <body name="targetL" pos="0.40 0.35 1.1" quat="0 0.7071 0 0.7071" mocap="true">
+      <geom type="box" size=".04 .04 .04" contype="0" conaffinity="0" rgba=".6 .3 .3 .4" />
+      <site type="sphere" name="targetL_site" size="0.005" rgba="0 0 1 1" group="1" />
+    </body>
+
+    <body name="targetR" pos="0.40 -0.35 1.1" quat="0 0.7071 0 0.7071" mocap="true">
+      <geom type="box" size=".04 .04 .04" contype="0" conaffinity="0" rgba=".6 .3 .3 .4" />
+      <site type="sphere" name="targetR_site" size="0.005" rgba="0 0 1 1" group="1" />
+    </body>
+
+    <body name="TCPL" pos="0 0 0" quat="0 1 0 0" mocap="true">
+      <geom type="sphere" size=".04 .04 .04" contype="0" conaffinity="0" rgba=".6 .3 .3 .4" />
+      <site type="sphere" name="TCPL_site" size="0.005" rgba="0 0 1 1" group="1" />
+    </body>
+
+    <body name="TCPR" pos="0 0 0" quat="0 1 0 0" mocap="true">
+      <geom type="sphere" size=".04 .04 .04" contype="0" conaffinity="0" rgba=".6 .3 .3 .4" />
+      <site type="sphere" name="TCPR_site" size="0.005" rgba="0 0 1 1" group="1" />
+    </body>
   </worldbody>
 </mujoco>

@@ -1,0 +1,14 @@
+fr3:
+  - initial_pose: [0.3, 0, 0.45, 1, 0, 0, 0]
+    
+unitree:
+  - initial_pose_left: [0.26, 0.15, 0.9, 0, 0, 0, 1]
+  - initial_pose_right: [0.26, -0.15, 0.9, 0, 0, 0, 1]
+    
+agibot:
+  - initial_pose_left: [0.65, 0.2, 1.1, 0, 0.7071068, 0.7071068, 0]
+  - initial_pose_right: [0.65, -0.2, 1.1, 0, 0.7071068, 0.7071068, 0]
+
+XR:
+  - openxr_robot: [-0.5, 0.5, 0.5, 0.5, 0, 0, 0, 1]
+    

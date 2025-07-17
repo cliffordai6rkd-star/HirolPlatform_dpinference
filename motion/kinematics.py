@@ -15,6 +15,7 @@ import glog as log
 import os
 import time
 from threading import Lock
+from data_types import se3
 
 # --- URDF模型管理器 (共享加载机制) ---
 class UrdfModelManager:
@@ -192,6 +193,27 @@ class PinocchioKinematicsModel(BaseKinematicsModel):
         log.info(f"成功建立從 '{base_link}' 到 '{end_effector_link}' 的縮減模型。")
         log.info(f"縮減後的模型關節數 (nq): {self.model.nq}")
         log.debug(f"保留的關節: {[self.model.names[i] for i in range(1, self.model.njoints)]}")
+        self.max_reach = self._calculate_max_reach()
+        log.info(f"Calculated maximum reach for chain {base_link} -> {end_effector_link}: {self.max_reach:.3f}m")
+
+    def _calculate_max_reach(self) -> float:
+        """Calculates the maximum possible reach of the kinematic chain."""
+        reach = 0.0
+        for i in range(1, self.model.njoints):
+            # Get the joint placement relative to the parent
+            joint_placement = self.model.jointPlacements[i]
+            # Get the translation vector and add its norm to the total reach
+            p = joint_placement.translation
+            reach += LA.norm(p)
+        return reach
+    def get_joint_limits(self) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        獲取縮減模型的關節限位。
+
+        Returns:
+            Tuple[np.ndarray, np.ndarray]: 關節下限和上限。
+        """
+        return self.joint_lower_limit, self.joint_upper_limit
     
     def fk(self, joint_positions: np.ndarray) -> np.ndarray:
         """為縮減後的模型計算正向運動學。"""
@@ -207,10 +229,10 @@ class PinocchioKinematicsModel(BaseKinematicsModel):
             target_pose: np.ndarray,
             seed: Optional[np.ndarray] = None,
             joint_limits: Optional[Tuple[np.ndarray, np.ndarray]] = None,
-            max_iter: int = 5000,
+            max_iter: int = 1000,
             tol: float = 1e-6,
             step_size: float = 1.0
-    ):
+    ) -> Tuple[bool, np.ndarray]:
         """
         Solve inverse kinematics using the Gauss-Newton method.
 
@@ -302,3 +324,19 @@ class PinocchioKinematicsModel(BaseKinematicsModel):
 
         return converged, q
     
+    def is_reachable(self, pose: se3.Transform) -> bool:
+      """Checks if a given pose is reachable by the robot based on arm length.
+
+      Args:
+          pose: The target pose in the base frame of the kinematic chain.
+
+      Returns:
+          True if the pose is within the arm's maximum reach, False otherwise.
+      """
+      target_position = pose.translation
+      distance = np.linalg.norm(target_position)
+      # Add a small buffer (e.g., 5cm) to the check to be conservative
+      is_within_reach = distance <= (self.max_reach + 0.05)
+      if not is_within_reach:
+          log.warning(f"Target distance {distance:.3f}m exceeds max reach {self.max_reach:.3f}m.")
+      return is_within_reach

@@ -1,0 +1,48 @@
+# orientation in wxyz format
+robot:
+  name: "fr3"
+  model_path: "assets/franka_fr3/fr3.xml"
+  initial_position: [-0.1, 0.0, 0.85]
+  initial_orientation: [1.0, 0.0, 0.0, 0.0]
+  fix_base: true  # false for floating base, true for fixed base
+  grippers:
+    # left_gripper:
+    #   type: "corenetic"
+    #   model_path: "assets/monte_01/urdf/gripper_modular.xml"
+      
+    #   attachment_site: "left_gripper_attachment"
+    #   name_prefix: "left_"
+    # right_gripper:
+    #   type: "xarm7"
+    #   model_path: "assets/monte_01/urdf/gripper_xarm7.xml"
+    #   attachment_site: "right_gripper_attachment"
+    #   name_prefix: "right_"
+    attached_gripper:
+      type: "franka_hand"
+      model_path: "assets/franka_fr3/franka_hand.xml"
+      attachment_site: "fr3_ee_attachment"
+      name_prefix: "attached_"
+
+scene_objects:
+  - name: "table"
+    model_path: "assets/scene_objects/cube_like/side_table_simple.xml"
+    initial_position: [0.5, 0.0, 0.6]
+    initial_orientation: [0.0, 0.0, 0.0, 1.0]
+    fix_base: true  # table is fixed to ground
+  
+  - name: "box_1"
+    model_path: "assets/scene_objects/box/box.xml"
+    initial_position: [0.3, 0.2, 0.8]
+    initial_orientation: [0.0, 0.0, 0.0, 1.0]
+    fix_base: false  # box can move freely
+  
+  - name: "box_2"
+    model_path: "assets/scene_objects/box/box.xml"
+    initial_position: [0.3, -0.2, 0.8]
+    initial_orientation: [0.0, 0.0, 0.0, 1.0]
+    fix_base: false  # box can move freely
+
+simulation:
+  timestep: 0.001
+  viewer_dt: 0.02
+  gravity: [0.0, 0.0, -9.81]

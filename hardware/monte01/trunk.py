@@ -1,4 +1,3 @@
-from hardware.base.trunk import TrunkBase
 import importlib.util
 import os
 from .defs import ROBOTLIB_SO_PATH
@@ -9,7 +8,6 @@ spec = importlib.util.spec_from_file_location(
 RobotLib_module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(RobotLib_module)
 RobotLib = RobotLib_module.Robot
-from simulation.monte01_mujoco.monte01_mujoco import Monte01Mujoco
 
 from typing import Text, Mapping, Any, Optional
 import glog as log
@@ -29,26 +27,27 @@ BODY_KEYS_STRIDE = KNEE_PITCH
 HEAD_PITCH = 1
 HEAD_YAW = 2
 
-class Trunk(TrunkBase):
-    def __init__(self, config: Mapping[Text, Any], hardware_interface: Optional[RobotLib], simulator: Monte01Mujoco):
+class Trunk():
+    def __init__(self, hardware_interface: Optional[RobotLib]):
         super().__init__()
         self.robot = hardware_interface
-        self.simulator = simulator
-        self.config = config
         
         # Initialize body joint names for kinematics
         self.body_joint_names = ['body_joint_1', 'body_joint_2', 'body_joint_3']
         
+        # Cache for chest_to_world transformation
+        self._cached_chest_to_world = None
+        self._last_body_joints_for_cache = None
+        
         # Initialize body kinematics if URDF path is provided
         self.body_kinematics = None
-        if 'urdf_path' in config:
-            try:
-                urdf_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', config['urdf_path']))
-                self.body_kinematics = KinematicsModel(urdf_path=urdf_path, base_link='base_link', end_effector_link='chest_link')
-                log.info("Body kinematics initialized for coordinate transformations")
-            except Exception as e:
-                log.error(f"Failed to initialize body kinematics: {e}")
-                self.body_kinematics = None
+        try:
+            urdf_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'assets/monte_01/urdf/robot_description.urdf'))
+            self.body_kinematics = KinematicsModel(urdf_path=urdf_path, base_link='base_link', end_effector_link='chest_link')
+            log.info("Body kinematics initialized for coordinate transformations")
+        except Exception as e:
+            log.error(f"Failed to initialize body kinematics: {e}")
+            self.body_kinematics = None
         
         if hardware_interface is not None:
             success = hardware_interface.set_trunk_joint_enable(True)
@@ -118,28 +117,33 @@ class Trunk(TrunkBase):
                 log.warning("No body_joint_names available in simulator mode")
                 return np.zeros(len(BODY_JOINT_IDS))
     
-    def get_world_to_chest_transform(self) -> np.ndarray:
-        """Get transformation matrix from world frame to chest frame"""
+    def get_chest_to_world_transform(self) -> np.ndarray:
+        """Get transformation matrix from chest frame to world frame with caching"""
         try:
             if self.body_kinematics is not None:
-                body_positions = self.get_body_joint_positions()
-                log.debug(f"[DEBUG] Body positions for FK: {body_positions}")
-                log.debug(f"[DEBUG] Body positions shape: {body_positions.shape}")
-                log.debug(f"[DEBUG] Body positions length: {len(body_positions)}")
+                current_body_joints = self.get_body_joint_positions()
                 
-                if len(body_positions) == 0:
+                # Check if we can use cached transformation
+                if (self._cached_chest_to_world is not None and 
+                    self._last_body_joints_for_cache is not None and
+                    np.allclose(current_body_joints, self._last_body_joints_for_cache, atol=1e-3)):
+                    return self._cached_chest_to_world
+                
+                # Compute new transformation and update cache
+                if len(current_body_joints) == 0:
                     log.error("Empty body positions array, cannot compute FK")
                     return np.eye(4)
                     
-                transform = self.body_kinematics.fk(body_positions)
-                log.debug(f"[DEBUG] Computed world_to_chest transform successfully")
+                transform = self.body_kinematics.fk(current_body_joints)
+                self._cached_chest_to_world = transform
+                self._last_body_joints_for_cache = current_body_joints.copy()
+                
                 return transform
             else:
                 log.warning("Body kinematics not available, returning identity matrix")
                 return np.eye(4)
         except Exception as e:
             log.error(f"Failed to compute world to chest transform: {e}")
-            log.error(f"Body positions were: {body_positions if 'body_positions' in locals() else 'N/A'}")
             return np.eye(4)
     
     def set_body_joint_positions(self, positions: np.ndarray):

@@ -1,0 +1,77 @@
+robot:
+  name: "monte_01"
+  model_path: "assets/monte_01/urdf/robot_worldbody.xml"
+  initial_position: [-0.1, 0.0, 0.1]
+  initial_orientation: [1.0, 0.0, 0.0, 0.0]
+  fix_base: true  # false for floating base, true for fixed base
+  grippers:
+  # not work
+    # left_gripper:
+    #   type: "xarm7"
+    #   model_path: "assets/monte_01/urdf/gripper_xarm7.xml"
+    #   attachment_site: "left_gripper_attachment"
+    #   name_prefix: "left_"
+    # right_gripper:
+    #   type: "corenetic"
+    #   model_path: "assets/monte_01/urdf/gripper_modular.xml"
+    #   attachment_site: "right_gripper_attachment"
+    #   name_prefix: "right_"
+
+# not work
+    # left_gripper:
+    #   type: "xarm7"
+    #   model_path: "assets/monte_01/urdf/gripper_xarm7.xml"
+    #   attachment_site: "left_gripper_attachment"
+    #   name_prefix: "left_"
+    # right_gripper:
+    #   type: "xarm7"
+    #   model_path: "assets/monte_01/urdf/gripper_xarm7.xml"
+    #   attachment_site: "right_gripper_attachment"
+    #   name_prefix: "right_"
+#work
+    # left_gripper:
+    #   type: "corenetic"
+    #   model_path: "assets/monte_01/urdf/gripper_modular.xml"
+    #   attachment_site: "left_gripper_attachment"
+    #   name_prefix: "left_"
+    # right_gripper:
+    #   type: "corenetic"
+    #   model_path: "assets/monte_01/urdf/gripper_modular.xml"
+    #   attachment_site: "right_gripper_attachment"
+    #   name_prefix: "right_"
+# work
+    left_gripper:
+      type: "corenetic"
+      model_path: "assets/monte_01/urdf/gripper_modular.xml"
+      
+      attachment_site: "left_gripper_attachment"
+      name_prefix: "left_"
+    right_gripper:
+      type: "xarm7"
+      model_path: "assets/monte_01/urdf/gripper_xarm7.xml"
+      attachment_site: "right_gripper_attachment"
+      name_prefix: "right_"
+
+scene_objects:
+  - name: "table"
+    model_path: "assets/scene_objects/cube_like/side_table_simple.xml"
+    initial_position: [0.5, 0.0, 0.6]
+    initial_orientation: [0.0, 0.0, 0.0, 1.0]
+    fix_base: true  # table is fixed to ground
+  
+  - name: "box_1"
+    model_path: "assets/scene_objects/box/box.xml"
+    initial_position: [0.3, 0.2, 0.8]
+    initial_orientation: [0.0, 0.0, 0.0, 1.0]
+    fix_base: false  # box can move freely
+  
+  - name: "box_2"
+    model_path: "assets/scene_objects/box/box.xml"
+    initial_position: [0.3, -0.2, 0.8]
+    initial_orientation: [0.0, 0.0, 0.0, 1.0]
+    fix_base: false  # box can move freely
+
+simulation:
+  timestep: 0.001
+  viewer_dt: 0.02
+  gravity: [0.0, 0.0, -9.81]

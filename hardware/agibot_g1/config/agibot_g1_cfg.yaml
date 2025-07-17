@@ -1,0 +1,5 @@
+agibot_g1:
+  dof: [7, 7]
+  control_head: false
+  control_waist: false
+  control_wheel: false

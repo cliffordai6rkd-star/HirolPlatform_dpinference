@@ -224,63 +224,31 @@ class Agent(Robot):
         """
         if self._disable_motion:
             return
-            
+
+        if self.trunk is not None:
+            chest_to_world = self.trunk.get_chest_to_world_transform()
+            body_positions = self.trunk.get_body_joint_positions()
+            log.debug(f"Body joints: {body_positions}")
+        else:
+            chest_to_world = np.eye(4)
+            log.warning("No trunk component available, using identity transform")
+        
+        world_to_chest = np.linalg.inv(chest_to_world)
+        
         try:
             if "left" in flange_pose:
                 left_transform = flange_pose["left"]
                 if isinstance(left_transform, Sequence):
                     left_transform = Transform(xyz=left_transform[0:3], rot=left_transform[3:7])
                 
-                pose_matrix = left_transform.matrix
-                
-                # Transform target pose from world frame to chest_link frame 
-                # This is needed for both real robot and simulation modes
-                try:
-                    if self.trunk is not None:
-                        world_to_chest = self.trunk.get_world_to_chest_transform()
-                        body_positions = self.trunk.get_body_joint_positions()
-                        log.debug(f"Body joints: {body_positions}")
-                    else:
-                        world_to_chest = np.eye(4)
-                        log.warning("No trunk component available, using identity transform")
-                    
-                    # Transform target from world frame to chest_link frame
-                    # target_world -> target_chest = inv(world_to_chest) * target_world
-                    pose_matrix = np.linalg.inv(world_to_chest) @ pose_matrix
-                    
-                except Exception as e:
-                    log.error(f"Failed to transform target pose: {e}")
-                    log.warning("Using target pose as-is (assuming it's already in chest frame)")
-                
-                self.arm_left().move_to_pose(pose_matrix)
+                self.arm_left().move_to_pose(world_to_chest @ left_transform.matrix)
                 
             if "right" in flange_pose:
                 right_transform = flange_pose["right"]
                 if isinstance(right_transform, Sequence):
                     right_transform = Transform(xyz=right_transform[0:3], rot=right_transform[3:7])
                 
-                pose_matrix = right_transform.matrix
-                
-                # Transform target pose from world frame to chest_link frame 
-                # This is needed for both real robot and simulation modes
-                try:
-                    if self.trunk is not None:
-                        world_to_chest = self.trunk.get_world_to_chest_transform()
-                        body_positions = self.trunk.get_body_joint_positions()
-                        log.debug(f"Body joints: {body_positions}")
-                    else:
-                        world_to_chest = np.eye(4)
-                        log.warning("No trunk component available, using identity transform")
-                    
-                    # Transform target from world frame to chest_link frame
-                    # target_world -> target_chest = inv(world_to_chest) * target_world
-                    pose_matrix = np.linalg.inv(world_to_chest) @ pose_matrix
-                    
-                except Exception as e:
-                    log.error(f"Failed to transform target pose: {e}")
-                    log.warning("Using target pose as-is (assuming it's already in chest frame)")
-                
-                self.arm_right().move_to_pose(pose_matrix)
+                self.arm_right().move_to_pose(world_to_chest @ right_transform.matrix)
                     
         except Exception as e:
             log.error(f"Failed to set servo flange pose: {e}")

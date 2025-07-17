@@ -1,0 +1,18 @@
+# Monte-01 Gripper Configuration
+# Based on franka_hand_cfg.yaml structure
+
+monte01_gripper:
+  
+  # Dual gripper configuration
+  left_gripper:
+    type: "xarm7" 
+    ip: "192.168.11.11"
+    grasp_speed: 0.3
+    ctrl_mode: 0
+    
+  right_gripper:
+    # TODO: 真实机器人暂未安装右夹爪，以下为预留配置
+    type: "vacuum_gripper"  # 吸盘夹爪 - 暂未实现
+    # ip: "192.168.11.12"
+    # grasp_speed: 0.3
+    # ctrl_mode: 0

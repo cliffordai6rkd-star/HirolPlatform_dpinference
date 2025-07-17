@@ -1,0 +1,20 @@
+mujoco:
+  # the file path should be related to the hirol platform folder
+  base_xml_file: "simulation/fr3_mujoco/peg-in-hole/scene/peg_in_hole.xml"
+  robot_xml: "simulation/fr3_mujoco/peg-in-hole/scene/fr3.xml"
+  quat_sequence: "xyzw"
+  dt: 0.002
+  dof: [7]
+  joint_names: ["fr3_joint1", "fr3_joint2", "fr3_joint3", "fr3_joint4", "fr3_joint5", "fr3_joint6", "fr3_joint7"]
+  actuator_names: ["fr3_actuator1", "fr3_actuator2", "fr3_actuator3", "fr3_actuator4", "fr3_actuator5", "fr3_actuator6", "fr3_actuator7"]
+  # actuator_mode: ["torque", "torque", "torque", "torque", "torque", "torque", "torque"]
+  actuator_mode: ["position", "position", "position", "position", "position", "position", "position"]
+  ee_site_name: "fr3_ee_attachment"
+  base_body: "base"
+  extra_render: true
+  max_traj_len: 80
+  # sensor_dict: None
+  use_custom_key_frame: true
+  sensor_dict:
+    ee_cam: 
+     resolution: [480, 640]

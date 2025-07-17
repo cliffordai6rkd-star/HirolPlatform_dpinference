@@ -1,0 +1,58 @@
+mujoco:
+  # the file path should be related to the hirol platform folder
+  base_xml_file: "assets/monte_01/urdf/scene_monte01.xml"
+  robot_xml: "assets/monte_01/urdf/robot_description.xml"
+  quat_sequence: "xyzw"
+  dt: 0.002
+  dof: [7, 7]
+  # Updated with actual XML joint names
+  joint_names: [
+                "left_arm_joint_1",
+                "left_arm_joint_2",
+                "left_arm_joint_3",
+                "left_arm_joint_4",
+                "left_arm_joint_5",
+                "left_arm_joint_6",
+                "left_arm_joint_7",
+                "right_arm_joint_1",
+                "right_arm_joint_2",
+                "right_arm_joint_3",
+                "right_arm_joint_4",
+                "right_arm_joint_5",
+                "right_arm_joint_6",
+                "right_arm_joint_7"]
+  # Updated with actual XML actuator names
+  actuator_names: [
+                  "left_arm_joint_1_ctrl",
+                  "left_arm_joint_2_ctrl",
+                  "left_arm_joint_3_ctrl",
+                  "left_arm_joint_4_ctrl",
+                  "left_arm_joint_5_ctrl",
+                  "left_arm_joint_6_ctrl",
+                  "left_arm_joint_7_ctrl",
+                  "right_arm_joint_1_ctrl",
+                  "right_arm_joint_2_ctrl",
+                  "right_arm_joint_3_ctrl",
+                  "right_arm_joint_4_ctrl",
+                  "right_arm_joint_5_ctrl",
+                  "right_arm_joint_6_ctrl",
+                  "right_arm_joint_7_ctrl"]
+  actuator_mode: [  "position", "position", "position", "position", "position",
+                  "position", "position", "position", "position", "position", "position", "position",
+                  "position", "position"]
+  
+  # Body joint configuration for hardware-simulation sync
+  body_joint_names: ["body_joint_1", "body_joint_2", "body_joint_3", 
+                     "head_joint_1", "head_joint_2"]
+  body_actuator_names: ["body_joint_1_ctrl", "body_joint_2_ctrl", "body_joint_3_ctrl",
+                        "head_joint_1_ctrl", "head_joint_2_ctrl"]
+  body_actuator_mode: ["position", "position", "position", "position", "position"]
+  
+  # ee_site_name: "left_tcp"  # Updated to match XML site name
+  base_body: "base_car"  # Root body in XML is unnamed worldbody
+  extra_render: false
+  max_traj_len: 80
+  use_custom_key_frame: true
+  # sensor_dict:
+    # ee_cam: 
+    #  resolution: [480, 640]

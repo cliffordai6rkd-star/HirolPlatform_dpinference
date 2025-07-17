@@ -1,0 +1,53 @@
+mujoco:
+  # the file path should be related to the hirol platform folder
+  base_xml_file: "assets/agibot_g1/g1_with_hand_scene.xml"
+  robot_xml: "assets/agibot_g1/g1_with_hand.xml"
+  quat_sequence: "xyzw"
+  dt: 0.002
+  dof: [7, 7]
+  # "joint_lift_body", "joint_body_pitch",
+  joint_names: [
+                
+                "left_arm_joint1",
+                "left_arm_joint2",
+                "left_arm_joint3",
+                "left_arm_joint4",
+                "left_arm_joint5",
+                "left_arm_joint6",
+                "left_arm_joint7",
+                "right_arm_joint1",
+                "right_arm_joint2",
+                "right_arm_joint3",
+                "right_arm_joint4",
+                "right_arm_joint5",
+                "right_arm_joint6",
+                "right_arm_joint7"]
+  # "actuator_lift_body" "actuator_body_pitch",
+  actuator_names: [
+                  
+                  "actuator_left_arm_joint1",
+                  "actuator_left_arm_joint2",
+                  "actuator_left_arm_joint3",
+                  "actuator_left_arm_joint4",
+                  "actuator_left_arm_joint5",
+                  "actuator_left_arm_joint6",
+                  "actuator_left_arm_joint7",
+                  "actuator_right_arm_joint1",
+                  "actuator_right_arm_joint2",
+                  "actuator_right_arm_joint3",
+                  "actuator_right_arm_joint4",
+                  "actuator_right_arm_joint5",
+                  "actuator_right_arm_joint6",
+                  "actuator_right_arm_joint7"]
+  # "position" "position",
+  actuator_mode: [  "position", "position", "position", "position", "position",
+                  "position", "position", "position", "position", "position", "position", "position",
+                  "position", "position"]
+  # ee_site_name: "left_hand_site"
+  base_body: "base_car"
+  extra_render: false
+  max_traj_len: 80
+  use_custom_key_frame: false
+  # sensor_dict:
+    # ee_cam: 
+    #  resolution: [480, 640]

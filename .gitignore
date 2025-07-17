@@ -13,3 +13,9 @@ analyze_stl_dimensions.py
 calculate_gripper_box_geometries.py
 collision_geometry_suggestions.json
 stl_analysis_results.json
+/.claude/
+/.idea/
+/.kinematics_cache/
+/.vscode/
+MUJOCO_LOG.TXT
+test_scene.xml

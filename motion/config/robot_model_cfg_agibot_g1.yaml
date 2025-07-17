@@ -1,0 +1,37 @@
+urdf_path: "assets/agibot_g1/A2D_with_hand.urdf"
+mesh_offset: "assets/agibot_g1"
+# ignore hand
+frames: ["base_link", "link_up_down_body", "link_pitch_body", "left_finger_base", 
+        "right_finger_base", "right_ff_distal_link", "right_lf_distal_link", 
+        "right_mf_distal_link", "right_rf_distal_link", "right_th_link_3",  
+        "left_ff_distal_link", "left_lf_distal_link", "left_mf_distal_link",
+        "left_rf_distal_link", "left_th_distal_link"]
+# maybe we need to lock the hand related joint
+base_link: "base_link"
+ee_link: "left_finger_base"
+fixed_base: true
+lock_joints:
+  - base: "link_up_down_body"
+    end: "link_pitch_body"
+  - base: "base_link"
+    end: "link_up_down_body"
+  - base: "right_finger_base"
+    end: "right_ff_distal_link"
+  - base: "right_finger_base"
+    end: "right_lf_distal_link"
+  - base: "right_finger_base"
+    end: "right_mf_distal_link"
+  - base: "right_finger_base"
+    end: "right_rf_distal_link"
+  - base: "right_finger_base"
+    end: "right_th_link_3"
+  - base: "left_finger_base"
+    end: "left_ff_distal_link"
+  - base: "left_finger_base"
+    end: "left_lf_distal_link"
+  - base: "left_finger_base"
+    end: "left_mf_distal_link"
+  - base: "left_finger_base"
+    end: "left_rf_distal_link"
+  - base: "left_finger_base"
+    end: "left_th_distal_link"

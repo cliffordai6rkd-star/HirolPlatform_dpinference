@@ -1,15 +1,6 @@
-[submodule "dependencies/libfranka-python"]
-	path = dependencies/libfranka-python
-	url = git@github.com:BigJohnn/libfranka-python.git
-[submodule "dependencies/libfranka-sim"]
-	path = dependencies/libfranka-sim
-	url = git@github.com:BigJohnn/libfranka-sim.git
 [submodule "dependencies/panda-py"]
 	path = dependencies/panda-py
 	url = git@github.com:JeanElsner/panda-py.git
-[submodule "dependencies/dm_robotics_panda"]
-	path = dependencies/dm_robotics_panda
-	url = git@github.com:BigJohnn/dm_robotics_panda.git
 [submodule "dependencies/monte01_sdk"]
 	path = dependencies/monte01_sdk
 	url = git@github.com:linkage-x/monte01_sdk.git

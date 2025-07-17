@@ -1,0 +1,10 @@
+monte01:
+  # Single arm configuration (if needed)
+  dof: [7, 7]  # 7 DOF per arm * 2 arms
+  ip: "192.168.11.3:50051"  # Base station IP
+  filter_coeff: 1.0
+  control_body: false
+  control_chassis: false
+  comm_freq: 20
+  # Safety configuration
+  safety_level: "normal"  # Options: "permissive", "normal", "strict"

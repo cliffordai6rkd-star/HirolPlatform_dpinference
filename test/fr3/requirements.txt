@@ -1,5 +1,0 @@
-transformations
-glog
-panda-python==0.8.1
-pyyaml
-matplotlib

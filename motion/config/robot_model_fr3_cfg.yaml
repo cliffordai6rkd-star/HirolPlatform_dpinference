@@ -1,0 +1,23 @@
+fr3_only: 
+  urdf_path: "assets/franka_fr3/fr3_only.urdf"
+  mesh_offset: "assets/franka_fr3"
+  frames: ["base", "fr3_link0", "fr3_link1", "fr3_link2", "fr3_link3", "fr3_link4", 
+          "fr3_link5", "fr3_link6", "fr3_link7", "fr3_link8", "fr3_ee"]
+  base_link: "base"
+  ee_link: "fr3_ee"
+  fixed_base: true
+
+fr3_franka_hand: 
+  urdf_path: "assets/franka_fr3/fr3_franka_hand.urdf"
+  mesh_offset: "assets/franka_fr3"
+  frames: ["base", "fr3_link0", "fr3_link1", "fr3_link2", "fr3_link3", "fr3_link4", 
+          "fr3_link5", "fr3_link6", "fr3_link7", "fr3_link8", "fr3_hand_tcp",
+          "fr3_hand", "fr3_leftfinger", "fr3_rightfinger"]
+  base_link: "base"
+  ee_link: "fr3_hand_tcp"
+  fixed_base: true
+  lock_joints:
+    - base: "fr3_hand"
+      end: "fr3_leftfinger"
+    - base: "fr3_hand"
+      end: "fr3_rightfinger"

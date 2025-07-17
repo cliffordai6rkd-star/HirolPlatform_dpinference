@@ -1,0 +1,22 @@
+whole_body_ik:
+  # not finished
+  tracking_frames:
+    - name: "left_finger_base"
+      dim: [4,4]
+      require_trans: true
+      trans_scalar: 1.0
+      require_rot: true
+      rot_scalar: 1.0
+    - name: "right_finger_base"
+      dim: [4, 4]
+      require_trans: true
+      trans_scalar: 1.0
+      require_rot: true
+      rot_scalar: 1.0
+  show_debug: false
+  trans_weight: 2.0
+  rot_weight: 1.0
+  smooth_weight: 0.3
+  regularization_weight: 0.02
+
+  

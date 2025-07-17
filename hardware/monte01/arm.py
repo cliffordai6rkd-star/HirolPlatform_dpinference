@@ -130,7 +130,7 @@ class Arm(ArmBase):
 
         self.joint_names = config['joint_names_left'] if isLeft else config['joint_names_right']
         self.robot = hardware_interface
-        self.simulator = simulator
+        self.simulator: Monte01Mujoco = simulator
 
         trajectory_args = {'rate': config['control_rate'],
                        'time_func': self.get_time,
@@ -235,6 +235,11 @@ class Arm(ArmBase):
         self.time_log = []
         self.jp_log = []
 
+        # Cache for chest_to_world transform
+        self._cached_chest_to_world = None
+        self._last_body_joint_positions = None
+        self._body_joint_change_threshold = 1e-3 # Radians
+
     def get_gripper(self):
         if not self.gripper.valid():
             log.debug("Gripper not available, returning None")
@@ -283,19 +288,49 @@ class Arm(ArmBase):
         raise NotImplementedError("set_joint_velocities is not implemented for this arm.")
     
     def set_joint_positions(self, positions: np.ndarray):
+        # Safety check: validate input positions
+        if positions is None or len(positions) != len(self.joint_names):
+            log.error(f"Invalid joint positions: expected {len(self.joint_names)} joints, got {len(positions) if positions is not None else 'None'}")
+            return False
+            
+        # Safety check: detect large joint changes that could indicate state mutation
+        try:
+            current_positions = self.get_joint_positions()
+            max_joint_change = 0.5  # Maximum allowed change per joint (radians) - about 28 degrees
+            
+            joint_diffs = np.abs(positions - current_positions)
+            max_diff = np.max(joint_diffs)
+            
+            if max_diff > max_joint_change:
+                log.error(f"Rejecting joint command due to large state change: max diff {max_diff:.3f} rad > {max_joint_change:.3f} rad")
+                log.error(f"Current JP: {current_positions}")
+                log.error(f"Target JP:  {positions}")
+                log.error(f"Differences: {joint_diffs}")
+                return False
+                
+        except Exception as e:
+            log.warning(f"Could not perform safety check on joint positions: {e}")
+            # Continue execution if safety check fails (robot communication might be unavailable)
+        
         target_positions = {}
         for i, joint_name in enumerate(self.joint_names):
             target_positions[self.joint_ids[i]] = positions[i]
 
+        success = True
         if self.robot:
             self.robot.set_arm_mode(self.component_type, ARM_MODE_SERVO_MOTION)
             self.robot.set_arm_state(self.component_type, ARM_STATE_SPORT)
-            self.robot.set_arm_servo_angle_j(self.component_type, list(positions), 1, 0, 1)
+            success = self.robot.set_arm_servo_angle_j(self.component_type, list(positions), 1, 0, 1)
+            if not success:
+                log.error("Failed to set joint positions on real robot")
+                
         if self.simulator:
             self.simulator.set_joint_positions(target_positions)
+            
+        return success
 
     def get_flange_pose(self) -> np.matrix:
-        """Gets the pose of the flange.
+        """Gets the pose of the flange. In chest_link frame. 
         """
         if self.robot is not None:
             success, pose = self.robot.get_arm_end_pose(self.component_type)
@@ -317,27 +352,51 @@ class Arm(ArmBase):
         """
         return self.kinematics.ik(target, seed=seed, max_iter=1000, tol=1e-3, step_size=0.5)
     
+    def get_chest_to_world_transform_cached(self) -> np.matrix:
+        """
+        Gets the transformation from chest_link to world, using a cache
+        that invalidates when body joints change significantly.
+        """
+        if self.trunk is None:
+            log.warning("No trunk component available, using identity transform")
+            return np.eye(4)
+
+        current_body_joints = self.get_body_joint_positions()
+
+        if self._cached_chest_to_world is not None and self._last_body_joint_positions is not None:
+            joint_diff = np.abs(current_body_joints - self._last_body_joint_positions)
+            if np.max(joint_diff) < self._body_joint_change_threshold:
+                # Return cached value if body hasn't moved much
+                return self._cached_chest_to_world
+
+        # Recompute the transform
+        chest_to_world = self.trunk.get_chest_to_world_transform()
+        
+        # Update cache
+        self._cached_chest_to_world = chest_to_world
+        self._last_body_joint_positions = current_body_joints
+        
+        return chest_to_world
+
     def get_tcp_pose_chest(self) -> np.matrix:
         """Get TCP pose in chest_link frame (legacy behavior)"""
         return self.get_flange_pose() @ self.flange_t_tcp
     
     def get_tcp_pose(self) -> np.matrix:
         """Get TCP pose in world/base frame"""
-        # Sync robot state to simulator for consistent calculations
-        self.sync_robot_state_to_simulator()
+        # Only sync robot state to simulator in real robot mode
+        if self.robot is not None:
+            self.sync_robot_state_to_simulator()
         
         try:
             # Get TCP pose in chest_link frame
             tcp_in_chest = self.get_tcp_pose_chest()
             
-            # Get transformation from base_link to chest_link
-            if self.trunk is not None:
-                world_to_chest = self.trunk.get_world_to_chest_transform()
-            else:
-                world_to_chest = np.eye(4)
-                log.warning("No trunk component available, using identity transform")
+            # Get transformation from chest_link to world (cached)
+            chest_to_world = self.get_chest_to_world_transform_cached()
+
             # Transform TCP pose from chest_link frame to world frame
-            tcp_in_world = world_to_chest @ tcp_in_chest
+            tcp_in_world = chest_to_world @ tcp_in_chest
             return tcp_in_world
             
         except Exception as e:
@@ -400,21 +459,16 @@ class Arm(ArmBase):
         Returns:
             (success, joint_positions): Tuple of success flag and joint positions
         """
+        if not self.kinematics.is_reachable(target):
+            log.warning("Target pose is not reachable, returning last valid joint positions")
+            return False, self.qs_last_valid.copy()
+
         if start is None:
             start = self.get_joint_positions()
             
         flange_target = target @ self.tcp_t_flange
-        ik_result = self.ik(flange_target, seed=start)
+        success, jp = self.ik(flange_target, seed=start)
         
-        # Handle different IK return types
-        if isinstance(ik_result, tuple):
-            success, jp = ik_result
-        else:
-            # Some IK implementations return None on failure or joint positions on success
-            if ik_result is None:
-                success, jp = False, None
-            else:
-                success, jp = True, ik_result
         
         if not success or jp is None:
             log.warning("IK solver failed to find solution, returning last valid joint positions")
@@ -542,7 +596,8 @@ class Arm(ArmBase):
         For simulation: target is converted from world frame to chest_link frame before IK.
         """
         # For real robot mode: sync all joint states to simulator for correct visualization
-        self.sync_robot_state_to_simulator()
+        if self.robot is not None:
+            self.sync_robot_state_to_simulator()
         
         if self.robot is not None:
             # Safety check: verify pose change is within safe limits
@@ -569,41 +624,33 @@ class Arm(ArmBase):
             # Update last TCP pose after successful movement
             if success:
                 self.last_tcp_pose_chest = target.copy()
+            else:
+                log.error("Failed to move arm to target pose on real robot")
 
             return success
         else:
-            #TODO: 移出去?
-
-            # Convert target pose from world frame to chest_link frame
-            # try:
-            #     # Get current transformation from world to chest_link
-            #     if self.trunk is not None:
-            #         world_to_chest = self.trunk.get_world_to_chest_transform()
-            #         body_positions = self.trunk.get_body_joint_positions()
-            #         log.info(f"Body joints: {body_positions}")
-            #     else:
-            #         world_to_chest = np.eye(4)
-            #         log.warning("No trunk component available, using identity transform")
-                
-            #     # Transform target from world frame to chest_link frame
-            #     # target_world -> target_chest = inv(world_to_chest) * target_world
-            #     chest_to_world = np.linalg.inv(world_to_chest)
-            #     target_in_chest_frame = chest_to_world @ target
-                
-            #     # log.info(f"Target in world frame:\n{target}")
-            #     # log.info(f"World to chest transform:\n{world_to_chest}")
-            #     # log.info(f"Target in chest frame:\n{target_in_chest_frame}")
-                
-            # except Exception as e:
-            #     log.error(f"Failed to transform target pose: {e}")
-            #     log.warning("Using target pose as-is (assuming it's already in chest frame)")
-            #     target_in_chest_frame = target
-
-            success, jp = self.get_joint_target_from_pose(target, self.get_joint_positions())
+            # Simulation mode: try direct end-effector pose control first
+            # Determine arm end body name (wrist link) - IK will solve for TCP but we control arm joints
+            ee_body_name = 'left_arm_link_7' if self.component_type == COM_TYPE_LEFT else 'right_arm_link_7'
+            # Use direct pose control in simulation with balanced gains
+            success = self.simulator.set_end_effector_pose(
+                body_name=ee_body_name,
+                target_pose=target, #chest frame
+                joint_ids=self.joint_ids,
+                arm_kinematics=self.kinematics
+            )
+            
             if success:
-                self.move_to_joint_target(jp, blocking=False)
+                log.debug(f"Direct end-effector pose control successful for {ee_body_name}")
             else:
-                log.error("Failed to get joint target from pose, will NOT move!!")
+                log.warning(f"Set end_effector_pose failed for {ee_body_name}")
+                    
+            # Fallback to IK-based control if direct pose control fails
+            # success, jp = self.get_joint_target_from_pose(target, self.get_joint_positions())
+            # if success:
+            #     self.move_to_joint_target(jp, blocking=False)
+            # else:
+            #     log.error("Failed to get joint target from pose, will NOT move!!")
             return success
     
     def is_trajectory_done(self) -> bool:

@@ -1,0 +1,215 @@
+import numpy as np
+import pyspacemouse
+from teleop.base.teleoperation_base import TeleoperationDeviceBase
+import time
+import threading
+import warnings
+import copy
+import glog as log
+class SpaceMouse(TeleoperationDeviceBase):
+    def __init__(self, config):
+        self._frequency = config["frequency"]
+        self._device_id = config["device_id"]
+        self._scale = config["scale"]
+        self._lower_threshold = config["low_threshold"]
+        self._enable_rotation = config["enable_rotation"]
+        self._data = None
+        self._device = None
+        self.target_updated = False
+        # super init
+        super().__init__(config)
+        time.sleep(0.5)
+        # data update thread
+        self._thread_running = True
+        self.lock = threading.Lock()
+        self._thread = threading.Thread(target=self.update_data)
+        self._thread.start()
+
+        self.tool_target_prev = None
+        # wait for thread
+        log.info(f"The space mouse is initialized with state {self._is_initialized}")
+
+    def initialize(self):
+        if self._is_initialized:
+            return True
+        
+        success = False
+        devices = pyspacemouse.list_devices()
+        if len(devices) <= 0:
+            warnings.warn("No space mouse device found!!!")
+            return False
+        
+        log.info(f'devices:', devices)
+        self._device = pyspacemouse.open(device=devices[0],
+                                        DeviceNumber=self._device_id)
+        if not self._device is None:
+            success = True
+        return success
+    
+    def print_data(self):
+        if not self._is_initialized or self._data is None:
+            warnings.warn(f'The mouse object is not ready for printing data, '
+                          f'is_initialized: {self._is_initialized},' 
+                          f'has_data: {not self._data is None}')
+            return 
+        
+        self.lock.acquire()
+        cur_data = [self._data.x, self._data.y, self._data.z,
+                self._data.roll , self._data.pitch, self._data.yaw]
+        self.lock.release()
+        log.info(f"Space mouse with device id {self._device_id}'s current data: {cur_data}")
+    
+    def close(self):
+        self._thread_running = False
+        self._thread.join()
+        self._device.close()
+        log.info(f"Close the space mouse with device id {self._device_id}")
+        
+    def read_data(self):
+        if not self._is_initialized:
+            warnings.warn(f"The space mouse with id {self._device_id} "
+                          "is not initialized yet!!")
+            return 
+        
+        self._data = self._device.read()
+        
+    def update_data(self):
+        log.info(f"Space mouse with id {self._device_id} has started the data reading thread"
+              f" with initialzed state: {self._is_initialized}!")
+        
+        start_time = time.time()
+        # min_freq = 1e6
+        while self._is_initialized and self._thread_running:
+            self.lock.acquire()
+            self.read_data()
+            self.lock.release()
+            
+            self.target_updated = True
+            dt = time.time() - start_time
+            # cur_freq = (1.0/dt)
+            # if cur_freq < min_freq:
+            #     min_freq = cur_freq
+            # log.info(f'read dt: {cur_freq}, min freq: {min_freq}')
+            if  dt < (1.0 / self._frequency):
+                sleep_time = (1.0 / self._frequency) - dt 
+                time.sleep(sleep_time)
+            else:
+                warnings.warn("The frequency for reading the space mouse data is slower than the" 
+                              f"use specified frequency, expected: {self._frequency}, actual: {1.0 /dt}!")
+            
+            start_time = time.time()
+                
+        log.info(f'Space mouse with id {self._device_id} closes the data update thread!!!!')
+
+    def parse_data_2_robot_target(self, mode: str) -> np.ndarray:
+        if not self._is_initialized:
+            warnings.warn(f"The space mouse with id {self._device_id} "
+                          "is not initialized yet!!")
+            return False, None, None
+
+        if not self.target_updated:
+            return False, None, self.tool_target_prev
+
+        self.lock.acquire()
+        # self._data.pitch, self._data.roll
+        data = [self._data.x, self._data.y, self._data.z,
+                -self._data.pitch, self._data.roll, self._data.yaw]
+        # data = [0,0,0,
+        #         0, self._data.roll,0]
+        buttons = [self._data.buttons[0], self._data.buttons[1]]
+        
+        self.lock.release()
+        
+        if mode == 'absolute':
+            raise ValueError("Unsupport mode for the absolute pose from 3d space mouse!")
+        elif mode == 'relative':
+            low_thresh_flag = np.all(np.array(np.abs(data)) < np.array(self._lower_threshold))
+            low_thresh_flag = not low_thresh_flag
+            target = np.zeros(6)
+            if low_thresh_flag:
+                target = np.array(self._scale) * np.array(data)
+                if not self._enable_rotation:
+                    target[3:] = 0
+            pose_target = {'single': target}
+            tool_target = {'single': buttons}
+            self.target_updated = False
+
+            self.tool_target_prev = tool_target
+
+            return True, pose_target, tool_target
+        else:
+            raise ValueError("Unsupported mode: {}".format(mode))
+        
+class DuoSpaceMouse(TeleoperationDeviceBase):
+    def __init__(self, config):
+        self.devices = {}
+        self.devices['left'] = SpaceMouse(config['left'])
+        self.devices['right'] = SpaceMouse(config['right'])
+        self._is_initialized = self.devices['left']._is_initialized \
+                            and self.devices['right']._is_initialized
+        
+    def initialize(self):
+        left_success = self.devices['left'].initialize()
+        right_success = self.devices['right'].initialize()
+        self._is_initialized = left_success and right_success
+        return self._is_initialized
+        
+    def close(self):
+        self.devices['left'].close()
+        self.devices['right'].close()
+        
+    def read_data(self):
+        pass
+        
+    def print_data(self):
+        self.devices['left'].print_data()
+        self.devices['right'].print_data()
+        
+    def parse_data_2_robot_target(self, mode):
+        if not self._is_initialized:
+            warnings.warn(f'One of devices is not initialized well, '
+                            f'left: {self.devices["left"]._is_initialized}, '
+                            f'right: {self.devices["right"]._is_initialized}')
+        
+        success, left_data, left_other = self.devices['left'].parse_data_2_robot_target(mode)
+        if not success:
+            warnings.warn('The left device did not successfully parse the data')
+            return False, None, None
+        success, right_data, right_other = self.devices['right'].parse_data_2_robot_target(mode)
+        if not success:
+            warnings.warn('The right device did not successfully parse the data')
+            return False, None, None
+            
+        pose_target = {'left': left_data, 'right': right_data}
+        tool_target = {'left': left_other, 'right': right_other}
+        return True, pose_target, tool_target
+                
+if __name__ == '__main__':
+    import yaml
+    import os
+    config = None
+    cur_path = os.path.dirname(os.path.abspath(__file__))
+    # single_space_mouse_cfg, duo_space_mouse_cfg
+    cfg_file = os.path.join(cur_path, 'duo_space_mouse_cfg.yaml')
+    log.info(f'cfg file name: {cfg_file}')
+    with open(cfg_file, 'r') as stream:
+        config = yaml.safe_load(stream)
+    log.info(f'yaml data: {config}')
+    log.info(config)
+    # space_mouse = SpaceMouse(config['space_mouse'])
+    last_time = time.time()
+    # while True:
+    #     if time.time() - last_time > 1.0:
+    #         space_mouse.print_data()
+    #         last_time = time.time()
+    
+    duo_mouse = DuoSpaceMouse(config['duo_space_mouse'])
+    while True:
+        # if time.time() - last_time > 1.0:
+        duo_mouse.print_data()
+        res = duo_mouse.parse_data_2_robot_target('relative')
+        log.info(f'duo data: {res[1]}')
+        last_time = time.time()
+            
+        time.sleep(0.01)
+   

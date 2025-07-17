@@ -1,0 +1,22 @@
+whole_body_ik:
+  # Updated with actual URDF link names
+  tracking_frames:
+    - name: "left_link_tcp"
+      dim: [4,4]
+      require_trans: true
+      trans_scalar: 1.0
+      require_rot: true
+      rot_scalar: 1.0
+    - name: "right_link_tcp"
+      dim: [4, 4]
+      require_trans: true
+      trans_scalar: 1.0
+      require_rot: true
+      rot_scalar: 1.0
+  show_debug: false
+  trans_weight: 0.7
+  rot_weight: 0.3
+  smooth_weight: 0.045
+  regularization_weight: 0.0001
+
+  

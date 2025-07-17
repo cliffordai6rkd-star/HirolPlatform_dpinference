@@ -1,0 +1,4 @@
+franka_hand:
+  ip: "192.168.8.15"
+  grasp_speed: 0.35
+  grasp_force: 20

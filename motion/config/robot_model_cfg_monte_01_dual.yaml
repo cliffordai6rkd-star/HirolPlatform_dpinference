@@ -1,0 +1,65 @@
+monte_01_dual:
+  urdf_path: "assets/monte_01/urdf/robot_description.urdf"
+  mesh_offset: "assets/monte_01"
+  # Include all necessary frames but use minimal locking
+  frames: ["base_link", "leg_link", "hip_link", "chest_link", "head_yaw_link", "head_pitch_link",
+          "left_arm_link", "left_arm_link_1", "left_arm_link_2", "left_arm_link_3", 
+          "left_arm_link_4", "left_arm_link_5", "left_arm_link_6", "left_arm_link_7",
+          "right_arm_link", "right_arm_link_1", "right_arm_link_2", "right_arm_link_3", 
+          "right_arm_link_4", "right_arm_link_5", "right_arm_link_6", "right_arm_link_7",
+          "left_base_link", "left_drive_gear", "left_right_outer_knuckle", "left_left_outer_knuckle", 
+          "left_right_inner_knuckle", "left_left_inner_knuckle", "left_right_finger", "left_left_finger", "left_link_tcp",
+          "right_base_link", "right_drive_gear", "right_right_outer_knuckle", "right_left_outer_knuckle",
+          "right_right_inner_knuckle", "right_left_inner_knuckle", "right_right_finger", "right_left_finger", "right_link_tcp"]
+  # Dual end effectors
+  base_link: "base_link"
+  ee_link: ["left_link_tcp", "right_link_tcp"]
+  fixed_base: true
+  # Minimal locking: only lock head/gripper, keep both arms and body free
+  lock_joints:
+    # Unlock body joints to consider actual body joint angles in TCP calculation
+    # - base: "base_link"
+    #   end: "leg_link"
+    # - base: "leg_link"  
+    #   end: "hip_link"
+    # - base: "hip_link"
+    #   end: "chest_link"
+    
+    # Lock head joints - not needed for arm IK
+    - base: "chest_link"
+      end: "head_yaw_link"
+    - base: "head_yaw_link"
+      end: "head_pitch_link"
+      
+    # Lock all gripper joints - only control arms
+    - base: "left_base_link"
+      end: "left_drive_gear"
+    - base: "left_base_link"
+      end: "left_right_outer_knuckle"
+    - base: "left_base_link"
+      end: "left_left_outer_knuckle"
+    - base: "left_base_link"
+      end: "left_right_inner_knuckle"
+    - base: "left_base_link"
+      end: "left_left_inner_knuckle"
+    # Lock finger joints
+    - base: "left_right_outer_knuckle"
+      end: "left_right_finger"
+    - base: "left_left_outer_knuckle"
+      end: "left_left_finger"
+      
+    - base: "right_base_link"
+      end: "right_drive_gear"
+    - base: "right_base_link"
+      end: "right_right_outer_knuckle"
+    - base: "right_base_link"
+      end: "right_left_outer_knuckle"
+    - base: "right_base_link"
+      end: "right_right_inner_knuckle"
+    - base: "right_base_link"
+      end: "right_left_inner_knuckle"
+    # Lock finger joints
+    - base: "right_right_outer_knuckle"
+      end: "right_right_finger"
+    - base: "right_left_outer_knuckle"
+      end: "right_left_finger"

@@ -5,6 +5,7 @@ from threading import Thread, Lock
 import numpy as np
 import glog as log
 from simulation.mujoco_env_creator import MujocoEnvCreator
+from motion.kinematics import PinocchioKinematicsModel as KinematicsModel
 
 # Gripper joint names
 LEFT_GRIPPER_JOINT = "left_drive_gear_joint"
@@ -71,7 +72,7 @@ class Monte01Mujoco:
         with self.locker:
             qpos_addrs = np.array([self.mj_model.joint(name).qposadr[0] for name in joint_names])
             positions = self.mj_data.qpos[qpos_addrs]
-            log.info(f"Joint names\t{joint_names}\nJoint positions:\t{positions}")
+            log.debug(f"Joint names\t{joint_names}\nJoint positions:\t{positions}")
             return positions
 
     def hold_joint_positions(self, ids):
@@ -113,14 +114,13 @@ class Monte01Mujoco:
 
                 self.jp_prev[joint_id - 1] = target_pos # check
 
-            # 3. 为其他关节设置保持当前位置的控制目标
-            # 这可以防止它们因动力学耦合而漂移
-            holding_joints = set({1,2,3,4,5})
-            for joint_id in holding_joints:
-                if joint_id in self._joint_id_to_actuator_id:
-                    actuator_id = self._joint_id_to_actuator_id[joint_id]
-                    # 目标是当前位置，即保持不动 (joint_id is 1-based, qpos is 0-based)
-                    self.mj_data.ctrl[actuator_id] = self.mj_data.qpos[joint_id - 1]
+            # 3. 对于未被显式控制的关节，不进行任何干预以避免动力学耦合干扰  
+            # 特别是身体和头部关节，应该保持自然的动力学状态
+            # 只对明确被控制的关节设置目标位置
+            controlled_joints = set(id2positions.keys())
+            log.debug(f"Controlling joints: {controlled_joints}")
+            
+            # 不再对未控制的关节应用“保持”逻辑，让它们自然动作
             
             self.b_set_jp = True
 
@@ -177,6 +177,55 @@ class Monte01Mujoco:
             time.sleep(self.viewer_dt)
 
         sim_thread.join()
+
+    def set_end_effector_pose(self, body_name: str, target_pose: np.ndarray, joint_ids: list, arm_kinematics:KinematicsModel=None) -> bool:
+        """
+        Set end-effector pose using inverse kinematics.
+        
+        Args:
+            body_name: Name of the end-effector body (e.g., 'left_arm_link_7')
+            target_pose: Target pose as 4x4 transformation matrix in chest frame
+            joint_ids: List of joint IDs to control
+            arm_kinematics: Optional kinematics model from the arm component
+            
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            log.debug(f"set_end_effector_pose called for {body_name} with joint_ids: {joint_ids}")
+            
+            # If we have a kinematics model, use IK to solve for joint positions
+            if arm_kinematics is not None:
+                # Get current joint positions as seed for IK
+                current_qpos_indices = np.array(joint_ids) - 1  # Convert to 0-based indices
+                current_joint_positions = self.mj_data.qpos[current_qpos_indices]
+                
+                # Solve IK
+                success, joint_positions = arm_kinematics.ik(target_pose, seed=current_joint_positions)
+                
+                # Only set joint positions if IK converged successfully
+                if success and joint_positions is not None:
+                    # Create joint position mapping
+                    id2positions = {}
+                    for i, joint_id in enumerate(joint_ids):
+                        id2positions[joint_id] = joint_positions[i]
+                    
+                    # Set the computed joint positions
+                    self.set_joint_positions(id2positions)
+                    log.debug(f"IK converged and solution applied for {body_name}")
+                    return True
+                else:
+                    log.warning(f"IK failed to converge for {body_name}, keeping current joint positions")
+                    return False
+            else:
+                # Simple mode: just return True to indicate method exists
+                # The arm component should handle IK externally and call set_joint_positions
+                log.debug(f"No kinematics model provided, assuming external IK handling")
+                return True
+            
+        except Exception as e:
+            log.error(f"Error in set_end_effector_pose: {e}")
+            return False
 
 
 if __name__ == "__main__":

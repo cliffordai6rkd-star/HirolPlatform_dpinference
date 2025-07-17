@@ -1,0 +1,43 @@
+# usage platform
+use_hardware: true
+use_simulation: true
+
+# Notice: the config file path should contain ../ to locate the file 
+# from the project directory
+robot: "fr3"
+robot_config: !include ../hardware/fr3/config/fr3_cfg.yaml
+gripper: "franka_hand"
+gripper_config: !include ../hardware/fr3/config/franka_hand_cfg.yaml
+
+control_frequency: 800
+
+controller_config: 
+  - type: "single"
+    name: "impedance"
+    cfg: !include ../controller/config/impedance_fr3_cfg.yaml
+
+model_config: 
+  - type: "single"
+    name: "fr3_franka_hand"
+    cfg: !include ../motion/config/robot_model_fr3_cfg.yaml
+
+trajectory_planner_type: "cart_polynomial"
+plan_type: "cartesian"
+trajectory_config: !include ../trajectory/config/cartesian_polynomial_traj_cfg.yaml
+traj_frequency: 450
+
+teleop_interface: "space_mouse"
+interface_config: !include ../teleop/space_mouse/single_space_mouse_cfg.yaml
+inteface_output_mode: "relative"
+
+simulation: "mujoco"
+simulation_config: !include ../simulation/config/mujoco_fr3_scene.yaml
+targe_site_name: ["target_site"]
+tcp_visualization_site: ["TCP_site"]
+
+# teleoperation used parameter
+use_trajectory_planner: false
+# if you are using mujoco simulation target instead of teleoperation device,
+# set use_simulation_target as true
+use_simulation_target: false
+teleoperation_loop_time: 0.005

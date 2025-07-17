@@ -1,0 +1,15 @@
+# ["cubic", "quintic", "trapezoidal"]
+
+cart_polynomial:
+  interpolation_type: "quintic"
+  dt: 0.02
+  max_velocity: 0.8
+  enable_motion: false 
+
+buffer:
+  size: 60
+  dim: 7
+
+duo_buffer:
+  size: 60
+  dim: 14

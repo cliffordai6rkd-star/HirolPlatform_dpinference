@@ -146,69 +146,12 @@ class DualMouseTeleop:
                 log.warning("No 3D mouse devices found")
                 return
             
-            # Test multiple device numbers to find working pairs
-            # Since 6 devices were detected, try different combinations
-            device_numbers_to_try = [(0, 1), (0, 2), (0, 3), (0, 4), (0, 5), (1, 2), (1, 3), (2, 3)]
-            
-            for left_num, right_num in device_numbers_to_try:
-                try:
-                    log.info(f"Trying DeviceNumber {left_num} for left arm and {right_num} for right arm...")
-                    
-                    # Try to open left mouse
-                    temp_left = pyspacemouse.open(device=devices[0], DeviceNumber=left_num)
-                    if not temp_left:
-                        log.info(f"DeviceNumber {left_num} failed to open")
-                        continue
-                    
-                    # Try to open right mouse
-                    temp_right = pyspacemouse.open(device=devices[0], DeviceNumber=right_num)
-                    if not temp_right:
-                        log.info(f"DeviceNumber {right_num} failed to open")
-                        temp_left.close()
-                        continue
-                    
-                    # Test if they're actually different devices by checking for input
-                    log.info(f"Testing if devices {left_num} and {right_num} are different physical devices...")
-                    log.info("Please move ONLY the LEFT 3D mouse for 3 seconds...")
-                    
-                    left_detected = False
-                    right_detected = False
-                    
-                    for _ in range(30):  # 3 seconds test
-                        try:
-                            state_left = temp_left.read()
-                            state_right = temp_right.read()
-                            
-                            if state_left and (abs(state_left.x) > 0.01 or abs(state_left.y) > 0.01 or abs(state_left.z) > 0.01):
-                                left_detected = True
-                            if state_right and (abs(state_right.x) > 0.01 or abs(state_right.y) > 0.01 or abs(state_right.z) > 0.01):
-                                right_detected = True
-                                
-                        except Exception as e:
-                            pass
-                        time.sleep(0.1)
-                    
-                    # If only left device detected movement, we found a good pair (swap assignment)
-                    if left_detected and not right_detected:
-                        log.info(f"Found working device pair: Left={right_num}, Right={left_num}")
-                        self.left_mouse = temp_right
-                        self.right_mouse = temp_left
-                        log.info(f"Left mouse (DeviceNumber={right_num}) connected: {self.left_mouse.connected}")
-                        log.info(f"Right mouse (DeviceNumber={left_num}) connected: {self.right_mouse.connected}")
-                        return
-                    else:
-                        log.info(f"Devices {left_num} and {right_num} seem to be the same physical device or test failed")
-                        temp_left.close()
-                        temp_right.close()
-                        
-                except Exception as e:
-                    log.warning(f"Error testing DeviceNumber {left_num},{right_num}: {e}")
             
             # If no good pair found, fall back to simple approach
             log.warning("Could not find distinct device pair, using simple approach...")
             try:
                 self.left_mouse = pyspacemouse.open(device=devices[0], DeviceNumber=0)
-                self.right_mouse = pyspacemouse.open(device=devices[0], DeviceNumber=1)
+                self.right_mouse = pyspacemouse.open(device=devices[0], DeviceNumber=3)
                 if self.left_mouse:
                     log.info(f"Left mouse (DeviceNumber=0) connected: {self.left_mouse.connected}")
                 if self.right_mouse:
@@ -236,11 +179,6 @@ class DualMouseTeleop:
             arm_left = self.agent.arm_left()
             arm_right = self.agent.arm_right()
             
-            # Move to start position
-            arm_left.move_to_start()
-            arm_left.hold_position_for_duration(0.2)
-            arm_right.move_to_start() 
-            arm_right.hold_position_for_duration(0.2)
             
             # Initialize arm commands with current poses
             self.left_arm_command = arm_left.get_tcp_pose()

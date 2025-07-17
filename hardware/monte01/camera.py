@@ -9,10 +9,13 @@ from cv_bridge import CvBridge, CvBridgeError
 import cv2
 
 class Camera(CameraBase, Node):
-    def __init__(self):
+    def __init__(self, config={}):
         rclpy.init(args=None)
 
-        super().__init__('camera_node')
+        # Explicitly initialize both parent classes
+        CameraBase.__init__(self, config)
+        Node.__init__(self, 'camera_node')
+        
         self.get_logger().info("影像顯示節點已啟動。")
 
         # 2. 設定 QoS Profile
@@ -39,6 +42,10 @@ class Camera(CameraBase, Node):
         )
         self.subscription  # 避免 "unused variable" 警告
 
+    def initialize(self):
+        pass
+    def close(self):
+        pass
     def image_callback(self, msg: Image):
         """
         訂閱者的回呼函式，每當收到新的影像訊息時就會被執行。
