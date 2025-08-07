@@ -1,4 +1,4 @@
 franka_hand:
-  ip: "192.168.8.15"
-  grasp_speed: 0.35
+  ip: "192.168.1.105"
+  grasp_speed: 0.3
   grasp_force: 20

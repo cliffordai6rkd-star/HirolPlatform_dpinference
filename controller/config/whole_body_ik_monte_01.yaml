@@ -13,6 +13,14 @@ whole_body_ik:
       trans_scalar: 1.0
       require_rot: true
       rot_scalar: 1.0
+  nullspace_tracking:
+    - joint_name: "body_joint_2"
+      position_target: 0.3 # range: [-0.3, 0.3]
+      scalar: 30.0
+    - joint_name: "body_joint_1"
+      position_target: -0.2 # range: [-0.4, 0.2]
+      scalar: 30.0
+  nullspace_weight: 1.0
   show_debug: false
   trans_weight: 0.7
   rot_weight: 0.3

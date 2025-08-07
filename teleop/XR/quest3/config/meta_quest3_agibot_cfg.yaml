@@ -1,0 +1,12 @@
+meta_quest3:
+  use_hand_tracking: false
+  relative_finger_pose: true
+  image_shape: [480, 640]
+  cert_file: "teleop/xr/certifications/cert.pem"
+  key_file: "teleop/xr/certifications/key.pem"
+  ngork: false
+  webrtc: false
+  output_left: true
+  output_right: true
+  initial_pose_left: [0.0, 0.0, -0.8, 0, 0.7071068, 0.7071068, 0]
+  initial_pose_right: [0.0, -0.0, -0.8, 0, -0.7071068, 0.7071068, 0]

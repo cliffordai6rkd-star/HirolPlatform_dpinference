@@ -1,0 +1,41 @@
+# usage platform
+use_hardware: false
+use_simulation: true
+
+# Notice: the config file path should contain ../ to locate the file
+# from the project directory
+robot: "agibot_g1"
+robot_config: !include ../hardware/agibot_g1/config/agibot_g1_cfg.yaml
+gripper: "franka_hand"
+gripper_config: !include ../hardware/fr3/config/franka_hand_cfg.yaml
+
+control_frequency: 800
+controller_type: "whole_body_ik"
+controller_config: !include ../controller/config/whole_body_ik_agibot_g1.yaml
+
+model_type: "model"
+model_config:
+  name: "agibot_g1_with_hand"
+  cfg: !include ../motion/config/robot_model_cfg_agibot_g1.yaml
+
+buffer_type: "duo_buffer"
+trajectory_planner_type: "cart_polynomial"
+plan_type: "cartesian"
+trajectory_config: !include ../trajectory/config/cartesian_polynomial_traj_cfg.yaml
+traj_frequency: 450
+
+teleop_interface: "meta_quest3"
+interface_config: !include ../teleop/xr/meta_quest3_cfg.yaml
+inteface_output_mode: "relative"
+
+simulation: "mujoco"
+simulation_config: !include ../simulation/config/mujoco_agibot_g1.yaml
+target_site_name: ["targetL_site", "targetL_site"]
+tcp_visualization_site: ["TCPL_site", "TCPR_site"]
+
+# teleoperation used parameter
+use_trajectory_planner: true
+# if you are using mujoco simulation target instead of teleoperation device,
+# set use_simulation_target as true
+use_simulation_target: false
+teleoperation_loop_time: 0.005

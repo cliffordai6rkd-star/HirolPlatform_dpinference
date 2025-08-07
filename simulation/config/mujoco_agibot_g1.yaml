@@ -7,7 +7,7 @@ mujoco:
   dof: [7, 7]
   # "joint_lift_body", "joint_body_pitch",
   joint_names: [
-                
+                "joint_lift_body",
                 "left_arm_joint1",
                 "left_arm_joint2",
                 "left_arm_joint3",
@@ -24,7 +24,7 @@ mujoco:
                 "right_arm_joint7"]
   # "actuator_lift_body" "actuator_body_pitch",
   actuator_names: [
-                  
+                  "actuator_lift_body",
                   "actuator_left_arm_joint1",
                   "actuator_left_arm_joint2",
                   "actuator_left_arm_joint3",
@@ -40,11 +40,11 @@ mujoco:
                   "actuator_right_arm_joint6",
                   "actuator_right_arm_joint7"]
   # "position" "position",
-  actuator_mode: [  "position", "position", "position", "position", "position",
+  actuator_mode: ["position", "position", "position", "position", "position", "position",
                   "position", "position", "position", "position", "position", "position", "position",
                   "position", "position"]
   # ee_site_name: "left_hand_site"
-  base_body: "base_car"
+  base_body: ["base_car"]
   extra_render: false
   max_traj_len: 80
   use_custom_key_frame: false

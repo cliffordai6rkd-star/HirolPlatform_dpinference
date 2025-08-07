@@ -8,7 +8,7 @@ frames: ["pelvis", "left_ankle_pitch_link", "right_ankle_pitch_link",
         "right_hand_middle_1_link", "right_hand_index_1_link"]
 # maybe we need to lock the hand related joint
 base_link: "pelvis"
-ee_link: "left_hand_palm_link"
+ee_link: ["left_hand_palm_link", "right_hand_palm_link", "left_ankle_pitch_link", "right_ankle_pitch_link"]
 fixed_base: true
 lock_joints:
   - base: "left_hand_palm_link"

@@ -1,5 +1,6 @@
 from simulation.mujoco.mujoco_sim import MujocoSim
 from controller.impedance_controller import ImpedanceController
+from controller.cartesian_impedance_controller import CartesianImpedanceController
 from motion.pin_model import RobotModel
 from hardware.fr3.fr3_arm import Fr3Arm
 import os 
@@ -7,12 +8,12 @@ import yaml, time
 from cfg_handling import get_cfg
 
 def main():
-    impedance_config = "controller/config/impedance_fr3_cfg.yaml"
+    impedance_config = "controller/config/cartesian_impedance_fr3_cfg.yaml"
     impedance_config = get_cfg(impedance_config)
     model_config = "motion/config/robot_model_fr3_cfg.yaml"
-    model_config = get_cfg(model_config)["fr3_only"]
+    model_config = get_cfg(model_config)["fr3_franka_hand"]
     print(f'model: {model_config}')
-    controller_config = impedance_config["impedance"]
+    controller_config = impedance_config["cartesian_impedance"]
     print(f'controller: {controller_config}')
     mujoco_config = "simulation/config/mujoco_fr3_scene.yaml"
     mujoco_config = get_cfg(mujoco_config)["mujoco"]
@@ -21,7 +22,8 @@ def main():
     fr3_config = get_cfg(fr3_config)["fr3"]
     
     model = RobotModel(model_config)
-    impedance_controller = ImpedanceController(controller_config, model)
+    # impedance_controller = ImpedanceController(controller_config, model)
+    cartesianImpedanceController = CartesianImpedanceController(controller_config, model)
     mujoco = MujocoSim(mujoco_config)
     fr3 = Fr3Arm(fr3_config)
     
@@ -37,9 +39,9 @@ def main():
         cur_tcp = mujoco.get_tcp_pose()
         joint_states = fr3.get_joint_states()
         mujoco.set_target_mocap_pose(tcp_mocap, cur_tcp)
-        # success, joint_value, mode = impedance_controller.compute_controller(target, 
-        #                                                                      joint_states)
-        joint_value = model.id(joint_states._positions, joint_states._velocities, joint_states._accelerations)
+        # success, joint_value, mode = impedance_controller.compute_controller(target, joint_states)
+        success, joint_value, mode = cartesianImpedanceController.compute_controller(target, joint_states)
+        # joint_value = model.id(joint_states._positions, joint_states._velocities, joint_states._accelerations)
         mode = "torque"
         mujoco.set_joint_command([mode] * len(joint_value), joint_value)
         # print(f'joint value: {joint_value}')

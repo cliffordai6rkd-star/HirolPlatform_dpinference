@@ -15,9 +15,25 @@ import warnings
 from threading import Thread
 
 class EpisodeWriter():
-    def __init__(self, task_dir, frequency=30, image_size=[640, 480], rerun_log = True, robot_info = None):
+    def __init__(self, task_dir, frequency=30, image_size=[640, 480], rerun_log = True, 
+                 robot_info = None, version = "1.0.0", date = None, author = None, 
+                 task_description = None, task_description_goal = None, task_description_steps = None):
         """
-        image_size: [width, height]
+            image_size: [width, height]
+            # Episode data format
+                array data (saved to episode_dir/data.json):
+                    item_id (trajectory id, nums of step in one episode),
+                    joint_states, ee_states(end-effector pose), imus, tactiles(array)
+                    tools: end-effector tools state (gripper, dexterous hand ...)
+                image data (saved to episode_dir/keys):
+                    colors (e.g.episode_dir/colors/<id_head>.jpg), 
+                    depths (e.g.episode_dir/depths/<id_head>.jpg), 
+                    tactiles(image, e.g.episode_dir/tactiles/id_<left_finger>.jpg)
+                audio data (saved to epiode_dir/audios/keys):
+                    audios (e.g.episode_dir/audios/audio_id_<left_mic>.npy)
+            # save path:
+                Each episode data is stored under the task dir/<episode_id>, e/g.
+                the first episde is stored in task_dir/episode_0000
         """
         print("==> EpisodeWriter initializing...\n")
         self.task_dir = task_dir
@@ -43,7 +59,9 @@ class EpisodeWriter():
         else:
             os.makedirs(self.task_dir)
             print(f"==> episode directory does not exist, now create one.\n")
-        self.data_info()
+        self.data_info(version=version, date=date, author=author)
+        self.text = {}
+        self.add_text_prompt(task_description_goal, task_description, task_description_steps)
         self.text_desc()
 
         self.is_available = True  # Indicates whether the class is available for new operations
@@ -69,17 +87,21 @@ class EpisodeWriter():
                 "sim_state": ""
             }
     def text_desc(self):
-        self.text = {
-            "goal": "Pick up the red cup on the table.",
-            "desc": "Pick up the cup from the table and place it in another position. The operation should be smooth and the water in the cup should not spill out",
-            "steps":"step1: searching for cups. step2: go to the target location. step3: pick up the cup",
-        }
+        if self.text is None:
+            self.text = {
+                "goal": "Pick up the red cup on the table.",
+                "desc": "Pick up the cup from the table and place it in another position. The operation should be smooth and the water in the cup should not spill out",
+                "steps":"step1: searching for cups. step2: go to the target location. step3: pick up the cup",
+            }
         
-    def add_text_prompt(self, prompt):
-        if not isinstance(prompt, dict):
-            warnings.warn(f'prompt format is not dict of string containing goal, desc, and steps')
-            return
-        self.text = prompt
+    def add_text_prompt(self, goal, desc, steps):
+        if goal is None or desc is None or steps is None:
+            warnings.warn(f'Task description is not fully defined!!!!')
+            return 
+        
+        self.text["goal"] = goal
+        self.text["desc"] = desc
+        self.text["steps"] = steps
  
     def create_episode(self):
         """
@@ -116,13 +138,14 @@ class EpisodeWriter():
         return True  # Return True if the episode is successfully created
         
     def add_item(self, colors, depths=None, joint_states=None, ee_states=None, 
-                tactiles=None, imus=None, audios=None, sim_state=None):
+                tools=None, tactiles=None, imus=None, audios=None, sim_state=None):
         """
-            called from external to add new data for current episode
+            called from external to add new data for current episode,
+            please make sure your data (except for image & audio data) are python list instead of np array 
         """
         # Increment the item ID
         self.item_id += 1
-        # Create the item data dictionary
+        # Create the item data dictionary, @TODO: whether to keep sim state
         item_data = {
             'idx': self.item_id,
             'colors': colors,
@@ -132,7 +155,8 @@ class EpisodeWriter():
             'tactiles': tactiles,
             'imus': imus,
             'audios': audios,
-            'sim_state': sim_state,
+            'tools': tools
+            # 'sim_state': sim_state,
         }
         # Enqueue the item data
         self.item_data_queue.put(item_data)
@@ -227,6 +251,7 @@ class EpisodeWriter():
             image_name = f'{str(idx).zfill(6)}_{image_key}.jpg'
             if not cv2.imwrite(os.path.join(save_dir, image_name), image_value):
                 print(f"Failed to save {image_desc} image.")
+            # @TODO: why not save the image path
             item_data[image_desc][image_key] = os.path.join(image_desc, image_name)
         
     def _dict_contain_images(dict_data: dict):
@@ -238,7 +263,7 @@ class EpisodeWriter():
     
     
 class EpisodeLoader():
-    def __init__(self):
+    def __init__(self, task_dir):
         pass    
     
     # def

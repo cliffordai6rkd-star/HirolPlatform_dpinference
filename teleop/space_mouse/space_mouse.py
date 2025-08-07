@@ -24,10 +24,8 @@ class SpaceMouse(TeleoperationDeviceBase):
         self.lock = threading.Lock()
         self._thread = threading.Thread(target=self.update_data)
         self._thread.start()
-
-        self.tool_target_prev = None
         # wait for thread
-        log.info(f"The space mouse is initialized with state {self._is_initialized}")
+        print(f"The space mouse is initialized with state {self._is_initialized}")
 
     def initialize(self):
         if self._is_initialized:
@@ -108,16 +106,15 @@ class SpaceMouse(TeleoperationDeviceBase):
             return False, None, None
 
         if not self.target_updated:
-            return False, None, self.tool_target_prev
+            return False, None, None
 
         self.lock.acquire()
         # self._data.pitch, self._data.roll
-        data = [self._data.x, self._data.y, self._data.z,
-                -self._data.pitch, self._data.roll, self._data.yaw]
+        data = [-self._data.y, self._data.x, self._data.z,
+                self._data.roll, self._data.pitch, self._data.yaw]
         # data = [0,0,0,
         #         0, self._data.roll,0]
         buttons = [self._data.buttons[0], self._data.buttons[1]]
-        
         self.lock.release()
         
         if mode == 'absolute':
@@ -133,9 +130,6 @@ class SpaceMouse(TeleoperationDeviceBase):
             pose_target = {'single': target}
             tool_target = {'single': buttons}
             self.target_updated = False
-
-            self.tool_target_prev = tool_target
-
             return True, pose_target, tool_target
         else:
             raise ValueError("Unsupported mode: {}".format(mode))
@@ -149,10 +143,13 @@ class DuoSpaceMouse(TeleoperationDeviceBase):
                             and self.devices['right']._is_initialized
         
     def initialize(self):
-        left_success = self.devices['left'].initialize()
-        right_success = self.devices['right'].initialize()
-        self._is_initialized = left_success and right_success
-        return self._is_initialized
+        if self._is_initialized:
+            return True
+        
+        self.devices['left'].initialize()
+        self.devices['right'].initialize()
+        return self.devices['left']._is_initialized \
+                            and self.devices['right']._is_initialized
         
     def close(self):
         self.devices['left'].close()
@@ -180,8 +177,8 @@ class DuoSpaceMouse(TeleoperationDeviceBase):
             warnings.warn('The right device did not successfully parse the data')
             return False, None, None
             
-        pose_target = {'left': left_data, 'right': right_data}
-        tool_target = {'left': left_other, 'right': right_other}
+        pose_target = {'left': left_data['single'], 'right': right_data['single']}
+        tool_target = {'left': left_other['single'], 'right': right_other['single']}
         return True, pose_target, tool_target
                 
 if __name__ == '__main__':

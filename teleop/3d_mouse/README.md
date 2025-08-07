@@ -1,1 +1,0 @@
-Install deps: follow `https://github.com/JakubAndrysek/PySpaceMouse`.

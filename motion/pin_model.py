@@ -3,8 +3,9 @@ import os
 import numpy as np
 import casadi
 import pinocchio.casadi as cpin
+from motion.model_base import ModelBase
 from hardware.base.utils import RobotJointState, convert_7D_2_homo, convert_quat_to_rot_matrix
-import glog as log
+
 def get_joint_ids_between_frames(model: pin.Model, base_frame_id: str, 
                                  end_frame_id: str)-> list[int]:
     """
@@ -29,8 +30,9 @@ def get_joint_ids_between_frames(model: pin.Model, base_frame_id: str,
     
 
 # @Notice: pin pose: {x, y, z, qw, qx, qy, qz}
-class RobotModel:
+class RobotModel(ModelBase):
     def __init__(self, config):
+        super().__init__(config)
         self.urdf_path = config["urdf_path"]
         self.mesh_dir_offset = config["mesh_offset"]
         self.frame_names = config["frames"]
@@ -98,6 +100,9 @@ class RobotModel:
     def get_pin_model_N_data(self):
         return self.model, self.data
 
+    def get_model_dof(self):
+        return self.nv
+
     def update_kinematics(self, joint_positions, joint_vel = None,
                               joint_acc = None):
         if joint_vel is not None and joint_acc is not None:
@@ -110,7 +115,7 @@ class RobotModel:
         pin.updateFramePlacements(self.model, self.data)
     
     def get_frame_pose(self, frame_name, joint_positions: np.ndarray | None = None,
-                       need_update: bool = False):
+                       need_update: bool = False, model_type = "single"):
         """
             @brief: return the specific frame transformation (fk),
                 in the format of 4x4 homogenous matrix
@@ -118,19 +123,26 @@ class RobotModel:
                 need_update: if set false, you need to update the pinocchio
                 joint state first by calling `update_kinematics`
         """
+        # @TODO @ yx
+        # if model_type != "single":
+        #     raise ValueError("This is a single urdf model, please check your model type!!!")
+        
         if need_update:
             if joint_positions is None:
                 raise ValueError("The joint position should not be None to update"
                                  "pin model state")
             else:
                 self.update_kinematics(joint_positions)
-        # log.info(f"Get joint_positions {joint_positions}")
+                
         frame_id = self.frames_name2id[frame_name]
         return self.data.oMf[frame_id].homogeneous
         
     def get_frame_twist(self, frame_name, joint_position = None, 
                         joint_velocity = None, reference_frame = pin.LOCAL_WORLD_ALIGNED,
-                        need_update: bool = False):
+                        need_update: bool = False, model_type = "single"):
+        if model_type != "single":
+            raise ValueError("This is a single urdf model, please check your model type!!!")
+        
         if need_update:
             if joint_position is None or joint_velocity is None:
                 raise ValueError("THe joint posi, vel is needed to update!")
@@ -141,7 +153,10 @@ class RobotModel:
     
     def get_frame_acc(self, frame_name, joint_position = None, joint_velocity = None, 
                         joint_acceleration = None, reference_frame = pin.LOCAL_WORLD_ALIGNED,
-                        need_update: bool = False):
+                        need_update: bool = False, model_type = "single"):
+        if model_type != "single":
+            raise ValueError("This is a single urdf model, please check your model type!!!")
+        
         if need_update:
             if joint_position is None or joint_velocity is None \
                 or joint_acceleration is None:
@@ -152,38 +167,53 @@ class RobotModel:
         return acc
     
     def get_jacobian(self, frame_name, joint_position, dim = None,
-                     reference_frame = pin.LOCAL_WORLD_ALIGNED):
+                     reference_frame = pin.LOCAL_WORLD_ALIGNED, model_type = "single"):
+        if model_type != "single":
+            raise ValueError("This is a single urdf model, please check your model type!!!")
+        
         J = pin.computeFrameJacobian(self.model, self.data, joint_position,
                                      self.frames_name2id[frame_name], reference_frame)
         if dim is not None:
             J = J[:, dim]
         return J
         
-    def get_inertial_matrix(self, joint_positions, dims=None):
+    def get_inertial_matrix(self, joint_positions, dims=None, model_type = "single"):
+        if model_type != "single":
+            raise ValueError("This is a single urdf model, please check your model type!!!")
+        
         M = pin.crba(self.model, self.data, 
                     joint_positions)
         if dims is not None:
             M = M[np.ix_(dims, dims)]
         return M
     
-    def get_coriolis_matrix(self, joint_position, joint_velocity, dims=None):
+    def get_coriolis_matrix(self, joint_position, joint_velocity, dims=None, model_type = "single"):
+        if model_type != "single":
+            raise ValueError("This is a single urdf model, please check your model type!!!")
+        
         C = pin.computeCoriolisMatrix(self.model, self.data, 
                                       joint_position, joint_velocity)
         if dims is not None:
             C = C[np.ix_(dims, dims)]
         return C
     
-    def get_gravity_vector(self, joint_positions, dims):
+    def get_gravity_vector(self, joint_positions, dims, model_type = "single"):
+        if model_type != "single":
+            raise ValueError("This is a single urdf model, please check your model type!!!")
+        
         g = pin.computeGeneralizedGravity(self.model, self.data,joint_positions)
         if dims is not None:
             g = g[dims]
         return g
     
-    def get_dynamic_paras(self, posi, vel) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def get_dynamic_paras(self, posi, vel, model_type = "single") -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
             @brief: return all dynamic parameters
             @returns: tuples(M(q), C(q,dot(q)), G(q))
         """
+        if model_type != "single":
+            raise ValueError("This is a single urdf model, please check your model type!!!")
+        
         self.update_kinematics(posi, vel)
         M = pin.crba(self.model, self.data, posi)
         C = pin.computeCoriolisMatrix(self.model, self.data, posi, vel)
@@ -322,7 +352,10 @@ class RobotModel:
             print(f"ERROR in convergence{e}")
             return False, None, "position"
             
-    def id(self, joint_positions, joint_velocity, joint_accleration):
+    def id(self, joint_positions, joint_velocity, joint_accleration, model_type = "single"):
+        if model_type != "single":
+            raise ValueError("This is a single urdf model, please check your model type!!!")
+        
         tau = pin.rnea(self.model, self.data, joint_positions, 
                        joint_velocity, joint_accleration)
         return tau

@@ -67,6 +67,7 @@ class AgibotG1(ArmBase):
         self._thread_running = True
         self._update_thread = threading.Thread(target=self.update_arm_states)
         super().__init__(config)
+        self._total_dof = self.get_total_dof()
         
     def initialize(self):
         self._last_posi = np.zeros(self._dof)
@@ -74,6 +75,12 @@ class AgibotG1(ArmBase):
     
         self._update_thread.start()        
         return True
+    
+    def get_total_dof(self):
+        total_dof = 0
+        for dof in self._dof:
+            total_dof += dof
+        return total_dof
         
     def update_state_task(self):
         read_frequency = 800
@@ -123,8 +130,8 @@ class AgibotG1(ArmBase):
             if cur_mode != 'position':
                 raise ValueError(f'AgibotG1 only supports for position control!!!')
             
-        if len(command) != self._dof:
-            raise ValueError(f'AgibotG1 joint command length should be {self._dof}, '
+        if len(command) != self._total_dof:
+            raise ValueError(f'AgibotG1 joint command length should be {self._total_dof}, '
                              f'but got {len(command)}')
         self._robot.move_arm(command[:14])
         
@@ -146,6 +153,10 @@ class AgibotG1(ArmBase):
         self._update_thread.join()
         self._robot.reset()
         self._robot.shutdown()
+    
+    def move_to_start(self):
+        if not self._init_joint_positions is None:
+            self.set_joint_command('position', self._init_joint_positions)
 
     def set_chassis_command(self, chassis_speed):
         if len(chassis_speed) != 2:

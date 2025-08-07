@@ -1,0 +1,10 @@
+duo_arm:
+  dof: [7,7]
+  left:
+      type: "xarm7"
+      dof: 7
+      ip: "192.168.11.11"
+  right:
+      type: "xarm7"
+      dof: 7
+      ip: "192.168.11.12"

@@ -63,10 +63,10 @@
     <body name="base_car">
       <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.752941 0.752941 0.752941 1" mesh="base_link"/>
       <geom type="mesh" rgba="0.752941 0.752941 0.752941 1" mesh="base_link"/>
-      <!-- 0.6485 -->
-      <body name="link_up_down_body" pos="0 0 1.0">
+      <!-- 0.6485 / 1.0 -->
+      <body name="link_up_down_body" pos="0 0 0.6485">
         <inertial pos="0.0338352 -0.00248044 0.000838431" quat="0.70654 0.707661 -0.00251284 0.00337775" mass="3.26275" diaginertia="0.0128303 0.011172 0.00610409"/>
-        <!-- <joint name="joint_lift_body" pos="0 0 0.4" axis="0 0 1" type="fixed" range="0 0.5" actuatorfrcrange="-1000 1000"/> -->
+        <joint name="joint_lift_body" pos="0 0 0.4" axis="0 0 1" type="slide" range="0 0.5" actuatorfrcrange="-1000 1000"/>
         <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.752941 0.752941 0.752941 1" mesh="link_up_down_body"/>
         <geom type="mesh" rgba="0.752941 0.752941 0.752941 1" mesh="link_up_down_body"/>
         <body name="link_pitch_body" pos="0.131 0 0" quat="0.499998 0.5 -0.5 0.500002">
@@ -310,8 +310,7 @@
   <!-- actuator -->
   <actuator>
     <!-- Main body joints -->
-    <!-- <position name="actuator_lift_body" joint="joint_lift_body" gear="0.94" 
-          kp="6000" kv="300" ctrlrange="0.4 0.4"/> -->
+    <motor name="actuator_lift_body" joint="joint_lift_body" ctrlrange="-30 30"/>
     <!-- <motor name="actuator_body_pitch" joint="joint_body_pitch" ctrlrange="-50 50"/> -->
 
     <!-- Left arm joints -->

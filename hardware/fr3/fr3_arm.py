@@ -8,15 +8,17 @@ from panda_py import Panda
 import threading
 import time
 from scipy.spatial.transform import Rotation as R
-import copy
+import glog as log
 
 class Fr3Arm(ArmBase):
     def __init__(self, config):
         self._ip = config["ip"]
+        log.info(f'Fr3 arm with ip {self._ip} is initializing!!!')
         self._fr3_robot = Panda(self._ip)
         self._damping = config.get("damping", None)
         self._stiffness = config.get("stiffness", None)
         self._filter_coefficient = config.get("filter_coeff", None)
+        self._collision_behaviour = config.get("collision_behaviour", None)
         self._control_mode = None
         self._thread = threading.Thread(target=self.update_robot_state_thread)
         self._last_velocities = np.zeros(7)
@@ -46,15 +48,17 @@ class Fr3Arm(ArmBase):
             self.update_arm_states()
             self._lock.release()
             
-            if dt > 1.2 / read_frequency:
-                warnings.warn(f"Reading fr3 robot state is slower than the read frequency "
-                              f"{read_frequency}Hz, actual: {1.0 / dt}Hz")
-            elif dt < 1.0 / read_frequency:
+            # @TODO: check why the reading thread is slow
+            if dt < 1.0 / read_frequency:
                 sleep_time = (1.0 / read_frequency) - dt
                 time.sleep(sleep_time)
+            # elif dt > 2.0 / read_frequency:
+            #     warnings.warn(f"Reading fr3 robot state is slower than the read frequency "
+            #                   f"{read_frequency}Hz, actual: {1.0 / dt}Hz")
         print(f'Fr3 with ip {self._ip} stopped its thread!!!')
             
     def initialize(self):
+        # self._fr3_robot.stop_controller()
         if self._control_mode is None:
             self._panda_py_controller = controllers.JointPosition()
             self._control_mode = "position"
@@ -72,10 +76,16 @@ class Fr3Arm(ArmBase):
         self._fr3_robot.start_controller(self._panda_py_controller)    
 
         if not self._is_initialized:
+            if self._collision_behaviour is not None:
+                self.set_collision_threshold(self._collision_behaviour["torque_min"],
+                                             self._collision_behaviour["torque_max"],
+                                             self._collision_behaviour["force_min"],
+                                             self._collision_behaviour["force_max"])
             self._thread.start()
+            
+        self._fr3_state_update_flag = False
         while not self._fr3_state_update_flag:
             pass
-
         print(f'Fr3 robot with ip {self._ip} is successfully updated!!!')
         return True
     
@@ -121,9 +131,10 @@ class Fr3Arm(ArmBase):
             warnings.warn(f"the command dimension does not match with the arm dof: "
                     f"expect: {self._dof}, get: {len(command)}")
             return False
-        if not mode is None and mode != self._control_mode:
-            warnings.warn(f"the controller mode is not consistent with the previous one: "
-                    f"expect: {self._control_mode}, get: {mode}")
+        
+        # checking error state
+        if self.recover():
+            warnings.warn(f'The robot falls in error state and finished recover!!!')
             return False
         
         # set command
@@ -165,6 +176,58 @@ class Fr3Arm(ArmBase):
         """
         self._fr3_robot.stop_controller()
         self._control_mode = None
+        
+    def recover(self) -> bool:
+        """
+            recover the robot from error state
+            return: if robot need to recover then return true else false
+        """
+        # check whether need to recover
+        try:
+            self._fr3_robot.raise_error()
+            return False
+        except:
+            self._fr3_robot.recover()
+            self.stop_controller()
+            self.initialize()
+            return True
+        
+    def move_to_start(self):
+        if self._init_joint_positions is None:
+            self._fr3_robot.move_to_start()
+            self.stop_controller()
+        else:
+            self.set_joint_command('position', self._init_joint_positions)
+
+    def set_collision_threshold(self, torque_min: float | list[float],
+                                torque_max: float | list[float],
+                                force_min: float | list[float],
+                                force_max: float | list[float]):
+        if not isinstance(torque_min, list):
+            torque_min = [torque_min] * 7
+        elif len(torque_min) != 7:
+            warnings.warn(f'The collision threshold for fr3 {self._ip} failed to be updated!')
+            return False
+        if not isinstance(torque_max, list):
+            torque_max = [torque_max] * 7
+        elif len(torque_max) != 7:
+            warnings.warn(f'The collision threshold for fr3 {self._ip} failed to be updated!')
+            return False
+        
+        if not isinstance(force_min, list):
+            force_min = [force_min] * 6
+        elif len(force_min) != 6:
+            warnings.warn(f'The collision threshold for fr3 {self._ip} failed to be updated!')
+            return False
+        if not isinstance(force_max, list):
+            force_max = [force_max] * 6
+        elif len(force_max) != 6:
+            warnings.warn(f'The collision threshold for fr3 {self._ip} failed to be updated!')
+            return False
+        
+        self._fr3_robot.get_robot().set_collision_behavior(torque_min, torque_max,
+                                                           force_min, force_max)
+        
 
 if __name__ == '__main__':
     import yaml
@@ -178,11 +241,11 @@ if __name__ == '__main__':
     print(f'yaml data: {config}')
     fr3 = Fr3Arm(config['fr3'])
     
-    test_mode = "torque"
+    test_mode = "position"
     test_times = 10
     counter = 0
     joint_id = 6
-    test_value = 0.06
+    test_value = 0.1
     init_state = fr3.get_joint_states()
     while counter <= test_times:
         joint_state = fr3.get_joint_states()
@@ -209,7 +272,7 @@ if __name__ == '__main__':
         fr3.set_joint_command(test_mode, joint_command)
         
         counter += 1     
-        time.sleep(0.02)
+        time.sleep(0.1)
         
     print('Exit the testing of fr3 arm!!!!')
     

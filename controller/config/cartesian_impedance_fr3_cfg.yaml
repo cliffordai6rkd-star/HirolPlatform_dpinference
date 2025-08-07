@@ -1,0 +1,71 @@
+cartesian_impedance:
+  enable_gravity_compensation: false
+  
+  # Stiffness parameters
+  translational_stiffness: 2000.0  # N/m
+  rotational_stiffness: 250.0      # Nm/rad
+  #rotational_stiffness: 150.0 
+
+
+  # Damping parameters
+  translational_damping: 89.0     # Ns/m
+  rotational_damping: 9.0         # Nms/rad
+  #rotational_damping: 7.0         # Nms/rad
+  
+  # Integral gain parameters (for steady-state error)
+  translational_ki: 0.0
+  rotational_ki: 0.0
+  
+  # Nullspace control parameters
+  # nullspace_stiffness: 20.0
+  # joint1_nullspace_stiffness: 20.0
+  
+  # Error clipping parameters
+  translational_clip_min: [-0.002, -0.0016, -0.005]  # meters
+  translational_clip_max: [0.0075, 0.0016, 0.0055]      # meters
+  rotational_clip_min: [-0.01, -0.025, -0.005]      # radians
+  rotational_clip_max: [0.01, 0.025, 0.005]        # radians
+
+
+  # Optional: precision parameters for fine control
+  translational_clip_min: [-0.1, -0.1, -0.1]  # meters
+  translational_clip_max: [0.1, 0.1, 0.1]      # meters
+  rotational_clip_min: [-0.5, -0.5, -0.5]      # radians
+  rotational_clip_max: [0.5, 0.5, 0.5]        # radians
+
+
+
+    #   PRECISION_PARAM = {
+    #     "translational_stiffness": 2000,
+    #     "translational_damping": 89,
+    #     "rotational_stiffness": 250,
+    #     "rotational_damping": 9,
+    #     "translational_Ki": 0.0,
+    #     "translational_clip_x": 0.1,
+    #     "translational_clip_y": 0.1,
+    #     "translational_clip_z": 0.1,
+    #     "translational_clip_neg_x": 0.1,
+    #     "translational_clip_neg_y": 0.1,
+    #     "translational_clip_neg_z": 0.1,
+    #     "rotational_clip_x": 0.5,
+    #     "rotational_clip_y": 0.5,
+    #     "rotational_clip_z": 0.5,
+    #     "rotational_clip_neg_x": 0.5,
+    #     "rotational_clip_neg_y": 0.5,
+    #     "rotational_clip_neg_z": 0.5,
+    #     "rotational_Ki": 0.0,
+    # }
+  
+  # Torque rate saturation
+  delta_tau_max: 1.0  # Nm/s
+  
+  # Filter parameter for smooth transitions
+  filter_params: 0.005
+  
+  # Joint torque saturation
+  saturation:
+    min: [-40, -40, -40, -40, -40, -40, -40]
+    max: [40, 40, 40, 40, 40, 40, 40]
+  
+  # Optional: specify arm joint indices if not using all joints
+  # arm_joint_idxes: [0, 1, 2, 3, 4, 5, 6]

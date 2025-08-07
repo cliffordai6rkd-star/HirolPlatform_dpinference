@@ -8,7 +8,6 @@ recv_response.txt
 send_request.txt
 debug_generated_scene.xml
 generated_scene.xml
-MUJOCO_LOG.TXT
 analyze_stl_dimensions.py
 calculate_gripper_box_geometries.py
 collision_geometry_suggestions.json
@@ -17,5 +16,15 @@ stl_analysis_results.json
 /.idea/
 /.kinematics_cache/
 /.vscode/
-MUJOCO_LOG.TXT
 test_scene.xml
+/log/
+# avoid the agibot sdk log info
+*python3.10*.INFO*
+*camera.txt
+*hal.txt
+*episode_*
+dataset/data
+dependencies/a2d_sdk
+*.pem
+dependencies/corenetic_ros2_ws
+hardware/base/__pycache__/arm.cpython-310.pyc

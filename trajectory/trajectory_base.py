@@ -41,14 +41,7 @@ class TrajectoryBase(abc.ABC, metaclass=abc.ABCMeta):
         tranlation_time = np.linalg.norm(pose_diff[:3]) / self._max_vel
         rotation_time = np.linalg.norm(pose_diff[3:]) /  self._max_vel
         finish_time = max(max(tranlation_time, rotation_time),user_specified_time)
-        
-        # For teleoperation: ensure minimum trajectory time for smooth motion
-        min_traj_time = 0.15  # 150ms minimum for smooth teleoperation
-        if finish_time > 0.01 * self.dt:  # If movement is significant enough
-            finish_time = max(finish_time, min_traj_time)
-        
-        # For teleoperation, allow very small movements
-        if finish_time < 0.01 * self.dt:  # Much smaller threshold
+        if finish_time < 0.1 * self.dt:
             finish_time = -1
         return finish_time
 

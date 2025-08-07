@@ -10,10 +10,9 @@ mujoco:
   # actuator_mode: ["torque", "torque", "torque", "torque", "torque", "torque", "torque"]
   actuator_mode: ["position", "position", "position", "position", "position", "position", "position"]
   ee_site_name: "fr3_ee_attachment"
-  base_body: "base"
+  base_body: ["base"]
   extra_render: true
   max_traj_len: 80
-  # sensor_dict: None
   use_custom_key_frame: true
   sensor_dict:
     ee_cam: 

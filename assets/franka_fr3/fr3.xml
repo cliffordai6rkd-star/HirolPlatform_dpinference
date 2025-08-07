@@ -13,7 +13,7 @@
       <default class="collision">
         <geom type="mesh" group="3" mass="0" density="0"/>
       </default>
-      <site size="0.001" rgba="0.5 0.5 0.5 0.3" group="4"/>
+      <site size="0.001" rgba="0.5 0.5 0.5 0.3" group="3"/>
     </default>
   </default>
 
@@ -132,8 +132,11 @@
                       <geom mesh="link7_2" material="white" class="visual"/>
                       <geom mesh="link7_3" material="black" class="visual"/>
                       <geom name="fr3_link7_collision" class="collision" mesh="link7_coll"/>
-                      <site name="attachment_site" pos="0 0 0.107" euler="0 0 -0.7853981633974483"/>
+                      <!-- wrist camera -->
+                      <camera name="ee_cam" pos="0 0 0.107" xyaxes="-1 0 0 0 1 0" fovy="60"/>
+                      <site name="fr3_ee_attachment" pos="0 0 0.107" quat="1 0 0 0"/>
                     </body>
+                      <!-- franka hand -->
                   </body>
                 </body>
               </body>
@@ -145,13 +148,13 @@
   </worldbody>
 
   <actuator>
-    <position class="fr3" name="fr3_joint1" joint="fr3_joint1" kp="4500" kv="450"/>
-    <position class="fr3" name="fr3_joint2" joint="fr3_joint2" kp="4500" kv="450"/>
-    <position class="fr3" name="fr3_joint3" joint="fr3_joint3" kp="3500" kv="350"/>
-    <position class="fr3" name="fr3_joint4" joint="fr3_joint4" kp="3500" kv="350"/>
-    <position class="fr3" name="fr3_joint5" joint="fr3_joint5" kp="2000" kv="200"/>
-    <position class="fr3" name="fr3_joint6" joint="fr3_joint6" kp="2000" kv="200"/>
-    <position class="fr3" name="fr3_joint7" joint="fr3_joint7" kp="2000" kv="200"/>
+    <motor class="fr3" name="fr3_actuator1" joint="fr3_joint1" ctrlrange="-40 40"/>
+    <motor class="fr3" name="fr3_actuator2" joint="fr3_joint2" ctrlrange="-40 40"/>
+    <motor class="fr3" name="fr3_actuator3" joint="fr3_joint3" ctrlrange="-40 40"/>
+    <motor class="fr3" name="fr3_actuator4" joint="fr3_joint4" ctrlrange="-40 40"/>
+    <motor class="fr3" name="fr3_actuator5" joint="fr3_joint5" ctrlrange="-40 40"/>
+    <motor class="fr3" name="fr3_actuator6" joint="fr3_joint6" ctrlrange="-40 40"/>
+    <motor class="fr3" name="fr3_actuator7" joint="fr3_joint7" ctrlrange="-40 40"/>
   </actuator>
 
   <!-- <keyframe>

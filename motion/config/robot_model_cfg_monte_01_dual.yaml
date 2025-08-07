@@ -22,8 +22,8 @@ monte_01_dual:
     #   end: "leg_link"
     # - base: "leg_link"  
     #   end: "hip_link"
-    # - base: "hip_link"
-    #   end: "chest_link"
+    - base: "hip_link"
+      end: "chest_link"
     
     # Lock head joints - not needed for arm IK
     - base: "chest_link"

@@ -1,0 +1,63 @@
+# usage platform
+use_hardware: false
+use_simulation: true
+
+# Notice: the config file path should contain  to locate the file
+# from the project directory
+robot: "fr3"
+robot_config: !include hardware/fr3/config/fr3_cfg.yaml
+gripper: "franka_hand"
+gripper_config: !include hardware/fr3/config/franka_hand_cfg.yaml
+
+# sensor infos
+sensor_dicts:
+  cameras:
+    - name: "ee_cam"
+      type: "realsense_camera"
+      cfg: !include hardware/sensors/cameras/config/d405_cfg.yaml
+    - name: "third_person_cam"
+      type: "realsense_camera"
+      cfg: !include hardware/sensors/cameras/config/d435i_cfg.yaml
+
+control_frequency: 800
+controller_type: "ik"
+controller_config:
+  - type: "right"
+    name: "ik"
+    cfg: !include controller/config/ik_fr3_cfg.yaml
+
+model_type: "model"
+model_config:
+  - type: "right"
+    name: "fr3_franka_hand"
+    cfg: !include motion/config/robot_model_fr3_cfg.yaml
+
+buffer_type: "buffer"
+trajectory_planner_type: "cart_polynomial"
+plan_type: "cartesian"
+trajectory_config: !include trajectory/config/cartesian_polynomial_traj_cfg.yaml
+traj_frequency: 450
+
+teleop_interface: "meta_quest3"
+interface_config: !include teleop/XR/quest3/config/meta_quest3_fr3_right.yaml
+inteface_output_mode: "absolute"
+
+simulation: "mujoco"
+simulation_config: !include simulation/config/mujoco_fr3_cfg.yaml
+target_site_name: ["target_site"]
+tcp_visualization_site: ["TCP_site"]
+
+# teleoperation used parameter
+use_trajectory_planner: false
+# if you are using mujoco simulation target instead of teleoperation device,
+# set use_simulation_target as true
+use_simulation_target: false
+teleoperation_loop_time: 0.005
+
+# data collection related
+save_path_prefix: "peg_in_hole"
+task_description: "pick up the peg on the table and put it in the hole"
+task_description_goal: "pick up the peg on the table and place it in the correct hole"
+task_description_step: "step1: find the peg on the table. step2: go to the location of the peg 
+  step3: pick up the obly peg on the table. stpe4: find the only hole in the peg station. step5: 
+  go to the top of the hole. step6: place the peg into the hole"

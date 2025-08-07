@@ -9,8 +9,6 @@ class OpencvCamera(CameraBase):
             image_shape: [height, width]
             device_id: /dev/video*
         """
-        self._img_shape = config['image_shape']
-        self._fps = config['fps']
         self._device_id = config['device_id']
         
         self._thread_running = True

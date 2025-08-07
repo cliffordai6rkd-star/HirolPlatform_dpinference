@@ -67,7 +67,7 @@ mujoco:
                   "position", "position", "position", "position", "position", "position", "position",
                   "position", "position", "position", "position", "position", "position", "position","position"]
   ee_site_name: "left_hand_site"
-  base_body: "pelvis"
+  base_body: ["pelvis"]
   extra_render: true
   max_traj_len: 80
   use_custom_key_frame: false

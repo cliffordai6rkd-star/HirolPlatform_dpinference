@@ -6,6 +6,7 @@ from scipy.spatial.transform import Rotation as R
 from hardware.base.utils import convert_7D_2_homo
 from motion.ik import GaussianNetwon, IK_DLS, IK_LM
 from motion.pin_model import RobotModel
+from hardware.base.utils import object_class_check
 import copy
 
 class ControllerBase(abc.ABC, metaclass=abc.ABCMeta):
@@ -14,7 +15,7 @@ class ControllerBase(abc.ABC, metaclass=abc.ABCMeta):
         self._robot_model = robot_model
 
     @abc.abstractmethod
-    def compute_controller(self, target: dict, 
+    def compute_controller(self, target: list[dict[str, np.ndarray]], 
                            robot_state: RobotJointState | None = None) -> tuple[bool, np.ndarray , str]:
         """
             @brief: Compute the joint command based on the ee pose target
@@ -32,21 +33,22 @@ class ControllerBase(abc.ABC, metaclass=abc.ABCMeta):
 class IKController(ControllerBase):
     def __init__(self, config, robot_model: RobotModel):
         super().__init__(config, robot_model)
-        self._damping_weight = config["damping_weight"]
+        self._damping_weight = config.get("damping_weight", 0.3)
         self._ik_type = config["ik_type"]
-        self._tol = config["tolerance"]
-        self._max_iter = config["max_iteration"]
-        print(f"ik tol: {self._tol}, type: {type(self._tol)}")
+        self._tol = config.get("tolerance", 1e-4)
+        self._max_iter = config.get("max_iteration", 1000)
         ik_class = {
             "gaussian_newtown": GaussianNetwon,
             "dls": IK_DLS,
             "lm": IK_LM
         }
+        if not object_class_check(ik_class, self._ik_type):
+            raise ValueError
         self._ik_object = ik_class[self._ik_type]()
 
-    def compute_controller(self, target: dict, 
+    def compute_controller(self, target: list[dict[str, np.ndarray]], 
                            robot_state: RobotJointState | None = None):
-        curr_target = copy.deepcopy(target)
+        curr_target = copy.deepcopy(target[0])
         frame_name, pose_7d = next(iter(curr_target.items()))
         pose_homo = convert_7D_2_homo(pose_7d)
         curr_target[frame_name] = pose_homo

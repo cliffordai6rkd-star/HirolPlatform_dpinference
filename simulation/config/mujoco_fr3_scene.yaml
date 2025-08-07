@@ -11,7 +11,8 @@ mujoco:
   ee_site_name: "fr3_ee_attachment"
   extra_render: true
   max_traj_len: 80
-  base_body: "base"
+
+  base_body: ["base"]
   # sensor_dict: None
   use_custom_key_frame: true
   sensor_dict:

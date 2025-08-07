@@ -1,14 +1,26 @@
-from hardware.base.gripper_base import GripperBase
+from hardware.base.tool_base import ToolBase
 from panda_py.libfranka import Gripper
-from hardware.base.utils import GripperState
+from hardware.base.utils import ToolState, ToolType
 import os, yaml, time, threading
+import numpy as np
+import copy
+import warnings
 
-class FrankaHand(GripperBase):
+class FrankaHand(ToolBase):
+    _tool_type: ToolType = ToolType.GRIPPER
     def __init__(self, config):
         self._ip = config["ip"]
         self._grasp_force = config["grasp_force"]
         self._grasp_speed = config["grasp_speed"]
         super().__init__(config)
+        self._state._tool_type = self._tool_type
+        self._last_command = 0.08
+        self._gripper_idle = True
+        self._thread_running = True
+        self._update_thread = threading.Thread(target=self.update_state)
+        self._lock = threading.Lock()
+        # self._update_thread.start()
+        
         
     def initialize(self):
         self._gripper = Gripper(self._ip)
@@ -18,21 +30,73 @@ class FrankaHand(GripperBase):
         self._max_width = state.max_width
         return success
         
-    def set_gripper_command(self, target):
-        target = self._max_width if target > self._max_width else target
+    def _set_binary_command(self, target: float) -> bool:
+        """
+            target command shoould be a float number with range [0,1]
+            1 for fully open; 0 for fully closed
+        """
+        if not self._gripper_idle:
+            return False 
+        
+        target = np.clip(target, 0 ,1)
+        target = self._max_width * target
+        # avoid continous calling 
+        if np.isclose(target, self._last_command, rtol=0.0001):
+            return True
+        
         def grasp_task():
-            # self._gripper.grasp(target, self._grasp_speed, self._grasp_force)
-            self._gripper.move(target, self._grasp_speed)
-        threading.Thread(target=grasp_task).start()
+            self._gripper_idle = False
+            if np.isclose(target, self._max_width):
+                self._gripper.move(0.08, self._grasp_speed)
+            else:
+                self._gripper.grasp(target, self._grasp_speed, self._grasp_force,
+                                    0.02, 0.06)
+            # self._gripper.move(target, self._grasp_speed)
+            self._state._position = target
+            self._last_command = target
+            self._gripper_idle = True
+            
+        gripper_thread = threading.Thread(target=grasp_task)
+        gripper_thread.start()
+        # gripper_thread.join()
+        return True
     
-    def get_gripper_state(self):
-        state = self._gripper.read_once()
-        self._state._position = state.width
-        self._state._is_grasped = state.is_grasped
-        return self._state
+    def get_tool_state(self):
+        self._lock.acquire()
+        state = copy.deepcopy(self._state)
+        self._lock.release()
+        return state
     
-    def stop_gripper(self):
+    def update_state(self):
+        print(f'Starting state updating thread for franka hand {self._ip}')
+        
+        last_read_time = time.time()
+        read_frequency = 1
+        while self._thread_running:
+            state = self._gripper.read_once()
+            self._lock.acquire()
+            self._state._position = state.width
+            self._state._is_grasped = state.is_grasped
+            self._lock.release()
+            
+            dt = time.time() - last_read_time
+            if dt < 1.0 / read_frequency:
+                sleep_time = 1.0 / read_frequency - dt
+                time.sleep(sleep_time)
+            elif dt > 1.3 / read_frequency:
+                warnings.warn(f'The franka hand {self._ip} could not reach the update thread frequency!!')
+            last_read_time = time.time()
+        print(f'franka hand {self._ip} stopped its update thread!!!!')
+            
+    def stop_tool(self):
+        self._thread_running = False
+        # self._update_thread.join()
         self._gripper.stop()
+        print(f'Franka hand {self._ip} successfully stopped!!!!')
+        
+    def get_tool_type_dict(self):
+        tool_type_dict = {'single': self._tool_type}
+        return tool_type_dict
     
 if __name__ == '__main__':
     fr3_cfg = "hardware/fr3/config/fr3_cfg.yaml"

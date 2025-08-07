@@ -4,7 +4,8 @@ duo_space_mouse:
       # please check your device id by the check_device_id.py
       device_id: 0
       # scale for each action dimension
-      scale: [0.008, 0.008, 0.008, 0.008, 0.008, 0.024]
+      # scale: [0.008, 0.008, 0.008, 0.008, 0.008, 0.024] # this is for fr3 teleop
+      scale: [0.002, 0.002, 0.002, 0.002, 0.002, 0.002] # this is for monte teleop
       low_threshold: [0.02, 0.02, 0.02, 0.04, 0.04, 0.04]
       enable_rotation: true
     right:

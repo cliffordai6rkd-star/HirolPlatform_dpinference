@@ -1,7 +1,12 @@
+from trajectory.trajectory_base import TrajectoryBase
+from motion.model_base import ModelBase
 from motion.pin_model import RobotModel
-from controller.controller_base import IKController
-from controller.impedance_controller import ImpedanceController
+from motion.duo_model import DuoRobotModel
+from controller.controller_base import ControllerBase, IKController
 from controller.whole_body_ik import WholeBodyIk
+from controller.impedance_controller import ImpedanceController
+from controller.cartesian_impedance_controller import CartesianImpedanceController
+from controller.duo_controller import DuoController
 from trajectory.cartesian_trajectory import CartessianTrajectory
 from hardware.base.utils import Buffer
 import threading
@@ -18,11 +23,18 @@ from tools.performance_profiler import PerformanceProfiler, timer
 
 # Used for different robot component into one robot system
 class MotionFactory:
+    _robot_system: RobotFactory
+    _trajectory: TrajectoryBase
+    _robot_model: ModelBase
+    _controller: ControllerBase
     def __init__(self, config, robot: RobotFactory):
         self._config = config
+        self._model_type = config["model_type"]
+        self._controller_type = config["controller_type"]
         self._use_traj_planner = config["use_trajectory_planner"]
         if self._use_traj_planner:
             # indicate the plan type is cartesian or joint space
+            self._buffer_type = config["buffer_type"]
             self._plan_type = config["plan_type"]
             # indicate the planner interpolation type (cartesian polynomial)
             self._trajectory_planner_type = config["trajectory_planner_type"]
@@ -32,13 +44,19 @@ class MotionFactory:
         self._control_frequency = config["control_frequency"]
         self._robot_system = robot
         self._execute_hardware = False
+        self._blocking_motion = False
             
         # object classes
+        self._model_classes = {
+            "model": RobotModel,
+            "duo_model": DuoRobotModel
+        }
         self._controller_classes = {
             'ik': IKController,
             'impedance': ImpedanceController,
             'whole_body_ik': WholeBodyIk,
-            'dual_whole_body_ik': WholeBodyIk  # Same class, dual config
+            'cartesian_impedance': CartesianImpedanceController,
+            'duo_controller': DuoController,
         }
         self._trajectory_classes = {
             'cart_polynomial': CartessianTrajectory
@@ -54,39 +72,26 @@ class MotionFactory:
         if self._use_traj_planner:
             if not object_class_check(self._trajectory_classes, self._trajectory_planner_type):
                 raise ValueError
-            # Dynamically choose buffer config based on robot type
-            buffer_config_key = "buffer"
-            # Check if we have dual-arm configuration
-            for model_cfg in self._config["model_config"]:
-                if model_cfg.get("type") == "dual":
-                    buffer_config_key = "duo_buffer"
-                    break
-            
-            buffer_config = self._config["trajectory_config"][buffer_config_key]
+            buffer_config = self._config["trajectory_config"][self._buffer_type]
             self._buffer = Buffer(buffer_config["size"], buffer_config["dim"])
             self._buffer_lock = threading.Lock()
             self._trajectory = self._trajectory_classes[
                                 self._trajectory_planner_type](
                                     self._config["trajectory_config"][self._trajectory_planner_type],
                                     self._buffer, self._buffer_lock)
+            
+        if not object_class_check(self._model_classes, self._model_type):
+            raise ValueError
         model_config = self._config["model_config"]
-        self._robot_model = {}
-        self._controller = {}
-        for i, cur_model_cfg in enumerate(model_config):
-            model_type = cur_model_cfg['type']
-            model_name = cur_model_cfg['name']
-            self._robot_model[model_type] = RobotModel(cur_model_cfg['cfg'][model_name])
-            cur_controller_cfg = self._config["controller_config"][i]
-            cur_controller_type = cur_controller_cfg['name']
-            if not object_class_check(self._controller_classes, cur_controller_type):
-                raise ValueError
-            if model_type != cur_controller_cfg['type']:
-                raise ValueError("model & controller are not matched, "
-                                 f"model type: {model_type}, controller_type: {cur_controller_cfg['type']}")
-            self._controller[model_type] = self._controller_classes[
-                                cur_controller_type](
-                                    cur_controller_cfg['cfg'][cur_controller_type], 
-                                    self._robot_model[model_type])
+        model_name = model_config["name"]
+        model_config = model_config["cfg"]
+        self._robot_model = self._model_classes[self._model_type](model_config[model_name])
+        
+        if not object_class_check(self._controller_classes, self._controller_type):
+            raise ValueError
+        controller_config = self._config["controller_config"]
+        self._controller = self._controller_classes[self._controller_type](
+                                controller_config[self._controller_type], self._robot_model)
         
         # initialize all objects
         self._initialize()
@@ -98,98 +103,62 @@ class MotionFactory:
         self._robot_system.create_robot_system()
         
         # thread starting
-        controller_thread = threading.Thread(target=self._controller_task)
-        controller_thread.start()
+        self._controller_thread_running = True
+        self._controller_thread = threading.Thread(target=self._controller_task)
+        self._controller_thread.start()
         
         if self._use_traj_planner:
-            traj_thread = threading.Thread(target=self._traj_task)
-            traj_thread.start()
+            self._traj_thread_running = True
+            self._traj_thread = threading.Thread(target=self._traj_task)
+            self._traj_thread.start()
         
     def _controller_task(self):
-        target = dict()
+        log.info('Controller thread started!!!')
         iteration_count = 0
 
         ctrl_period = 1.0 / self._control_frequency
         next_run_time = time.perf_counter()
         slow_loop_count = 0
-        while True:
+        while self._controller_thread_running:
             loop_start_time = time.perf_counter()
             iteration_count += 1
             
             with timer("controller_total", "motion_factory_"):
                 # Target preparation
+                target = []
                 if self._high_level_command is not None:
                     if not self._use_traj_planner and self._high_level_updated:
                         target = self._get_controller_target(self._high_level_command)
-                        self._high_level_updated = False
+                        self._high_level_updated = True
                     elif self._use_traj_planner:
                         self._buffer_lock.acquire()
                         get_data, data = self._buffer.pop_data()
                         self._buffer_lock.release()
+                        # log.info(f'data: {data}, get data: {get_data}, buffer size: {self._buffer.size()}')
                         if get_data:
                             target = self._get_controller_target(data)
+                    # log.info(f'controller target: {target}')
+                # log.info(f'target use time {target_time - start_time}s')
             
             # Controller execution
-            if len(target) != 0:
-                success = True; joint_target = np.array([]); joint_mode = []
-                
+            if len(target) != 0 and not self._blocking_motion:
+                curr_joint_state = None
                 with timer("get_joint_states", "motion_factory_"):
                     curr_joint_state = self._robot_system.get_joint_states()
+                    # log.info(f'Current joint state: pos {curr_joint_state._positions}, vel {curr_joint_state._velocities}')
                 
                 with timer("controller_computation", "motion_factory_"):
-                    for key, controller in self._controller.items():
-                        sliced_joint_state = self._get_type_joint_state(curr_joint_state, key)
-                        
-                        # Add body joints to joint state for whole body IK
-                        if sliced_joint_state._positions is not None:
-                            complete_positions = self._add_body_joints_to_positions(sliced_joint_state._positions, key)
-                            sliced_joint_state._positions = complete_positions
-                            
-                            # Also need to extend velocities and accelerations for body joints
-                            expected_nq = self._robot_model[key].model.nq
-                            current_size = len(sliced_joint_state._velocities) if sliced_joint_state._velocities is not None else 0
-                            if current_size < expected_nq:
-                                body_joints_needed = expected_nq - current_size
-                                # Add zero velocities for body joints
-                                if sliced_joint_state._velocities is not None:
-                                    complete_velocities = np.concatenate([
-                                        np.zeros(body_joints_needed),  # Zero body velocities
-                                        sliced_joint_state._velocities
-                                    ])
-                                    sliced_joint_state._velocities = complete_velocities
-                                
-                                # Add zero accelerations for body joints  
-                                if sliced_joint_state._accelerations is not None:
-                                    complete_accelerations = np.concatenate([
-                                        np.zeros(body_joints_needed),  # Zero body accelerations
-                                        sliced_joint_state._accelerations
-                                    ])
-                                    sliced_joint_state._accelerations = complete_accelerations
-                        
-                        cur_target = target
-                        if 'left' in key or 'right' in key:
-                            cur_target = cur_target[key]
-                        cur_success, cur_joint_target, cur_joint_mode = controller.compute_controller(
-                                cur_target, robot_state=sliced_joint_state)
-        
-                        success = success and cur_success
-                        if cur_success:
-                            # Remove body joints from controller output (keep only arm joints for hardware/sim)
-                            if len(cur_joint_target) > 14:  # If controller returned body+arm joints
-                                body_joints_count = len(cur_joint_target) - 14
-                                arm_joint_target = cur_joint_target[body_joints_count:]  # Skip body joints, keep arm joints
-                                joint_target = np.hstack((joint_target, arm_joint_target))
-                            else:
-                                joint_target = np.hstack((joint_target, cur_joint_target))
-                            joint_mode.append(cur_joint_mode)
-                        else: 
-                            break
+                    success, joint_target, joint_mode = self._controller.compute_controller(
+                                                        target, robot_state=curr_joint_state)
+                    # log.info(f'Controller output - success: {success}, joint_target: {joint_target}, joint_mode: {joint_mode}')
                 
                 with timer("hardware_execution", "motion_factory_"):
                     if success:
+                        joint_mode = joint_mode if isinstance(joint_mode, list) else [joint_mode]
                         self._robot_system.set_joint_commands(joint_target, joint_mode,
-                                                              self._execute_hardware)
+                                                            self._execute_hardware)
                     else:
+                        self._robot_system.set_joint_commands(curr_joint_state._positions, ["position"], False)
                         log.warning(f"Controller failed to compute valid joint commands for target: {target}")
             
             next_run_time += ctrl_period
@@ -217,27 +186,24 @@ class MotionFactory:
             if iteration_count % 5000 == 0:
                 log.info(f"=== Motion Factory Performance (iteration {iteration_count}) ===")
                 PerformanceProfiler.print_stats(sort_by='avg_ms', top_n=5)
+        
+        log.info(f'Motion factory controller thread stopped!!!')
     
     def _traj_task(self):
-        # print('Trajectory thread started!!!')
+        log.info('Trajectory thread started!!!')
         
-        while True:
+        ee_links = self.get_model_end_effector_link_list()
+        model_types = ["left", "right"] if isinstance(self._robot_model, DuoRobotModel) else ["single"]
+        while self._traj_thread_running:
             start_time = time.perf_counter()
             
-            if self._high_level_updated:
-                tcp = np.array([])
+            if self._high_level_updated and not self._blocking_motion:
                 nums_target = 0
-                for key, model in self._robot_model.items():
-                    ee_link_name = model.ee_link
-                    if isinstance(ee_link_name, list):
-                        for cur_ee_link in ee_link_name:
-                            cur_tcp = self.get_frame_pose(cur_ee_link, key)
-                            tcp = np.hstack((tcp, cur_tcp))
-                            nums_target += 1
-                    else:
-                        cur_tcp = self.get_frame_pose(ee_link_name, key)
-                        tcp = np.hstack((tcp, cur_tcp))
-                        nums_target += 1
+                tcp = np.array([])
+                for i, cur_ee_link in enumerate(ee_links):
+                    cur_tcp = self.get_frame_pose(cur_ee_link, model_types[i])
+                    tcp = np.hstack((tcp, cur_tcp))
+                    nums_target += 1
                         
                 traj_target = TrajectoryState()
                 traj_target._zero_order_values = np.vstack((tcp,
@@ -252,11 +218,14 @@ class MotionFactory:
             if use_time < (1.0 / self._traj_frequency):
                 sleep_time = (1.0 / self._traj_frequency) - use_time
                 time.sleep(sleep_time)
-            # else:
-            #     warnings.warn(f"The trajectory frequency is slow, expected: {self._traj_frequency} "
-            #                   f"actual: {1.0 / use_time}")
+            else:
+                warnings.warn(f"The trajectory frequency is slow, expected: {self._traj_frequency} "
+                              f"actual: {1.0 / use_time}")
+        
+        log.info(f'Motion factory trajectory thread stopped!!!')
     
     def update_high_level_command(self, command):
+        '7d pose or two 7d pose'
         self._high_level_command = copy.deepcopy(command)
         self._high_level_updated = True
         
@@ -267,154 +236,72 @@ class MotionFactory:
                 frame_name: the frame link name
                 model_type: ['single', 'left', 'right', 'dual']
         """
-        origin_joint_states = self._robot_system.get_joint_states()
-        
-        # For dual arm model, determine the actual model type based on frame name
-        actual_model_type = model_type
-        if model_type in ['left', 'right'] and 'dual' in self._robot_model:
-            actual_model_type = 'dual'
-            
-        sliced_joint_states = self._get_type_joint_state(origin_joint_states, actual_model_type)
-        joint_position = sliced_joint_states._positions
-        
-        # Add body joints to the joint position vector if model includes body joints
-        joint_position = self._add_body_joints_to_positions(joint_position, actual_model_type)
-        
-        # Safety check: if joint_position is empty, use neutral configuration
-        if len(joint_position) == 0:
-            # print(f"WARNING: {actual_model_type} joint_position is empty, using neutral configuration")
-            import pinocchio as pin
-            neutral_q = pin.neutral(self._robot_model[actual_model_type].model)
-            joint_position = neutral_q
-            
-        pose = self._robot_model[actual_model_type].get_frame_pose(frame_name, joint_position, 
-                                                      need_update = True)
+        joint_states = self._robot_system.get_joint_states()
+        # print(f'posi: {joint_states._positions}')
+        pose = self._robot_model.get_frame_pose(frame_name, joint_states._positions,
+                                                need_update=True, model_type=model_type)
         pose = convert_homo_2_7D_pose(pose)
         return pose
     
-    def get_model_end_effector_name(self):
-        ee_name = {}
-        for (key, value) in self._robot_model.items():
-            if key == 'dual':
-                # For dual arm model, create separate entries for left and right
-                frame_names = value.ee_link  # ['left_link_tcp', 'right_link_tcp']
-                ee_name['left'] = frame_names[0]   # 'left_link_tcp'
-                ee_name['right'] = frame_names[1]  # 'right_link_tcp'
-            else:
-                ee_name[key] = value.ee_link
-        return ee_name
-    
     def update_execute_hardware(self, enable_hardware):
         self._execute_hardware = enable_hardware
-    
-    def print_performance_stats(self):
-        """Print current performance statistics on demand"""
-        log.info("=== MotionFactory Performance Statistics ===")
-        PerformanceProfiler.print_stats(sort_by='avg_ms', top_n=8)
-        
+       
     def close(self):
+        self._controller_thread_running = False
+        self._controller_thread.join()
+        if self._use_traj_planner:
+            self._traj_thread_running = False
+            self._traj_thread.join()
+        log.info(f'Motion factory threads are successfully closed for all!!!')
+        
         log.info("=== MotionFactory Final Performance Statistics ===")
         PerformanceProfiler.print_summary()
         PerformanceProfiler.print_stats(sort_by='total_ms', top_n=10)
+        self._robot_system.close()
+
+    def get_model_dof_list(self):
+        """
+            return [0, dof1, dof2] or [0, dof]
+        """
+        model_dof = self._robot_model.get_model_dof()
+        if not isinstance(model_dof, list):
+            model_dof = [model_dof]
+        model_dof.insert(0, 0) # [0 dof_left dof_right]
+        return model_dof
     
+    def get_model_end_effector_link_list(self):
+        end_effector_links = self._robot_model.get_model_end_links()
+        
+        if not isinstance(end_effector_links, list):
+            end_effector_links = [end_effector_links]
+        return end_effector_links
+
     def _get_controller_target(self, data):
-        target = {}
-        for type, model in self._robot_model.items():
-            if type == 'dual':
-                # For dual arm model, create targets for both end effectors
-                frame_names = model.ee_link  # ['left_link_tcp', 'right_link_tcp']
-                left_frame = frame_names[0]  # 'left_link_tcp'  
-                right_frame = frame_names[1] # 'right_link_tcp'
-                
-                # Fixed index mapping: left=[0:7], right=[7:14]
-                target[left_frame] = data[0:7]   # Left arm target
-                target[right_frame] = data[7:14] # Right arm target
-            else:
-                # Legacy single arm logic
-                frame_name = model.ee_link
-                start, end = 0, 7
-                if 'right' in type:
-                    start, end = 7, 14
-                    
-                if 'single' in type:
-                    target[frame_name] = data[start:end]
-                else:
-                    sub_target = {frame_name: data[start:end]}
-                    target = {type: sub_target}
+        target = []
+        end_effector_links = self.get_model_end_effector_link_list()
+        dimensions = [0, 7, 14]
+        for i, cur_target_frame in enumerate(end_effector_links):
+            cur_target = {cur_target_frame: data[dimensions[i]:dimensions[i+1]]}
+            target.append(cur_target)
         return target
     
-    def _get_type_joint_state(self, joint_states: RobotJointState, model_type: str):
-        if model_type == 'dual':
-            # For dual arm model, return complete joint states (14 joints)
-            # The controller will handle internal arm separation
-            return joint_states
+    def get_type_joint_state(self, joint_states: RobotJointState, model_type: str):
+        dofs = self.get_model_dof_list()
+        if 'single' in model_type or 'left' in model_type:
+            sliced_joint_states = get_joint_slice_value(dofs[0], dofs[1], 
+                                                        joint_states)
         else:
-            # Legacy logic for separate left/right models
-            dof = self._robot_model[model_type].nv
-            if 'single' in model_type or 'left' in model_type:
-                sliced_joint_states = get_joint_slice_value(0, dof, 
-                                                            joint_states)
-            else:  # right arm
-                left_dof = self._robot_model['left'].nv
-                sliced_joint_states = get_joint_slice_value(left_dof, left_dof+dof, 
-                                                            joint_states)
-            return sliced_joint_states
+            sliced_joint_states = get_joint_slice_value(dofs[1], dofs[1]+dofs[2], joint_states)
+        return sliced_joint_states
     
-    def _add_body_joints_to_positions(self, arm_joint_positions, model_type):
-        """
-        Add body joint positions to arm joint positions for complete pin model
-        
-        Args:
-            arm_joint_positions: Joint positions for arms only
-            model_type: Model type string
-            
-        Returns:
-            np.ndarray: Complete joint positions including body joints
-        """
-        import pinocchio as pin
-        
-        # Get the expected number of joints from the pin model
-        expected_nq = self._robot_model[model_type].model.nq
-        current_size = len(arm_joint_positions)
-        
-        # If sizes match, no need to add body joints
-        if current_size == expected_nq:
-            return arm_joint_positions
-            
-        # If pin model expects more joints, we need to add body joints
-        if current_size < expected_nq:
-            # Calculate how many body joints we need to add
-            body_joints_needed = expected_nq - current_size
-            
-            # Get body joint positions from hardware
-            body_positions = None
-            if self._robot_system._use_hardware:
-                try:
-                    body_positions = self._robot_system.get_body_positions()
-                    if body_positions is not None:
-                        log.debug(f"Got body positions from hardware: {body_positions}")
-                except Exception as e:
-                    log.warning(f"Failed to get body positions: {e}")
-            
-            # Create complete joint position vector
-            if body_positions is not None and len(body_positions) >= body_joints_needed:
-                # Use actual body joint positions
-                complete_positions = np.concatenate([
-                    body_positions[:body_joints_needed],  # Body joints first
-                    arm_joint_positions                    # Then arm joints
-                ])
-                # log.info(f"Added {body_joints_needed} body joints to arm positions")
-            else:
-                # Use neutral body joint positions
-                neutral_q = pin.neutral(self._robot_model[model_type].model)
-                complete_positions = neutral_q.copy()
-                # Update arm joint positions in the neutral vector
-                complete_positions[body_joints_needed:] = arm_joint_positions
-                log.debug(f"Used neutral body joints, updated arm positions")
-                
-            return complete_positions
-        else:
-            # Current size is larger than expected, just return as is
-            log.warning(f"Joint position size ({current_size}) > expected ({expected_nq})")
-            return arm_joint_positions
+    def move_to_start_blocking(self):
+        if not self._robot_system._use_hardware:
+            return 
     
+        self._blocking_motion = True
+        self._robot_system.move_to_start()
+        self._blocking_motion = False
+        
+    def clear_traj_buffer(self):
+        if self._use_traj_planner:
+            self._buffer.clear()

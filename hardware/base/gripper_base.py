@@ -1,7 +1,7 @@
 import numpy
 import abc
 import warnings
-from hardware.base.utils import GripperState
+from hardware.base.utils import ToolState as GripperState
 
 class GripperBase(abc.ABC, metaclass=abc.ABCMeta):
     def __init__(self, config):

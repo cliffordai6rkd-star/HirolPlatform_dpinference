@@ -1,0 +1,11 @@
+duo_tool:
+  left:
+    type: "xarm_gripper"
+    ip: "192.168.11.11"
+    grasp_speed: 5000
+    control_mode: "incremental"  # "binary" | "incremental"
+    step_size: 0.02              # Incremental step size (2% per press)
+    move_frequency: 0.02         # Minimum time between moves (100Hz)
+    # grasp_force: 20
+      
+  right: null  # Right gripper not installed

@@ -1,10 +1,13 @@
 import abc, threading, warnings, copy
 
 class CameraBase(abc.ABC, metaclass=abc.ABCMeta):
-    def __init__(self, config={}):
+    def __init__(self, config):
         self._config = config
+        # [height width]
+        self._img_shape = config['image_shape']
         self._contain_depth = config.get('contain_depth', False)
         self._contain_imu = config.get('contain_imu', False)
+        self._fps = config.get('fps', None)
         self._lock = threading.Lock()
         # data 
         self._image_data = None
@@ -38,8 +41,8 @@ class CameraBase(abc.ABC, metaclass=abc.ABCMeta):
 
     def read_image(self):
         if not self._is_initialized or self._image_data is None:
-            warnings.warn("The camera is not initialized or "
-                          "still not retrieve the image")
+            warnings.warn(f"The camera is not initialized {self._is_initialized} or "
+                          f"still not retrieve the image{self._image_data is None}")
             return False, None
         self._lock.acquire()
         image = copy.deepcopy(self._image_data)
@@ -78,4 +81,6 @@ class CameraBase(abc.ABC, metaclass=abc.ABCMeta):
     def close(self):
         raise NotImplementedError
     
+    def get_resolution(self):
+        return self._img_shape
     

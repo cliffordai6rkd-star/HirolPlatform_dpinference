@@ -1,3 +1,5 @@
+import os
+os.environ["MUJOCO_GL"] = "glfw"  
 import mujoco
 import mujoco.viewer
 import numpy as np
@@ -7,32 +9,25 @@ from hardware.base.utils import RobotJointState, transform_pose, negate_pose
 import copy
 from simulation.base.sim_base import SimBase
 import warnings
-import os
 from simulation.mujoco.mujoco_env_creator import MujocoEnvCreator
 from xml.etree import ElementTree as ET
-
+import cv2
+import glog as log
 class MujocoSim(SimBase):
     def __init__(self, config):
         super().__init__(config)
-        # self._use_hardware = config['use_hardware']
         self._quat_sequence = config.get('quat_sequence', 'xyzw')
         self._dt = config['dt']
         self._model = None
         self._data = None
-        self._joint_names = config['joint_names']
         self._actuator_names = config["actuator_names"]
-        self._dof = config.get('dof', [len(self._actuator_names)])
         self._actuator_mode = config['actuator_mode']
-        
-        # Body joint configuration for hardware-simulation sync
-        self._body_joint_names = config.get('body_joint_names', [])
-        self._body_actuator_names = config.get('body_actuator_names', [])
-        self._body_actuator_mode = config.get('body_actuator_mode', [])
         self.end_effector_site_name = config.get('ee_site_name', None)
-        self.base_body_name = config["base_body"]
         #  key: sensor name, value: sensor data dim
         self._sensor_dict = config.get('sensor_dict', None)
-        self._cam_renderer = []
+        self._cam_infos = []
+        self._cam_render: dict[str, mujoco.Renderer] = {}
+        # self._render_lock = threading.Lock()
         self._extra_render = config["extra_render"]
         self.use_custom_key_frame = config.get("use_custom_key_frame", False)
         
@@ -42,13 +37,14 @@ class MujocoSim(SimBase):
         
         # parse model
         self.parse_config()
-        self.viewer = None
+        # self.viewer = None
         
         # start mujoco thread
+        self._theread_running = True
         self.lock = threading.Lock()
-        thread = threading.Thread(target=self.sim_thread)
-        thread.start()
-        time.sleep(1)
+        self._thread = threading.Thread(target=self.sim_thread)
+        self._thread.start()
+        time.sleep(1.5)
     
     def sim_thread(self):
         if self._model is None or self._data is None:
@@ -60,19 +56,19 @@ class MujocoSim(SimBase):
         with mujoco.viewer.launch_passive(self._model, self._data, show_right_ui=True) as viewer:
             # Enable site frame visualization.
             viewer.opt.frame = mujoco.mjtFrame.mjFRAME_SITE
-            viewer.user_scn.ngeom = 0
-            viewer.sync()
-            if self.viewer is None:
-                self.viewer = viewer
-                for i in range(self._traj_max_len):
-                    self._add_geometry(self.viewer, [0,0,0], i)
+            # viewer.user_scn.ngeom = 0
+            # viewer.sync()
+            # if self.viewer is None:
+            #     self.viewer = viewer
+            for i in range(self._traj_max_len):
+                self._add_geometry(viewer, [0,0,0], i)
             viewer.user_scn.ngeom = self._traj_max_len
             viewer.sync()
-            while viewer.is_running():
+            while viewer.is_running() and self._theread_running:
                 step_start = time.time()
                 mujoco.mj_step(self._model, self._data)
                 if self._extra_render:
-                    self.render()
+                    self.render(viewer)
                 viewer.sync()                
                
                 # print('update simulation state!!!')
@@ -87,6 +83,8 @@ class MujocoSim(SimBase):
                 elif time_until_next_step > 1.2 * self._dt:
                     warnings.warn(f"Mujoco node frequency is not enough, "
                                   f"actual: {used_time}, expected: {self._dt}")
+            viewer.close()
+            print(f'The mujoco simulation thread successfully stopped!')
 
     def update_simulation_states(self):
         """Update the joint states from the Mujoco simulation."""
@@ -108,14 +106,14 @@ class MujocoSim(SimBase):
             self._joint_states._torques[i] = self._data.qfrc_actuator[actuator_id]
         # print(f'joint position: {self._joint_states._positions}')
         # ee pose update
-        if self.end_effector_site_name is not None:
-            ee_site_pose = self.get_site_pose(self.end_effector_site_name, self._quat_sequence)
-            base_pose = self.get_body_pose(self.base_body_name, self._quat_sequence)
-            base2world_pose = negate_pose(base_pose)
-            # base 2 ee pose
-            ee_site_pose = transform_pose(base2world_pose, ee_site_pose)
-            if not ee_site_pose is None:
-                self._ee_site_pose = ee_site_pose
+        # if self.end_effector_site_name is not None:
+        #     ee_site_pose = self.get_site_pose(self.end_effector_site_name, self._quat_sequence)
+        #     base_pose = self.get_body_pose(self.base_body_name, self._quat_sequence)
+        #     base2world_pose = negate_pose(base_pose)
+        #     # base 2 ee pose
+        #     ee_site_pose = transform_pose(base2world_pose, ee_site_pose)
+        #     if not ee_site_pose is None:
+        #         self._ee_site_pose = ee_site_pose
 
     def get_joint_states(self) -> RobotJointState:
         self.lock.acquire()
@@ -165,39 +163,14 @@ class MujocoSim(SimBase):
             else:
                 raise ValueError(f"Unsupported mode for {i}th actuator '{mode[i]}'. Supported modes are 'position', 'velocity', and 'torque'.")
     
-    def set_body_joint_command(self, body_positions: np.ndarray) -> bool:
-        """
-        Set body joint positions in simulation
-        
-        Args:
-            body_positions: 5D array [body_joint_1, body_joint_2, body_joint_3, head_joint_1, head_joint_2]
-            
-        Returns:
-            bool: Success status
-        """
-        if len(self._body_joint_names) == 0:
-            warnings.warn("[BodySync] No body joints configured in simulation")
-            return False
-            
-        if len(body_positions) != len(self._body_joint_names):
-            warnings.warn(f"[BodySync] Body position count mismatch: expected {len(self._body_joint_names)}, got {len(body_positions)}")
-            return False
-            
-        try:
-            for i, (joint_name, position) in enumerate(zip(self._body_joint_names, body_positions)):
-                joint_id = mujoco.mj_name2id(self._model, mujoco.mjtObj.mjOBJ_JOINT, joint_name)
-                if joint_id < 0:
-                    warnings.warn(f"[BodySync] Body joint '{joint_name}' not found in Mujoco model")
-                    continue
-                    
-                qpos_adr = self._model.jnt_qposadr[joint_id]
-                self._data.qpos[qpos_adr] = position
-                
-            return True
-            
-        except Exception as e:
-            warnings.warn(f"[BodySync] Failed to set body joint positions: {e}")
-            return False
+    def close(self):
+        self._theread_running = False
+        self._thread.join()
+        # close all renders 
+        for cam_name, render in self._cam_render.items():
+            render.close()
+            print(f'Successfully closed the mujoco camera render {cam_name}')
+        print(f'mujoco simulation has successfully closed!')
     
     def get_site_pose(self, site_name, quat_seq):
         """
@@ -249,18 +222,40 @@ class MujocoSim(SimBase):
             pose[3:] = [pose[4], pose[5], pose[6], pose[3]]
         return pose
         
-    def add_camera(self, camera_name, resolution):
-        render = mujoco.Renderer(self._model, height=resolution[0], width=resolution[1])
-        camera_render_dict = {'name': camera_name, 'render': render}
-        self._cam_renderer.append(camera_render_dict)
+    def add_cameras(self):
+        if self._sensor_dict is None:
+            return
+        
+        for sensor_name, attributes in self._sensor_dict.items():
+            if 'cam' in sensor_name:
+                cam_id = mujoco.mj_name2id(self._model, mujoco.mjtObj.mjOBJ_CAMERA, sensor_name)
+                self._cam_render[sensor_name] =  mujoco.Renderer(self._model, attributes['resolution'][0], attributes['resolution'][1])
+                self._cam_infos.append({'name': sensor_name, 'id': cam_id, 'resolution': attributes['resolution']})
+                print(f'add camera {sensor_name}, id: {cam_id}')
         
     def get_camera_img(self, camera_name) -> None | np.ndarray:
         img = None
-        for camera_render_dict in self._cam_renderer:
-            if camera_name == camera_render_dict['name']:
-                render = camera_render_dict['render']
-                img = render.render()
-                return img
+        for cam_info in self._cam_infos:
+            if camera_name == cam_info['name']:
+                self._cam_render[camera_name].update_scene(self._data, camera=cam_info['id'])
+                img = self._cam_render[camera_name].render()
+                return img[:,:,::-1]
+        raise ValueError(f'Could not extract image for {camera_name}')
+    
+    def get_all_camera_images(self) -> list[dict] | None:
+        images = None
+        nums_image = 0
+        collected_img = []
+        # @TODO: add depth reading
+        for cam_info in self._cam_infos:
+            name = cam_info['name']
+            self._cam_render[name].update_scene(self._data, camera=cam_info['id'])
+            img = self._cam_render[name].render()[:,:,::-1]
+            collected_img.append({'name': name+'_color', 'img': img, 'resolution': cam_info['resolution']})
+            nums_image += 1
+        if nums_image:
+            images = collected_img
+        return images
              
     def parse_relative_path(self, relative_path):
         cur_path = os.path.dirname(os.path.abspath(__file__))
@@ -279,6 +274,7 @@ class MujocoSim(SimBase):
         if self.use_custom_key_frame:
             robot_xml_path = self.parse_relative_path(self._config['robot_xml'])
             self._init_pose = self.extract_custom_params(robot_xml_path, 'init_pos')
+            log.info(f'init pose: {self._init_pose}')
             self.set_joint_position(self._init_pose)
         
         # model creation based on mujoco env config
@@ -289,17 +285,15 @@ class MujocoSim(SimBase):
         
         # init robot state data 
         nv = len(self._joint_names)
+        self._joint_states = RobotJointState()  # Initialize the RobotJointState object
         self._joint_states._positions  = np.zeros(nv)
         self._joint_states._velocities  = np.zeros(nv)
         self._joint_states._accelerations  = np.zeros(nv)
         self._joint_states._torques  = np.zeros(nv)
         
         # sensor
-        if self._sensor_dict is not None:
-            for idx, (key, value) in enumerate(self._sensor_dict.items()):
-                # cameras
-                if 'cam' in key:
-                    self.add_camera(camera_name=key, resolution=value['resolution'])
+        # cameras
+        self.add_cameras()
         # dynamic object spawn
         
         return True
@@ -307,7 +301,9 @@ class MujocoSim(SimBase):
     def set_joint_position(self, values):
         if len(values) != len(self._joint_names):
             warnings.warn("The target position dim does not match with defined joint names")
-            
+        
+        log.info(f'set joint position: {values}')
+        log.info(f'joint names: {self._joint_names}')
         for i, target in enumerate(values):
             joint_name = self._joint_names[i]
             joint_id = mujoco.mj_name2id(self._model, mujoco.mjtObj.mjOBJ_JOINT, joint_name)
@@ -348,14 +344,14 @@ class MujocoSim(SimBase):
             print(f"data: {data} for {param_name}'s {name}")
         return data
     
-    def render(self):
+    def render(self, viewer):
         """Render the current state of the simulation."""
         # visualize the trajectory
         if len(self._visulize_traj_data) == 0:
             return 
         
         traj_data = self._visulize_traj_data.popleft()[:3]
-        self._update_geometry_position(self.viewer, traj_data, self._cur_traj_index)
+        self._update_geometry_position(viewer, traj_data, self._cur_traj_index)
         self._cur_traj_index += 1
         if self._cur_traj_index == self._traj_max_len:
             self._cur_traj_index = 0
@@ -401,7 +397,9 @@ if __name__ == '__main__':
     import os
     config = None
     cur_path = os.path.dirname(os.path.abspath(__file__))
-    cfg_file = os.path.join(cur_path, '../config', 'mujoco_fr3_cfg.yaml')
+    # /config/mujoco_fr3_cfg.yaml,config/mujoco_duo_fr3.yaml, config/mujoco_fr3_scene.yaml
+    cfg = '../config/mujoco_fr3_scene.yaml'
+    cfg_file = os.path.join(cur_path, cfg)
     print(f'cfg file name: {cfg_file}')
     with open(cfg_file, 'r') as stream:
         config = yaml.safe_load(stream)
@@ -423,12 +421,18 @@ if __name__ == '__main__':
             break
         
         # read img
-        camera_name = 'ee_cam'
-        img = mujoco_fr3.get_camera_img(camera_name)
-        if img is None:
-            print(f'did not get the image from the {camera_name}')
-        cv2_img = img[:,:,::-1]
-        cv2.imshow("example_img", cv2_img)
+        # camera_name = ['left_ee_cam', 'right_ee_cam']
+        # for name in camera_name:
+        #     img = mujoco_fr3.get_camera_img(name)
+        #     if img is None:
+        #         print(f'did not get the image from the {name}')
+        #     cv2_img = img
+        #     cv2.imshow("example_img"+name, cv2_img)
+        imgs = mujoco_fr3.get_all_camera_images()
+        for img in imgs:
+            cv2.imshow(f"{img['name']}", img['img'])
+            
+        cv2.waitKey(1)
         
         # add traj data
         if counter %2 == 0:

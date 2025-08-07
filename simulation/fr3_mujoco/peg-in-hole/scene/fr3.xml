@@ -134,7 +134,7 @@
                       <geom name="fr3_link7_collision" class="collision" mesh="link7_coll"/>
                       <!-- <site name="attachment_site" pos="0 0 0.107"/> -->
                       <!-- wrist camera -->
-                      <camera name="ee_cam" pos="0 0 0.1" xyaxes="1 0 0 0 1 0" fovy="60"/>
+                      <camera name="ee_cam" pos="0.0 0 0.107" xyaxes="-1 0 0 0 1 0" fovy="60"/>
                       <site name="fr3_ee_attachment" pos="0 0 0.107" quat="1 0 0 0"/>
                     </body>
                       <!-- franka hand -->

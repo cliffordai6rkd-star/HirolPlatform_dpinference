@@ -17,9 +17,10 @@ class ImpedanceController(ControllerBase):
         self.q_des = config.get("q_des", None)
         self.dq_damping = config.get("dq_damping", 1.2)
     
-    def compute_controller(self, target: dict, 
+    def compute_controller(self, target: list[dict[str, np.ndarray]], 
                            robot_state: RobotJointState | None = None):
         # print(f'target dict: {target}')
+        target = target[0]
         frame_name, target = next(iter(target.items()))
         if len(target) != 7:
             raise ValueError("target is not 7D pose containing [x,y,z,qx,qy,qz,qw],"

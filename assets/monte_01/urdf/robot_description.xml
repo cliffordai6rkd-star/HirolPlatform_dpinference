@@ -1,5 +1,12 @@
 <mujoco model="robot_description">
   <option timestep="0.0005" iterations="100" tolerance="1e-8" solver="CG" cone="elliptic"/>
+  
+  <contact>
+    <exclude body1="hip_link" body2="leg_link"/>
+    <exclude body1="hip_link" body2="chest_link"/>
+    <exclude body1="base_car" body2="leg_link"/>
+  </contact>
+  
   <default>
     <default class="motor">
       <joint />
@@ -80,17 +87,17 @@
       <geom pos="-0.355 0.00025 0.0148" type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.902 0.902 0.902 1" mesh="back_wheel_link"/>
       <body name="leg_link" pos="-0.15685 0 0.38203">
         <inertial pos="0.0245059 -0.00799219 0.174693" quat="0.705443 -0.049007 -0.0490354 0.705368" mass="3.28399" diaginertia="0.0350376 0.0341184 0.00475773"/>
-        <joint name="body_joint_1" pos="0 0 0" axis="0 1 0" range="-1.3788 0.50615" class="stable_joint"/>
+        <!-- <joint name="body_joint_1" pos="0 0 0" axis="0 1 0" range="-1.3788 0.50615" class="stable_joint"/> -->
         <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.902 0.902 0.902 1" mesh="leg_link"/>
         <geom type="mesh" rgba="0.902 0.902 0.902 1" mesh="leg_link"/>
         <body name="hip_link" pos="0.05 0 0.35348">
           <inertial pos="-0.0241312 0.00886613 0.0419535" quat="0.572988 0.383287 0.359085 0.629154" mass="9.0897" diaginertia="0.0238406 0.01939 0.0157637"/>
-          <joint name="body_joint_2" pos="0 0 0" axis="0 1 0" range="-0.50615 2.6005" class="stable_joint"/>
+          <!-- <joint name="body_joint_2" pos="0 0 0" axis="0 1 0" range="-0.50615 2.6005" class="stable_joint"/> -->
           <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.902 0.902 0.902 1" mesh="hip_link"/>
           <geom type="mesh" rgba="0.902 0.902 0.902 1" mesh="hip_link"/>
           <body name="chest_link" pos="-0.05 0 0.49">
             <inertial pos="-0.0038589 0.000831105 -0.159919" quat="0.998725 0.00418036 0.0133576 0.0484987" mass="10.6506" diaginertia="0.0851562 0.0772272 0.0430473"/>
-            <joint name="body_joint_3" pos="0 0 0" axis="0 0 -1" range="-1.2915 1.2915" class="stable_joint"/>
+            <!-- <joint name="body_joint_3" pos="0 0 0" axis="0 0 -1" range="-1.2915 1.2915" class="stable_joint"/> -->
             <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.902 0.902 0.902 1" mesh="chest_link"/>
             <geom type="mesh" rgba="0.902 0.902 0.902 1" mesh="chest_link"/>
             <geom pos="0 0.025 0" quat="1 0 0 0" type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.3922 0.3529 1 1" mesh="left_arm_link_base"/>
@@ -101,6 +108,7 @@
               <inertial pos="-5.78417e-05 -0.00454218 -0.0338959" quat="0.487598 0.87279 -0.0172294 -0.0137859" mass="0.442755" diaginertia="0.000126387 0.000116255 0.000114828"/>
               <joint name="head_joint_1" pos="0 0 0" axis="0 0 1" range="-1.55334 1.55334" class="stable_joint"/>
               <body name="head_pitch_link">
+                <camera name="head_front_cam" pos="0.12 0 0.02" xyaxes="0 -1 0 0 0 1" fovy="60"/>
                 <inertial pos="0.0619108 -0.0007342 0.0254911" quat="0.620889 0.620002 -0.34213 0.336218" mass="0.315564" diaginertia="0.000299509 0.000271913 9.92176e-05"/>
                 <joint name="head_joint_2" pos="0 0 0" axis="0 1 0" range="-0.418879 0.418879" class="stable_joint"/>
                 <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.902 0.902 0.902 1" mesh="head_pitch_link"/>
@@ -195,6 +203,7 @@
                               <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" mesh="gripper_left_inner_knuckle"/>
                               <geom type="mesh" contype="0" conaffinity="0" rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" mesh="gripper_left_inner_knuckle"/>
                             </body>
+                            <camera name="left_ee_cam" pos="0 0.1 0" xyaxes="1 0 0 0 -1 0" fovy="60"/>
                             <site name="left_tcp" pos="7.0199E-05 -0.0004 0.19142"/>
                           </body>
                         </body>
@@ -373,11 +382,11 @@
     <position name="right_arm_joint_7_ctrl" joint="right_arm_joint_7" ctrlrange="-6.248254776000977 6.248254776000977" kp="1000" /> -->
     <!-- <position name="right_drive_gear_joint_ctrl" joint="right_drive_gear_joint" ctrlrange="0 5.8469" kp="1" dampratio="1.0" /> -->
 
-    <motor name="body_joint_1_ctrl" joint="body_joint_1" ctrlrange="-1.3788 0.50615" />
-    <motor name="body_joint_2_ctrl" joint="body_joint_2" ctrlrange="-0.50615 2.6005" />
-    <motor name="body_joint_3_ctrl" joint="body_joint_3" ctrlrange="-1.2915 1.2915" />
-    <motor name="head_joint_1_ctrl" joint="head_joint_1" ctrlrange="-1.553343034 1.553343034" />
-    <motor name="head_joint_2_ctrl" joint="head_joint_2" ctrlrange="-0.41887902 0.41887902" />
+    <!-- <motor name="body_joint_1_ctrl" joint="body_joint_1" ctrlrange="-1.3788 0.50615" />
+    <motor name="body_joint_2_ctrl" joint="body_joint_2" ctrlrange="-0.50615 2.6005" /> -->
+    <!-- <motor name="body_joint_3_ctrl" joint="body_joint_3" ctrlrange="-1.2915 1.2915" /> -->
+    <!-- <motor name="head_joint_1_ctrl" joint="head_joint_1" ctrlrange="-1.553343034 1.553343034" />
+    <motor name="head_joint_2_ctrl" joint="head_joint_2" ctrlrange="-0.41887902 0.41887902" /> -->
 
     <motor name="left_arm_joint_1_ctrl" joint="left_arm_joint_1" ctrlrange="-6.281439781188965 6.281439781188965" />
     <motor name="left_arm_joint_2_ctrl" joint="left_arm_joint_2" ctrlrange="-0.47168713768005377 3.595448434753418" />

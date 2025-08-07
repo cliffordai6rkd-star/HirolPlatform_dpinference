@@ -7,8 +7,36 @@ import os
 import json
 import cv2
 import time
-import rerun as rr
-import rerun.blueprint as rrb
+try:
+    import rerun as rr
+    import rerun.blueprint as rrb
+    RERUN_AVAILABLE = True
+except ImportError as e:
+    print(f"Rerun not available: {e}. Using mock implementation.")
+    RERUN_AVAILABLE = False
+    # Mock rerun objects
+    class MockRerun:
+        def init(self, *args, **kwargs): pass
+        def log(self, *args, **kwargs): pass
+        def set_time_sequence(self, *args, **kwargs): pass
+        def spawn(self, *args, **kwargs): pass
+        def send_blueprint(self, *args, **kwargs): pass
+        def Scalar(self, *args, **kwargs): return None
+        def Image(self, *args, **kwargs): return None
+        
+        @property
+        def blueprint(self):
+            return MockBlueprint()
+    
+    class MockBlueprint:
+        def __getattr__(self, name):
+            return lambda *args, **kwargs: None
+        
+        def SelectionPanel(self, *args, **kwargs): return None
+        def TimePanel(self, *args, **kwargs): return None
+    
+    rr = MockRerun()
+    rrb = MockBlueprint()
 from datetime import datetime
 os.environ["RUST_LOG"] = "error"
 
@@ -79,6 +107,11 @@ class RerunLogger:
     def __init__(self, prefix = "", IdxRangeBoundary = 30, memory_limit = None):
         self.prefix = prefix
         self.IdxRangeBoundary = IdxRangeBoundary
+        
+        if not RERUN_AVAILABLE:
+            print("RerunLogger initialized with mock implementation (rerun unavailable)")
+            return
+            
         rr.init(datetime.now().strftime("Runtime_%Y%m%d_%H%M%S"))
         if memory_limit:
             rr.spawn(memory_limit = memory_limit, hide_welcome_screen = True)

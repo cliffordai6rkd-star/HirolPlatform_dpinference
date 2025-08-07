@@ -9,6 +9,9 @@ class SimBase(abc.ABC, metaclass=abc.ABCMeta):
         self._traj_max_len = config["max_traj_len"]
         self._visulize_traj_data = deque(maxlen=self._traj_max_len)
         self._cur_traj_index = 0
+        self.base_body_name = config.get("base_body", [])
+        self._joint_names = config['joint_names']
+        self._dof = config.get('dof', [len(self._joint_names)])
         # states
         self._joint_states = RobotJointState()
         
@@ -32,6 +35,23 @@ class SimBase(abc.ABC, metaclass=abc.ABCMeta):
         raise NotImplementedError
     
     @abc.abstractmethod
+    def get_camera_img(self, camera_name: str) -> np.ndarray | None:
+        """get the image from camera"""
+        raise NotImplementedError
+    
+    @abc.abstractmethod
+    def get_all_camera_images(self) -> list[dict] | None:
+        """
+            @brief: get all images form sim
+            @return: None for no cameras
+                a list contain all image info,
+                dict: key: name value: camera name
+                    key: resolution value: [height, width]
+                    key: img value: image data 
+        """
+        raise NotImplementedError
+    
+    @abc.abstractmethod
     def parse_config(self) -> bool:
         """parse config to get the Mujoco model and data."""
         raise NotImplementedError
@@ -41,8 +61,14 @@ class SimBase(abc.ABC, metaclass=abc.ABCMeta):
         """Render the current state of the simulation."""
         raise NotImplementedError
     
+    @abc.abstractmethod
+    def close(self):
+        """close the simulation"""
+        raise NotImplementedError
+    
     def update_trajectory_data(self, data):
         self._visulize_traj_data.append(data)
     
     def get_dof(self):
         pass
+    

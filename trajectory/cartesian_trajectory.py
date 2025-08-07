@@ -7,7 +7,7 @@ import warnings
 from hardware.base.utils import Buffer
 import threading
 import time
-
+import glog as log
 # Directly support the dual target interpolation
 class CartessianTrajectory(TrajectoryBase):
     def __init__(self, config, buffer: Buffer, lock: threading.Lock):
@@ -20,7 +20,7 @@ class CartessianTrajectory(TrajectoryBase):
         
     def plan_trajectory(self, target: TrajectoryState, finish_time: float | None = None):
         if not self.trajectory_idle:
-            print(f'not idle, busy!!!')
+            log.info(f'not idle, busy!!!')
             return
         self.trajectory_idle = False
         # start_time = time.time()
@@ -43,7 +43,7 @@ class CartessianTrajectory(TrajectoryBase):
                                                      target._zero_order_values[1][7:],
                                                 finish_time)
             end_time = max(end_time, end_time1)
-        print(f'end time: {end_time}')
+        log.info(f'end time: {end_time}')
         if end_time < 0:
             self.trajectory_idle = True
             return 
@@ -52,7 +52,7 @@ class CartessianTrajectory(TrajectoryBase):
         trans_coeff, slerp = self._generate_traj_profile(target, end_time)
         
         # profile_time = time.time() - start_time
-        # print(f'profile time: {profile_time}')
+        # log.info(f'profile time: {profile_time}')
         # start_time = time.time()
         # total_time = profile_time
         # total_points = 0
@@ -80,11 +80,11 @@ class CartessianTrajectory(TrajectoryBase):
             
             # time printing
         #     loop_time = time.time() - start_time
-        #     print(f'loop time: {loop_time}')
+        #     log.info(f'loop time: {loop_time}')
         #     start_time = time.time()
         #     total_time += loop_time
         #     total_points += 1
-        # print(f'total time: {total_time}, total points: {total_points}')
+        # log.info(f'total time: {total_time}, total points: {total_points}')
         self.trajectory_idle = True
         
     def _generate_traj_profile(self, target: TrajectoryState, end_time: float):
@@ -160,7 +160,7 @@ if __name__ == '__main__':
     config = None
     cur_path = os.path.dirname(os.path.abspath(__file__))
     cfg_file = os.path.join(cur_path, "config", "cartesian_polynomial_traj_cfg.yaml")
-    print(f'cfg file name: {cfg_file}')
+    log.info(f'cfg file name: {cfg_file}')
     with open(cfg_file, 'r') as stream:
         config = yaml.safe_load(stream)
     
@@ -173,13 +173,13 @@ if __name__ == '__main__':
     
     target = TrajectoryState()
     target._zero_order_values = np.vstack((start, end))
-    print(f'posi: {target._zero_order_values}')
+    log.info(f'posi: {target._zero_order_values}')
     target._first_order_values = np.zeros((2,7))
     target._second_order_values = np.zeros((2,7))
     
     cart_traj.plan_trajectory(target)
-    print(f"Trajectory done!!!, buffer size: {buffer.size()}")
-    print(f'Traj final data: {cart_traj._buffer._data[-1]}')
+    log.info(f"Trajectory done!!!, buffer size: {buffer.size()}")
+    log.info(f'Traj final data: {cart_traj._buffer._data[-1]}')
     
     
     duo_buffer = Buffer(config["duo_buffer"]["size"], config["duo_buffer"]["dim"])
@@ -189,10 +189,10 @@ if __name__ == '__main__':
     start = np.hstack((start, start_r))
     end = np.hstack((end, end_r))
     target._zero_order_values = np.vstack((start, end))
-    print(f'posi: {target._zero_order_values}')
+    log.info(f'posi: {target._zero_order_values}')
     target._first_order_values = np.zeros((2,14))
     target._second_order_values = np.zeros((2,14))
     duo_traj.plan_trajectory(target)
-    print(f"duo Trajectory done!!!, buffer size: {duo_buffer.size()}")
-    print(f'duo Traj final data: {duo_traj._buffer._data[-1]}')
+    log.info(f"duo Trajectory done!!!, buffer size: {duo_buffer.size()}")
+    log.info(f'duo Traj final data: {duo_traj._buffer._data[-1]}')
     

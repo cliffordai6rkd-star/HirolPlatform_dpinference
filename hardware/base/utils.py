@@ -5,12 +5,18 @@ import yaml
 import warnings
 from collections import deque
 import copy
+from enum import Enum
 
 class RobotJointState:
     _positions: np.ndarray
     _velocities: np.ndarray
     _accelerations: np.ndarray
     _torques: np.ndarray
+    def __init__(self):
+        self._positions = np.zeros_like(7)
+        self._velocities = np.zeros_like(7)
+        self._accelerations = np.zeros_like(7)
+        self._torques = np.zeros_like(7)
     
 def get_joint_slice_value(start, end, joint_state: RobotJointState):
     new_state = RobotJointState()
@@ -20,12 +26,30 @@ def get_joint_slice_value(start, end, joint_state: RobotJointState):
     new_state._torques = joint_state._torques[start:end]
     return new_state
 
-class GripperState:
+def combine_two_joint_states(joint_state1: RobotJointState, joint_state2: RobotJointState):
+    new_state = RobotJointState()
+    new_state._positions = np.hstack((joint_state1._positions, joint_state2._positions))
+    new_state._velocities = np.hstack((joint_state1._velocities, joint_state2._velocities))
+    new_state._accelerations = np.hstack((joint_state1._accelerations, joint_state2._accelerations))
+    new_state._torques = np.hstack((joint_state1._torques, joint_state2._torques))
+    return new_state
+
+class ToolType(Enum):
+    GRIPPER = 0,
+    SUCTION = 1,
+    HAND = 2
+
+class GripperControlMode(Enum):
+    BINARY = "binary"
+    INCREMENTAL = "incremental"
+
+class ToolState:
     _position: np.float32
     # contact force
     _force: np.float32
     # grasp status
     _is_grasped: bool
+    _tool_type: ToolType
     
 class TrajectoryState:
     # size: [num_state, dim_traj]
@@ -68,6 +92,9 @@ class Buffer:
     
     def size(self):
         return len(self._data)
+    
+    def clear(self):
+        self._data.clear()
     
 def check_traj_size(traj: TrajectoryState, size: int) -> bool:
     if len(traj._zero_order_values[0]) != size:
@@ -129,6 +156,7 @@ def compute_pose_diff(pose1, pose2):
     else:
         ori_error = (1 / norm) * ori_error
     angle = 2 * np.arctan2(norm, quat_error[3])
+    # angle = 2 * np.atan2(norm, quat_error[3])
     if (angle > np.pi):
         angle -= 2 * np.pi
     ori_error = angle * ori_error
@@ -210,6 +238,20 @@ def negate_pose(pose):
     result[:3] = inv_pos
     result[3:] = inv_rot.as_quat()
     return result
+
+def transform_quat(quat1, quat2):
+    """
+        @ brief: assuming quat1 is q_ab and quat2 is q_bc,
+            this function return the quat of q_ac
+        @ params: 
+            quat1: q_ab
+            quat2: q_bc
+        @ return: the final quat q_ac
+    """
+    rot_ab = R.from_quat(quat1)
+    rot_bc = R.from_quat(quat2)
+    rot_ac = rot_ab * rot_bc  # R_ac = R_ab * R_bc
+    return rot_ac.as_quat()  # [qx, qy, qz, qw]
     
 def transform_pose(pose1, pose2):
     """

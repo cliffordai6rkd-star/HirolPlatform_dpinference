@@ -1,16 +1,16 @@
-KDL: 
+# Pinocchino model wrapper
+## 接口说明
 
-```
-ln -s /usr/lib/python3/dist-packages/PyKDL.cpython-38-x86_64-linux-gnu.so /path/to/vk/lib/python3.8/site-packages/PyKDL.cpython-38-x86_64-linux-gnu.so
-export PYTHONPATH=/usr/lib/python3/dist-packages:$PYTHONPAT
-```
 
-```
-cd motion
-g++ -Wall -shared -I/usr/include/eigen3/ -fPIC `python3 -m pybind11 --includes` -Itime_optimal_trajectory/ -o trajectory_planner`python3-config --extension-suffix` trajectory_planner.cpp time_optimal_trajectory/Path.cpp time_optimal_trajectory/Trajectory.cpp
-```
+## 参数说明
+- Trajectory 参数
 
-Pinocchio:
-```
-conda install pinocchio eigenpy -c conda-forge 
-```
+- Buffer 参数
+
+
+## 使用示例
+- 可以参考[main_test]()文件中的main entry 
+- 
+
+## 可能存在的bug (待使用者的反馈)
+- 

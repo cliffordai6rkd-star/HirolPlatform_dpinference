@@ -1,4 +1,4 @@
-D435i:
+realsense_camera:
   image_shape: [480, 640]
   fps: 30
   serial_number: "243322073850"

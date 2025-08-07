@@ -4,7 +4,7 @@ cart_polynomial:
   interpolation_type: "quintic"
   dt: 0.02
   max_velocity: 0.8
-  enable_motion: false 
+  enable_motion: true 
 
 buffer:
   size: 60

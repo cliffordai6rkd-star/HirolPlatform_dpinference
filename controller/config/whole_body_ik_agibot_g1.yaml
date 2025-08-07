@@ -13,10 +13,18 @@ whole_body_ik:
       trans_scalar: 1.0
       require_rot: true
       rot_scalar: 1.0
+  nullspace_tracking:
+    - joint_name: "joint_lift_body"
+      position_target: 0.1 # range: [0, 0.5]
+      scalar: 30.0
+    # - joint_name: "joint_body_pitch"
+    #   position_target: 0 # range: [0, 1.0]
+    #   scalar: 1.0
   show_debug: false
   trans_weight: 2.0
   rot_weight: 1.0
-  smooth_weight: 0.3
+  nullspace_weight: 1.0
+  smooth_weight: 0.6
   regularization_weight: 0.02
 
   

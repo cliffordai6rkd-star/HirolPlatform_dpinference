@@ -1,0 +1,12 @@
+duo_tool:
+  left:
+    type: "franka_hand"
+    ip: "192.168.1.105"
+    grasp_speed: 0.35
+    grasp_force: 20
+      
+  right:
+    type: "franka_hand"
+    ip: "192.168.1.208"
+    grasp_speed: 0.35
+    grasp_force: 20

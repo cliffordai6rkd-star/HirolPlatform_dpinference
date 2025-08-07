@@ -1,4 +1,0 @@
-name: "monte01"
-
-arm: !include arm.yaml
-urdf_path: "assets/monte_01/urdf/robot_description.urdf"

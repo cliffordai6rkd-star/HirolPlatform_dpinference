@@ -7,9 +7,10 @@ import time, cv2
 from simulation.mujoco.mujoco_sim import MujocoSim
 from motion.pin_model import RobotModel
 from controller.whole_body_ik import WholeBodyIk
+from hardware.base.utils import negate_pose, transform_pose, convert_homo_2_7D_pose, convert_7D_2_homo, transform_quat
 
 def main():
-    xr_config = "teleop/xr/meta_quest3_cfg.yaml"
+    xr_config = "teleop/xr/config/meta_quest3_agibot_cfg.yaml"
     xr_config = get_cfg(xr_config)["meta_quest3"]
     
     # cfg 补充
@@ -31,19 +32,29 @@ def main():
     xr_config["img_shm_name"] = img_shm.name
     img_array = np.ndarray(tv_img_shape, dtype=np.uint8, buffer=img_shm.buf)
     quest3 = MetaQuest3(xr_config)
+    # frame transformation consts
+    # -0.17710499  0.96118575 -0.29617468
+
+    consts_cfg = "teleop/config/consts.yaml"
+    consts = get_cfg(consts_cfg)
+    agibot_offset = consts["agibot"]
+    initial_rot = [agibot_offset["initial_pose_left"][3:], 
+                     agibot_offset["initial_pose_right"][3:]]
+    initial_trans = [agibot_offset["initial_pose_left"][:3], 
+                     agibot_offset["initial_pose_right"][:3]]
     
     camera_config = "hardware/sensors/cameras/config/d435i_cfg.yaml"
-    d435_cfg = get_cfg(camera_config)["D435i"]
+    d435_cfg = get_cfg(camera_config)["realsense_camera"]
     d435 = RealsenseCamera(d435_cfg) 
     
     model_config = "motion/config/robot_model_cfg_agibot_g1.yaml"
-    model_config = get_cfg(model_config)
+    model_config = get_cfg(model_config)["agibot_g1_with_hand"]
     print(f'model: {model_config}')
     model = RobotModel(model_config)
-    # controller_config = "controller/config/whole_body_ik_agibot_g1.yaml"
-    # controller_config = get_cfg(controller_config)["whole_body_ik"]
-    # print(f'controller: {controller_config}')
-    # wbik = WholeBodyIk(controller_config, model)
+    controller_config = "controller/config/whole_body_ik_agibot_g1.yaml"
+    controller_config = get_cfg(controller_config)["whole_body_ik"]
+    print(f'controller: {controller_config}')
+    wbik = WholeBodyIk(controller_config, model)
     
     # mujoco 
     mujoco_cfg = "simulation/config/mujoco_agibot_g1.yaml"
@@ -59,10 +70,24 @@ def main():
         # print(f'suc: {data[0]}, pose: {data[1]}')
         
         arm_target = data[1]
-        for i, (key, value) in enumerate(arm_target.items()):
-            target_mocap = tcp_mocaps[i]
-            target_mocap = target_mocap.split('_')[0]
-            mujoco.set_target_mocap_pose(target_mocap, value)
+        targets = {}
+        if data[0]:
+            for i, (key, value) in enumerate(arm_target.items()):
+                # rotation transform and position translation
+                value[3:] = transform_quat(value[3:], initial_rot[i])
+                value[:3] += np.array(initial_trans[i])
+                target_mocap = target_site[i]
+                target_mocap = target_mocap.split('_')[0]
+                mujoco.set_target_mocap_pose(target_mocap, value)
+                print(f'{i}th pose: {value}')
+                tracking_frame_name = wbik.tracking_frames[i]["name"]
+                targets[tracking_frame_name] = value
+                
+            # control 
+            joint_states =  mujoco.get_joint_states()
+            success, joint_target, mode = wbik.compute_controller(targets, joint_states)
+            if success:
+                mujoco.set_joint_command([mode]*model.nv, joint_target)
         
         cur_img = d435.capture_all_data()['image']
         cur_img = cv2.resize(cur_img, (tv_img_shape[1], tv_img_shape[0]))

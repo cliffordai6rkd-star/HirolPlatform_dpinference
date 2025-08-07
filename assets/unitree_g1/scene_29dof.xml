@@ -1,5 +1,7 @@
 <mujoco model="g1_29dof scene">
   <include file="g1_29dof.xml"/>
+  <option gravity="0 0 0" />
+  <!-- <option gravity="0 0 -9.81" /> -->
 
   <statistic center="0 0 0.5" extent="2.0"/>
 
@@ -19,5 +21,23 @@
   <worldbody>
     <light pos="0 0 1.5" dir="0 0 -1" directional="true"/>
     <geom name="floor" size="0 0 0.05" type="plane" material="groundplane"/>
+
+    <!-- multi-target -->
+    <body name="lf" pos="0 0.12 0.05" quat="1 0 0 0" mocap="true">
+      <geom type="box" size=".04 .04 .04" contype="0" conaffinity="0" rgba=".6 .3 .3 .4" />
+      <site type="sphere" name="lf_site" size="0.005" rgba="0 0 1 1" group="1" />
+    </body>
+    <body name="rf" pos="0 -0.12 0.05" quat="1 0 0 0" mocap="true">
+      <geom type="box" size=".04 .04 .04" contype="0" conaffinity="0" rgba=".6 .3 .3 .4" />
+      <site type="sphere" name="rf_site" size="0.005" rgba="0 0 1 1" group="1" />
+    </body>
+    <body name="lh" pos="0.26 0.15 0.9" quat="1 0 0 0" mocap="true">
+      <geom type="box" size=".04 .04 .04" contype="0" conaffinity="0" rgba=".6 .3 .3 .4" />
+      <site type="sphere" name="lh_site" size="0.005" rgba="0 0 1 1" group="1" />
+    </body>
+    <body name="rh" pos="0.26 -0.15 0.9" quat="1 0 0 0" mocap="true">
+      <geom type="box" size=".04 .04 .04" contype="0" conaffinity="0" rgba=".6 .3 .3 .4" />
+      <site type="sphere" name="rh_site" size="0.005" rgba="0 0 1 1" group="1" />
+    </body>
   </worldbody>
 </mujoco>

@@ -1,7 +1,16 @@
 # Monte-01 3D Mouse Teleoperation Configuration
 # usage platform
-use_hardware: true
+use_hardware: false
 use_simulation: true
+
+sensor_dicts:
+  cameras:
+    # - name: "ee_cam"
+    #   type: "realsense_camera"
+    #   cfg: !include hardware/sensors/cameras/config/d405_cfg.yaml
+    - name: "head_front_cam"
+      type: "ros2_camera"
+      cfg: !include hardware/sensors/cameras/config/obec_bolt_config.yaml
 
 # Notice: the config file path should contain to locate the file 
 # from the project directory
@@ -10,17 +19,16 @@ robot_config: !include hardware/monte01/config/monte01_cfg.yaml
 gripper: "monte01_gripper"
 gripper_config: !include hardware/monte01/config/monte01_gripper_cfg.yaml
 
-control_frequency: 20  # Realistic frequency for dual-arm IK control
-controller_config:
-  - type: "dual"
-    name: "whole_body_ik"
-    cfg: !include controller/config/whole_body_ik_monte_01.yaml
+control_frequency: 20  # Increased for better responsiveness
+controller_type: "whole_body_ik"
+controller_config: !include controller/config/whole_body_ik_monte_01.yaml
 
+model_type: "model"
 model_config:
-  - type: "dual"
-    name: "monte_01_dual"
-    cfg: !include motion/config/robot_model_cfg_monte_01_dual.yaml
+  name: "monte_01_dual"
+  cfg: !include motion/config/robot_model_cfg_monte_01_dual.yaml
 
+buffer_type: "buffer"
 trajectory_planner_type: "cart_polynomial"
 plan_type: "cartesian"
 trajectory_config: !include trajectory/config/cartesian_polynomial_traj_cfg.yaml
@@ -30,10 +38,12 @@ teleop_interface: "duo_space_mouse"
 interface_config: !include teleop/space_mouse/duo_space_mouse_cfg.yaml
 inteface_output_mode: "relative"
 
+enable_rotation: "r"
+
 simulation: "mujoco"
 simulation_config: !include simulation/config/mujoco_monte_01.yaml
 # Target sites for left and right arms
-targe_site_name: ["targetL_site", "targetR_site"]
+target_site_name: ["targetL_site", "targetR_site"]
 tcp_visualization_site: ["TCPL_site", "TCPR_site"]
 
 

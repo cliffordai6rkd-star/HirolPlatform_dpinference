@@ -1,0 +1,16 @@
+meta_quest3:
+  use_hand_tracking: false
+  relative_finger_pose: true
+  binocular: false
+  img_shm_name: "shm0"
+  # image_shape: [480, 640]
+  image_shape: [640, 1280]
+  cert_file: "teleop/XR/quest3/certifications/cert.pem"
+  key_file: "teleop/XR/quest3/certifications/key.pem"
+  ngork: false
+  webrtc: false
+  output_left: false
+  output_right: true
+  init_pose:
+    initial_pose_left: [0.0, 0.0, -0.9, 1, 0, 0, 0]
+    initial_pose_right: [0.0, -0.0, -0.9, 1, 0, 0, 0]

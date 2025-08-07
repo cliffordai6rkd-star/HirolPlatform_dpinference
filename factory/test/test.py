@@ -1,4 +1,3 @@
-from motion.kinematics import PinocchioKinematicsModel
 import abc
 from hardware.base.utils import RobotJointState, Buffer, transform_pose
 
@@ -29,6 +28,22 @@ def func(a, b, c):
 
 def check(item: dict):
     item['a'] = [1,2,3]
+
+
+def throw_except():
+    raise ValueError("Testing!!!")
+    
+def check_excep():
+    try:
+        throw_except()
+        return False
+    except:
+        return True
+    
+def shallow_copy_update(a):
+    b = np.zeros(3)
+    b[:3] = np.array([1,2,3])
+    a[:3] = b[:3]
 
 if __name__ == '__main__':
     import numpy as np
@@ -83,4 +98,14 @@ if __name__ == '__main__':
     print(f'my dict: {my_dict}')
     check(my_dict)
     print(f'my dict: {my_dict}')
+    
+    res = check_excep()
+    print(f'except res: {res}')
+    
+    print(f'1+1= {1+1}')
+    
+    a = np.array([3,4,5])
+    print(f'before a: {a}')
+    shallow_copy_update(a)
+    print(f'after a: {a}')
     

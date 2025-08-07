@@ -1,1 +1,3 @@
 sshkeyboard
+rerun-sdk
+pyrealsense2

@@ -9,8 +9,7 @@ class RealsenseCamera(CameraBase):
             image_shape: [height, width]
             serial_number: the serial port your camera connected
         """
-        self._img_shape = config['image_shape']
-        self._fps = config['fps']
+        
         self._serial_number = config['serial_number']
         
         align_to = rs.stream.color
@@ -118,9 +117,9 @@ if __name__ == "__main__":
             config = yaml.safe_load(stream)
         return config
 
-    config = "hardware/sensors/cameras/config/d435i_cfg.yaml"
+    config = "config/d405_cfg.yaml"
     import cv2
-    d435_cfg = get_cfg(config)["D435i"]
+    d435_cfg = get_cfg(config)["realsense_camera"]
     
     d435 = RealsenseCamera(d435_cfg) 
     while True:

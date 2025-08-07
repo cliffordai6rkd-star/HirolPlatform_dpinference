@@ -11,13 +11,12 @@ import os
 import threading
 import time
 import warnings
-from typing import List, Dict, Any, Optional, Tuple, Union
+from typing import List, Dict, Any, Tuple
 
 import numpy as np
 
 from hardware.base.arm import ArmBase
 from hardware.base.utils import RobotJointState
-from hardware.base.safety_checker import SafetyChecker, SafetyLevel, SafetyLimits
 from .defs import *
 import glog as log
 from hardware.monte01.trunk import Trunk
@@ -119,29 +118,6 @@ class Monte01(ArmBase): #TODO: rename ArmBase to RobotBase, adjust related metho
         self._thread_running = True
         self._update_thread = None
         
-        # Initialize safety checker
-        safety_level = SafetyLevel.NORMAL
-        if 'safety_level' in config:
-            safety_level = SafetyLevel(config['safety_level'])
-        
-        # Custom safety limits from config
-        custom_limits = None
-        if 'safety_limits' in config:
-            limits_config = config['safety_limits']
-            custom_limits = SafetyLimits(
-                max_joint_change=limits_config.get('max_joint_change', 0.5),
-                max_position_change=limits_config.get('max_position_change', 0.01),
-                max_rotation_change=limits_config.get('max_rotation_change', 0.2),
-                max_joint_velocity=limits_config.get('max_joint_velocity', 2.0),
-                min_command_interval=limits_config.get('min_command_interval', 0.001)
-            )
-        
-        self._safety_checker = SafetyChecker(
-            limits=custom_limits,
-            safety_level=safety_level,
-            robot_name="Monte01"
-        )
-        
         # Initialize RobotLib
         self._robot = None
         
@@ -181,14 +157,12 @@ class Monte01(ArmBase): #TODO: rename ArmBase to RobotBase, adjust related metho
             # Initialize safety checker with current robot state
             success, current_positions = self._get_current_joint_positions()
             if success:
-                self._safety_checker.update_state(joint_positions=current_positions)
-                self._safety_checker.commit_valid_state()
+                self.init_safety_state(current_positions)
                 log.info(f"Safety checker initialized with current robot state")
                 log.info(f"Current joint positions: {current_positions}")
             else:
                 # Fallback: initialize with zero position
-                self._safety_checker.update_state(joint_positions=np.zeros(self._total_dof))
-                self._safety_checker.commit_valid_state()
+                self.init_safety_state(np.zeros(self._total_dof))
                 log.info(f"Safety checker initialized with zero state (fallback)")
             
             # Start state update thread
@@ -208,12 +182,10 @@ class Monte01(ArmBase): #TODO: rename ArmBase to RobotBase, adjust related metho
             # Initialize safety checker even in mock mode
             success, current_positions = self._get_current_joint_positions()
             if success:
-                self._safety_checker.update_state(joint_positions=current_positions)
-                self._safety_checker.commit_valid_state()
+                self.init_safety_state(current_positions)
                 log.info(f"Safety checker initialized with current robot state (mock mode)")
             else:
-                self._safety_checker.update_state(joint_positions=np.zeros(self._total_dof))
-                self._safety_checker.commit_valid_state()
+                self.init_safety_state(np.zeros(self._total_dof))
                 log.info(f"Safety checker initialized with zero state (mock mode fallback)")
             
             # Display safety configuration
@@ -325,7 +297,7 @@ class Monte01(ArmBase): #TODO: rename ArmBase to RobotBase, adjust related metho
         
         if success:
             # Update safety checker with current state
-            self._safety_checker.update_state(joint_positions=all_positions)
+            self.update_safety_state(all_positions)
             
             # For now, only support dual arms (14 DOF)
             # Future: extend for head/waist control based on flags
@@ -356,7 +328,7 @@ class Monte01(ArmBase): #TODO: rename ArmBase to RobotBase, adjust related metho
                              f'but got {len(command)}')
         
         # Safety check: validate joint command
-        is_safe, reason = self._safety_checker.check_joint_command(command)
+        is_safe, reason = self.check_joint_command_safety(command)
         if not is_safe:
             log.warn(f"[DEBUG] Safety check failed: {reason}")
             log.warn(f"[DEBUG] Command rejected for safety")
@@ -391,8 +363,8 @@ class Monte01(ArmBase): #TODO: rename ArmBase to RobotBase, adjust related metho
                 log.info(f"Warning: Joint command partially failed - Left: {success_left}, Right: {success_right}")
             else:
                 # Command succeeded, commit as valid state
-                self._safety_checker.update_state(joint_positions=command)
-                self._safety_checker.commit_valid_state()
+                self.update_safety_state(command)
+                self.commit_safe_state()
             
             # Handle head control (if enabled)
             # if self._control_head and len(command) > self._total_dof:
@@ -496,46 +468,4 @@ class Monte01(ArmBase): #TODO: rename ArmBase to RobotBase, adjust related metho
             log.info(f"Warning: Chassis control not implemented, ignoring command: {chassis_speed}")
         else:
             log.info(f"Warning: Chassis control disabled in config, ignoring command: {chassis_speed}")
-    
-    # ============= Safety Management =============
-    
-    def get_safety_statistics(self) -> Dict[str, Any]:
-        """Get safety check statistics"""
-        return self._safety_checker.get_statistics()
-    
-    def print_safety_statistics(self) -> None:
-        """log.info safety check statistics"""
-        self._safety_checker.print_statistics()
-    
-    def reset_safety_tracking(self) -> None:
-        """Reset safety state tracking"""
-        self._safety_checker.reset_tracking()
-        log.info("Safety tracking reset")
-    
-    def get_valid_joint_positions(self) -> Optional[np.ndarray]:
-        """Get last known safe joint positions for emergency rollback"""
-        return self._safety_checker.get_valid_joint_positions()
-    
-    def emergency_rollback(self) -> bool:
-        """Emergency rollback to last safe joint positions"""
-        valid_positions = self.get_valid_joint_positions()
-        if valid_positions is not None:
-            try:
-                log.info("Executing emergency rollback to safe position...")
-                # Temporarily disable safety check for rollback
-                temp_limits = self._safety_checker.limits
-                self._safety_checker.limits.max_joint_change = 10.0  # Allow large change
-                
-                self.set_joint_command(['position'], valid_positions)
-                
-                # Restore original limits
-                self._safety_checker.limits = temp_limits
-                log.info("Emergency rollback completed")
-                return True
-            except Exception as e:
-                log.info(f"Emergency rollback failed: {e}")
-                return False
-        else:
-            log.info("No valid rollback position available")
-            return False
     

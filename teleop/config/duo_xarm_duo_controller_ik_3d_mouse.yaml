@@ -1,0 +1,53 @@
+# usage platform
+use_hardware: true
+use_simulation: true
+
+robot: "duo_arm"
+robot_config: !include hardware/config/duo_xarm7_cfg.yaml
+gripper: "duo_tool"
+gripper_config: !include hardware/config/duo_xarm_gripper_cfg.yaml
+
+# sensor infos
+sensor_dicts:
+  cameras:
+    # - name: "left_ee_cam"
+    #   type: "ros2_camera"
+    #   cfg: !include hardware/sensors/cameras/config/obec_336_config.yaml
+    # - name: "right_ee_cam"
+    #   type: "realsense_camera"
+    #   cfg: !include hardware/sensors/cameras/config
+    - name: "third_person_cam"
+      type: "ros2_camera"
+      cfg: !include hardware/sensors/cameras/config/obec_bolt_config.yaml
+
+        
+control_frequency: 500
+controller_type: "duo_controller"
+controller_config: !include controller/config/duo_ik_cfg.yaml
+
+model_type: "duo_model"
+model_config:
+  name: "duo_xarm7_xarm_gripper"
+  cfg: !include motion/config/robot_model_cfg_duo_xarm7.yaml
+
+buffer_type: "duo_buffer"
+trajectory_planner_type: "cart_polynomial"
+plan_type: "cartesian"
+trajectory_config: !include trajectory/config/cartesian_polynomial_traj_cfg.yaml
+traj_frequency: 300
+
+teleop_interface: "duo_space_mouse"
+interface_config: !include teleop/space_mouse/duo_space_mouse_cfg.yaml
+inteface_output_mode: "relative"
+
+simulation: "mujoco"
+simulation_config: !include simulation/config/mujoco_duo_xarm7.yaml
+target_site_name: ["targetL_site", "targetR_site"]
+tcp_visualization_site: ["TCPL_site", "TCPR_site"]
+
+# teleoperation used parameter
+use_trajectory_planner: false
+# if you are using mujoco simulation target instead of teleoperation device,
+# set use_simulation_target as true
+use_simulation_target: false
+teleoperation_loop_time: 0.01
