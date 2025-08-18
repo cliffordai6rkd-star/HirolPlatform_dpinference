@@ -15,6 +15,7 @@ from hardware.sensors.cameras.realsense_camera import RealsenseCamera
 from hardware.sensors.cameras.opencv_camera import OpencvCamera
 from hardware.sensors.cameras.agibot_cameras import AgibotCamera
 from hardware.sensors.cameras.ros2_camera import Ros2Camera
+
 import warnings
 import threading
 from hardware.base.utils import object_class_check
@@ -182,6 +183,7 @@ class RobotFactory:
             dofs = sim_dofs
         if self._use_hardware:
             hw_dofs = self._robot.get_dof()
+            dofs = hw_dofs
 
         if self._use_hardware and self._use_simulation:
             if sim_dofs != hw_dofs:

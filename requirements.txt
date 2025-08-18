@@ -86,7 +86,7 @@ mujoco==3.3.0
 multidict==6.6.3
 networkx==3.4.2
 nodeenv==1.9.1
-numpy
+numpy==1.26.4
 opencv-python==4.10.0.84
 opt_einsum==3.4.0
 packaging==25.0
@@ -146,6 +146,7 @@ toolz==1.0.0
 tornado==6.5.1
 tqdm==4.67.1
 traitlets==5.14.3
+transformations==2.2.6
 trimesh==4.7.0
 typeguard==4.4.4
 typing_extensions==4.14.0
@@ -160,6 +161,7 @@ waterbear==2.6.8
 wcwidth==0.2.13
 websockets==15.0.1
 wrapt==1.17.2
+xarm-python-sdk==1.17.0
 xxhash==3.5.0
 yarl==1.20.1
 yourdfpy==0.0.58

@@ -43,7 +43,7 @@ class CartessianTrajectory(TrajectoryBase):
                                                      target._zero_order_values[1][7:],
                                                 finish_time)
             end_time = max(end_time, end_time1)
-        log.info(f'end time: {end_time}')
+        log.debug(f'end time: {end_time}')
         if end_time < 0:
             self.trajectory_idle = True
             return 

@@ -1,6 +1,6 @@
 # usage platform
 use_hardware: true
-use_simulation: true
+use_simulation: false
 
 robot: "duo_arm"
 robot_config: !include hardware/config/duo_xarm7_cfg.yaml
@@ -8,17 +8,17 @@ gripper: "duo_tool"
 gripper_config: !include hardware/config/duo_xarm_gripper_cfg.yaml
 
 # sensor infos
-sensor_dicts:
-  cameras:
-    - name: "left_ee_cam"
-      type: "ros2_camera"
-      cfg: !include hardware/sensors/cameras/config/obec_336_config.yaml
-    # - name: "right_ee_cam"
-    #   type: "realsense_camera"
-    #   cfg: !include hardware/sensors/cameras/config
-    - name: "third_person_cam"
-      type: "ros2_camera"
-      cfg: !include hardware/sensors/cameras/config/obec_bolt_config.yaml
+# sensor_dicts:
+#   cameras:
+#     - name: "left_ee_cam"
+#       type: "ros2_camera"
+#       cfg: !include hardware/sensors/cameras/config/obec_336_config.yaml
+#     # - name: "right_ee_cam"
+#     #   type: "realsense_camera"
+#     #   cfg: !include hardware/sensors/cameras/config
+#     - name: "third_person_cam"
+#       type: "ros2_camera"
+#       cfg: !include hardware/sensors/cameras/config/obec_bolt_config.yaml
 
         
 control_frequency: 500

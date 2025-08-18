@@ -1,6 +1,6 @@
 [submodule "dependencies/panda-py"]
 	path = dependencies/panda-py
-	url = git@github.com:JeanElsner/panda-py.git
+	url = git@github.com/linkage-x/panda-py
 [submodule "dependencies/monte01_sdk"]
 	path = dependencies/monte01_sdk
 	url = git@github.com:linkage-x/monte01_sdk.git

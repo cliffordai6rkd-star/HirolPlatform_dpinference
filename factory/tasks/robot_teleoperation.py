@@ -94,6 +94,12 @@ class TeleoperationFactory:
                     self.base2world_pose.append(negate_pose(cur_world2base))
             log.info(f'world2base: {self.world2base_pose}')
             log.info(f'base2world: {self.base2world_pose}')
+        else:
+            # For real robots, initialize with identity transformation
+            self.world2base_pose = [np.array([0, 0, 0, 0, 0, 0, 1])]
+            self.base2world_pose = [negate_pose(self.world2base_pose[0])]
+            log.info(f'world2base (real robot): {self.world2base_pose}')
+            log.info(f'base2world (real robot): {self.base2world_pose}')
        
         self.ee_link = self._robot_motion_system.get_model_end_effector_link_list()
         log.info(f'ee links: {self.ee_link}')
@@ -160,7 +166,7 @@ class TeleoperationFactory:
                 key = self._robot_index[i]
                 cur_tcp_pose[key] =  self._robot_motion_system.get_frame_pose(cur_ee_link, key)
                 # visualize the curr tcp
-                if not TCP_site is None:
+                if not TCP_site is None and self._robot_system._use_simulation:
                     cur_tcp = cur_tcp_pose[key]
                     cur_world2base = self.world2base_pose[0] if len(self.world2base_pose) == 1 else self.world2base_pose[i]
                     tcp = transform_pose(cur_world2base, cur_tcp)
@@ -190,7 +196,7 @@ class TeleoperationFactory:
                     
                     # visualization of the target pose for ee 
                     # (Not using simulation for target tracking)
-                    if not self._use_simulation_target and not mocap_target_site is None:
+                    if not self._use_simulation_target and not mocap_target_site is None and self._robot_system._use_simulation:
                         cur_mocap_target_site = mocap_target_site[i]
                         mocap_name = cur_mocap_target_site.split('_')[0]
                         # target_tcp = copy.deepcopy(ee_target_7D)
