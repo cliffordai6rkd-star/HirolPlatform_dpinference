@@ -96,6 +96,7 @@ class AgibotG1(ArmBase):
             self.update_arm_states()
             self._joint_states._velocities = (self._joint_states._positions - self._last_posi) / dt
             self._joint_states._accelerations = (self._joint_states._velocities - self._last_vel) / dt
+            self._joint_states._time_stamp = time.perf_counter()
             self._lock.release()
             
             if dt < (1.0 / read_frequency):

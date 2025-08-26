@@ -230,6 +230,7 @@ class Monte01(ArmBase): #TODO: rename ArmBase to RobotBase, adjust related metho
                       # 首次运行时初始化
                       self._joint_states._velocities = np.zeros_like(current_positions)
                       self._joint_states._accelerations = np.zeros_like(current_positions)
+                  self._joint_states._time_stamp = time.perf_counter()
 
                   # 更新历史数据
                   last_positions = current_positions

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from motion.pin_model import RobotModel
 from motion.model_base import ModelBase
 import numpy as np

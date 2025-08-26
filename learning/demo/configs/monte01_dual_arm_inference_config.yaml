@@ -1,0 +1,179 @@
+# Monte01双臂机器人ACT推理配置文件（简化版）
+# 使用duo_xarm_duo_ik配置作为基础，支持16 DOF双臂控制
+
+# 使用双臂专用的运动配置
+motion_config: !include factory/components/motion_configs/duo_xarm_duo_ik.yaml
+
+# 机器人类型标识（关键：触发双臂逻辑）
+robot:
+  type: "monte01"
+
+# 学习推理配置
+learning:
+  algorithm: "ACT"
+  state_dim: 16  # Monte01双臂: 16 DOF (左臂8 + 右臂8)
+  # 相机名称与duo_xarm_duo_ik.yaml保持一致
+  camera_names: ["left_ee_cam", "right_ee_cam", "third_person_cam"]
+  robot_type: "monte01"  # 传递给学习推理工厂
+  
+  # ACT模型参数
+  num_queries: 100      # action chunk size
+  hidden_dim: 512
+  dim_feedforward: 3200
+  enc_layers: 4
+  dec_layers: 7
+  nheads: 8
+  lr: 1e-5
+  kl_weight: 10
+  backbone: "resnet18"
+  
+  # VQ参数（通常不使用）
+  vq: false
+  vq_class: null
+  vq_dim: null
+  
+  # 编码器配置
+  no_encoder: false
+  
+  # 数据处理参数
+  normalize_images: true
+  image_target_size: [480, 640]  # [height, width]
+
+# 控制参数
+control_frequency: 3.0   # Monte01双臂推理频率 (Hz) - 降低到3Hz减少xArm错误
+max_episode_length: 1500  # 双臂任务可能需要更多步数
+action_repeat: 1
+sliding_window_size: 10   # 滑动窗口：每执行N步重新推理
+
+# Monte01双臂夹爪/吸盘后处理配置
+gripper_postprocess:
+  enabled: true
+  # 夹爪控制模式: 'binary' (FR3式 0/0.08m) 或 'incremental' (Monte01连续值)
+  control_mode: "incremental"
+  # 左臂夹爪/吸盘配置
+  left_gripper:
+    threshold: 0.5
+    hysteresis: 0.1
+    min_open_position: 0.06
+    min_close_position: 0.01
+    # Monte01夹爪范围 (0-0.074m)
+    gripper_range: [0.0, 0.074]
+  # 右臂夹爪/吸盘配置
+  right_gripper:
+    threshold: 0.5
+    hysteresis: 0.1
+    min_open_position: 0.06
+    min_close_position: 0.01
+    gripper_range: [0.0, 0.074]
+
+# 动作时间聚合配置（双臂优化）
+action_aggregation:
+  enabled: false  # 临时禁用用于调试
+  method: "weighted_average"  # 加权平均对双臂更稳定
+  window_size: 5
+  discontinuity_threshold: 0.15   # 双臂可能需要更宽松的阈值
+  discontinuity_smooth_factor: 0.4
+
+# 简化的双臂控制（无碰撞检测）
+dual_arm_control:
+  enabled: true
+  # 禁用碰撞检测（简化版）
+  collision_detection:
+    enabled: false
+  # 禁用运动同步（简化版）
+  motion_sync:
+    enabled: false
+
+# 安全参数（16个关节：左臂7+左夹爪+右臂7+右夹爪）
+safety:
+  joint_limits:
+    # [左臂7关节, 左夹爪, 右臂7关节, 右夹爪]
+    lower: [-2.9, -1.8, -2.9, -3.1, -2.9, -0.02, -2.9, 0.0,
+            -2.9, -1.8, -2.9, -3.1, -2.9, -0.02, -2.9, 0.0]
+    upper: [2.9, 1.8, 2.9, -0.07, 2.9, 3.8, 2.9, 0.074,
+            2.9, 1.8, 2.9, -0.07, 2.9, 3.8, 2.9, 0.074]
+  
+  # 速度限制 (rad/s, 夹爪为 m/s)
+  velocity_limits: [3.0, 3.0, 3.0, 3.0, 3.5, 3.5, 3.5, 0.3,
+                    3.0, 3.0, 3.0, 3.0, 3.5, 3.5, 3.5, 0.3]
+  
+  # 双臂推理安全参数
+  max_joint_change: 0.6        # 允许的最大关节变化
+  max_velocity_per_step: 2.4   # 每步最大速度限制
+  safety_scale_factor: 0.95    # 安全动作缩放因子
+  
+  # 安全检查开关
+  enable_collision_detection: false  # 简化版禁用
+  enable_workspace_limits: true
+  emergency_stop_threshold: 0.1
+
+# 关节位置实时可视化配置（双臂16个关节）
+joint_position_visualization:
+  enabled: false  # 默认禁用（减少开销）
+  window_size: [1600, 800]  # 更大的窗口显示16个关节
+  update_frequency: 5
+  history_length: 1000
+  save_data: true
+  save_interval: 300
+  # 双臂颜色区分
+  left_arm_color: [0, 255, 0]   # 左臂显示为绿色
+  right_arm_color: [0, 0, 255]  # 右臂显示为蓝色
+
+# 图像显示配置（三相机）
+visualization:
+  enable_image_display: true
+  # 三相机并排显示的窗口设置
+  display_window_size: [640, 480]  # 宽屏显示三个相机
+  display_refresh_rate: 10  # 较低刷新率减少开销
+  
+  # 三相机布局配置
+  camera_layout:
+    columns: 3  # 三相机水平排列
+    individual_size: [640, 480]  # 每个相机的显示尺寸
+
+# 实验参数
+experiment:
+  max_episodes: 1
+  reset_robot_between_episodes: true
+  # 使用训练数据的均值作为初始位置，确保推理与训练的状态分布匹配
+  initial_position: [-5.149374, 2.6535614, -0.6029513, -1.510822, -0.4006841, 0.91617, -2.4397354, 0.0338007, -1.1335498, 2.7522266, -2.4940815, -1.6805387, 3.6997206, 0.9468897, 2.3589966, 0.0]
+  initial_position_tolerance: 0.1  # 位置到达容差(弧度)
+  initial_position_timeout: 30.0   # 移动到初始位置的超时时间(秒)
+  initial_position_speed: 0.5      # 移动到初始位置的速度比例
+
+# 日志和监控
+logging:
+  log_level: "INFO"
+  save_trajectory: true
+  trajectory_save_path: "./logs/monte01_dual_arm_trajectories"
+  monitor_frequency: true
+  monitor_safety: true
+  save_camera_data: false
+  # 双臂特定日志
+  log_dual_arm_coordination: true  # 记录双臂协调信息
+
+# 设备配置
+runtime:
+  device: "auto"  # auto, cuda, cpu
+  max_batch_size: 1
+  inference_timeout: 3.0  # 双臂推理可能需要更长时间
+  max_retries: 3
+  retry_delay: 0.1
+
+# 数据适配器配置
+data_adapter:
+  robot_type: "monte01"     # 使用Monte01DataAdapter (16 DOF)
+  validation_enabled: true
+  
+  # Monte01双臂数据格式配置
+  joint_position_range: [-3.14, 3.14]  # 关节位置范围检查
+  gripper_position_range: [0.0, 0.074] # Monte01夹爪/吸盘范围
+  image_channels: 3         # RGB通道数
+  
+  # 双臂状态索引配置
+  left_arm_indices: [0, 1, 2, 3, 4, 5, 6, 7]    # 左臂在16维中的索引
+  right_arm_indices: [8, 9, 10, 11, 12, 13, 14, 15]  # 右臂在16维中的索引
+  
+  # 数据转换配置
+  position_scaling: 1.0
+  action_scaling: 1.0

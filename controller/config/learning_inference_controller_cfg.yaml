@@ -1,0 +1,136 @@
+# 学习推理控制器配置文件
+# 用于配置学习推理在控制器中的集成参数
+
+# 控制器集成配置
+controller_integration:
+  # 启用学习推理
+  enable_learning_inference: true
+  
+  # 控制模式
+  control_mode: "position"  # position, velocity, torque
+  
+  # 执行策略
+  execution_strategy: "immediate"  # immediate, buffered, validated
+  
+  # 与传统控制器的融合
+  controller_fusion:
+    enable_fusion: false
+    fusion_weight: 0.5  # 学习控制器权重 (0.0-1.0)
+    traditional_controller: "impedance"  # impedance, pid
+
+# 控制循环配置
+control_loop:
+  # 控制频率
+  frequency: 10  # Hz
+  
+  # 超时配置
+  inference_timeout: 0.1  # 推理超时(秒)
+  execution_timeout: 0.05  # 执行超时(秒)
+  
+  # 同步配置
+  synchronous_execution: true
+  wait_for_completion: true
+
+# 安全配置
+safety:
+  # 启用安全检查
+  enable_safety_checks: true
+  
+  # 关节限制检查
+  joint_limits:
+    enable_position_limits: true
+    enable_velocity_limits: true
+    enable_acceleration_limits: false
+    
+    # 限制缓冲区
+    position_buffer: 0.1  # 弧度
+    velocity_buffer: 0.2  # 弧度/秒
+  
+  # 动作平滑
+  action_smoothing:
+    enable_smoothing: true
+    smoothing_factor: 0.8  # 0.0-1.0
+    max_change_per_step: 0.2  # 弧度
+  
+  # 紧急停止
+  emergency_stop:
+    enable_emergency_stop: true
+    max_force_threshold: 50.0  # 牛顿
+    position_error_threshold: 0.5  # 弧度
+
+# 数据管理配置
+data_management:
+  # 输入数据缓存
+  input_buffer:
+    size: 10
+    enable_interpolation: false
+  
+  # 输出数据处理
+  output_processing:
+    enable_filtering: true
+    filter_type: "low_pass"  # low_pass, median, moving_average
+    filter_cutoff: 5.0  # Hz
+  
+  # 数据记录
+  data_logging:
+    enable_logging: false
+    log_frequency: 1  # Hz
+    log_states: true
+    log_actions: true
+    log_images: false
+
+# 性能优化配置
+performance:
+  # 预测优化
+  prediction_optimization:
+    enable_prediction_caching: false
+    cache_duration: 0.1  # 秒
+    
+  # 并行处理
+  parallel_processing:
+    enable_parallel_inference: false
+    num_threads: 2
+  
+  # 内存优化
+  memory_optimization:
+    enable_memory_pooling: false
+    max_memory_per_inference: "100MB"
+
+# 故障处理配置
+fault_handling:
+  # 推理失败处理
+  inference_failure:
+    fallback_strategy: "hold_position"  # hold_position, safe_stop, manual_control
+    max_consecutive_failures: 5
+    failure_recovery_delay: 1.0  # 秒
+  
+  # 执行失败处理
+  execution_failure:
+    retry_strategy: "exponential_backoff"
+    max_execution_retries: 3
+    fallback_to_traditional: true
+  
+  # 通信失败处理
+  communication_failure:
+    timeout_handling: "conservative"
+    reconnection_attempts: 3
+    fallback_mode: "safe"
+
+# 调试和监控配置
+debug_monitoring:
+  # 实时监控
+  real_time_monitoring:
+    enable_monitoring: false
+    monitor_frequency: 20  # Hz
+    
+  # 性能指标
+  performance_metrics:
+    track_latency: true
+    track_success_rate: true
+    track_safety_violations: true
+    
+  # 可视化配置
+  visualization:
+    enable_real_time_plots: false
+    plot_joint_positions: true
+    plot_prediction_confidence: false

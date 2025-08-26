@@ -16,14 +16,15 @@ from hardware.sensors.cameras.opencv_camera import OpencvCamera
 from hardware.sensors.cameras.agibot_cameras import AgibotCamera
 from hardware.sensors.cameras.ros2_camera import Ros2Camera
 from hardware.sensors.ft_sensor.ati_ft import AtiFt
-import warnings
+from hardware.sensors.cameras.network_camera import NetworkCamera
 import threading
-import time
+import time, copy
 from hardware.base.utils import object_class_check
 from controller.utils.weighted_moving_filter import WeightedMovingFilter
 import numpy as np
-from typing import Optional, Union, List
+from typing import Optional, Union, List, Dict, Any
 import glog as log
+from factory.components.learning_inference_factory import LearningInferenceFactory
 
 # Import smoother modules
 from smoother.smoother_base import SmootherBase
@@ -40,6 +41,8 @@ class RobotFactory:
     _simulation: SimBase
     _smoother: Optional[SmootherBase]
     
+    _learning_inference_engine: Optional[Any]
+    _learning_data_adapter: Optional[Any]
     def __init__(self, config):
         self._config = config
         self._use_hardware = config['use_hardware']
@@ -61,6 +64,16 @@ class RobotFactory:
         self._async_thread = None
         self._async_running = False
         self._async_frequency = config.get('async_control_frequency', 800.0)
+        
+        # robot action
+        self._last_robot_action = {}
+        self._last_robot_action_lock = threading.Lock()
+        self._update_action = False
+        
+        # @TODO: delete Learning inference components
+        self._learning_config = config.get("learning", None)
+        self._learning_inference_engine = None
+        self._learning_data_adapter = None
             
         # object classes
         self._robot_classes = {
@@ -79,7 +92,8 @@ class RobotFactory:
             'realsense_camera': RealsenseCamera,
             'opencv_camera': OpencvCamera,
             'agibot_camera': AgibotCamera,
-            'ros2_camera': Ros2Camera
+            'ros2_camera': Ros2Camera,
+            'network_camera': NetworkCamera,
         }
         
         self._simulation_classes = {
@@ -110,13 +124,19 @@ class RobotFactory:
                 if 'cameras' in self._sensor_dicts:
                     # cameras
                     cameras_info = self._sensor_dicts["cameras"]
+                    log.info(f"{cameras_info}")
                     cameras_objects = []
                     num_camera = 0
                     for cam_info in cameras_info:
                         if not object_class_check(self._camera_classes, cam_info['type']):
+                            log.error(f"ValueError")
                             raise ValueError
                         cam_type = cam_info['type']
+                        log.info(f"{cam_type}")
+                        log.info(f" : {cam_info['cfg'][cam_type]}")
+                        log.info(f" : {self._camera_classes[cam_type]}")
                         cam = self._camera_classes[cam_type](cam_info['cfg'][cam_type])
+
                         cameras_objects.append({'name': cam_info['name'], 'object': cam})
                         log.info(f"Add one hw camera {cam_info['name']}")
                         num_camera += 1
@@ -125,7 +145,7 @@ class RobotFactory:
                 # tactile 
                 
                 # FT
-                
+            
         if self._use_simulation:
             if not object_class_check(self._simulation_classes, self._simulation_type):
                 raise ValueError
@@ -168,6 +188,10 @@ class RobotFactory:
             self._use_smoother = False
             self._smoother = None
     
+        # Initialize learning inference components if configured
+        # 注意：ACT推理运行器有独立的学习组件初始化逻辑，此处可跳过
+        # self._initialize_learning_components()
+        
     def _initialize(self):
         if self._use_hardware:
             if not self._robot.initialize():
@@ -258,8 +282,11 @@ class RobotFactory:
             total_dof += dof
         return total_dof
         
-    def set_joint_commands(self, joint_command, mode, execute_hardware: bool = False):
+    def set_joint_commands(self, joint_command, mode, execute_hardware: bool = False,
+                           update_action = False, change_action_status = False):
         self._enable_hardware = execute_hardware
+        if change_action_status:
+            self._update_action = update_action
         # Check if we should use smoother
         should_use_smoother = self._should_use_smoother(mode)
         # log.info(f"Should use smoother: {should_use_smoother}, mode: {mode}")
@@ -281,9 +308,10 @@ class RobotFactory:
         # Only execute direct commands in synchronous mode or when smoother not used
         if not self._async_mode or not should_use_smoother:
             # log.info(f"Set joint command: mode: {mode}")
-            self.set_robot_joint_command(joint_command, mode, execute_hardware)
+            self.set_robot_joint_command(joint_command, mode, execute_hardware, update_action)
                 
-    def set_robot_joint_command(self, joint_command, mode, execute_hardware:bool = True):
+    def set_robot_joint_command(self, joint_command, mode, execute_hardware:bool = True,
+                                update_action = False):
         dofs = self.get_robot_dofs()
         if self._use_simulation:
             # mode assignment
@@ -300,7 +328,30 @@ class RobotFactory:
             if len(mode) == 1:
                 mode = mode[0]
             self._robot.set_joint_command(mode, joint_command)
-    
+        
+        # update joint action data
+        if update_action:
+            with self._last_robot_action_lock:
+                dof_list = self.get_robot_dofs()
+                index = ["single"] if len(dof_list) == 1 else ["left", "right"]
+                dof_list = [0] + dof_list
+                for i, key in enumerate(index):
+                    self._last_robot_action[key] = dict(
+                        joint=dict(position=joint_command[dof_list[i]:dof_list[i+1]].tolist(), 
+                                time_stamp=time.perf_counter())
+                    )
+        
+    def _update_robot_action(self, action_dict: dict):
+        if len(self._last_robot_action) == 0:
+            return False
+        
+        self._last_robot_action_lock.acquire()
+        for i, key in enumerate(list(self._last_robot_action.keys())):
+            action_dict[key] = {}
+            action_dict[key] = copy.deepcopy(self._last_robot_action[key])
+        self._last_robot_action_lock.release()
+        return True
+        
     def _should_use_smoother(self, mode: Union[str, List[str]]) -> bool:
         """Check if smoother should be used for current mode"""
         # log.info(f'mode: {mode}, use: {self._use_smoother}, smoother: {self._smoother}')
@@ -316,18 +367,28 @@ class RobotFactory:
             
     def set_tool_command(self, tool_command: dict[str, np.ndarray]):
         if self._tool is None:
-            return 
+            log.debug(f'Tool is not connected')
+            return False
         
         tool_type_dict = self._tool.get_tool_type_dict()
         for key, tool_type in tool_type_dict.items():
             if tool_type == ToolType.GRIPPER or tool_type == ToolType.SUCTION:
-                tool_command[key] = tool_command[key][:2]
+                tool_command[key] = np.array(tool_command[key])
+                if tool_command[key].ndim != 0: 
+                    tool_command[key] = tool_command[key][0]
             else:
-                tool_command[key] = tool_command[key][2:]
+                tool_command[key] = np.array(tool_command[key][::-1])
                 
         if 'single' in tool_command:
             tool_command = tool_command["single"]
-        self._tool.set_tool_command(tool_command)
+        return self._tool.set_tool_command(tool_command)
+    
+    def get_tool_type_dict(self):
+        if self._tool is None:
+            return None
+        
+        tool_type_dict = self._tool.get_tool_type_dict()
+        return tool_type_dict
 
     def close(self):
         # Stop async control first if enabled
@@ -374,18 +435,18 @@ class RobotFactory:
                 resolution = camera_object.get_resolution()
                 if not img['image'] is None:
                     hw_camera_data.append({'name': camera_name+'_color', 'resolution': resolution,
-                                        'img': img['image']})
+                                        'img': img['image'],'time_stamp': img["time_stamp"]})
                 if not img['depth_map'] is None:
                     hw_camera_data.append({'name': camera_name+'_depth', 'resolution': resolution,
-                                        'img': img['depth_map']})
+                                        'img': img['depth_map'],'time_stamp': img["time_stamp"]})
                 if not img['imu'] is None:
                     hw_camera_data.append({'name': camera_name+'_imu', 'resolution': resolution,
-                                        'imu': img['imu']})
+                                        'imu': img['imu'],'time_stamp': img["time_stamp"]})
             if len(hw_camera_data):
                 cameras_data = hw_camera_data
         return cameras_data
             
-    def move_to_start(self, joint_commands = None):
+    def move_to_start(self, joint_commands = None, mode = None):
         """
         Move robot to start position
         Args:
@@ -400,7 +461,11 @@ class RobotFactory:
             self._smoother.update_target(joint_commands, immediate=False)
             
             # Create temporary control loop to actually move the robot
-            self._smmother_blocking_execution(5.0)
+            if mode is None:
+                raise ValueError("Mode must be specified when using smoother for move_to_start")
+            log.info(f"Move to start mode: {mode}, command: {joint_commands}")
+            self.set_joint_commands(joint_commands, mode, execute_hardware=self._enable_hardware)
+            time.sleep(2.0)
             
         else:
             # joint_commands is None: use robot's default move_to_start (immediate reset)
@@ -411,7 +476,7 @@ class RobotFactory:
             if self._use_simulation:
                 self._simulation.move_to_start(None)
             if self._use_hardware:
-                self._robot.move_to_start(None)
+                self._robot.move_to_start()
             
             # Resume smoother and sync to current position
             time.sleep(0.1)
@@ -519,14 +584,11 @@ class RobotFactory:
                     smoothed_command, is_active = self._smoother.get_command()
                     
                     if is_active:
-                        try:
-                            mode = ["position"] * len(dofs)
-                            self.set_robot_joint_command(smoothed_command, mode,
-                                                execute_hardware=self._enable_hardware)
-                                
-                        except Exception as e:
-                            log.error(f"Error in async command loop: {e}")
-            
+                        mode = ["position"] * len(dofs)
+                        self.set_robot_joint_command(smoothed_command, mode,
+                                            execute_hardware=self._enable_hardware,
+                                            update_action=self._update_action)
+
             # Timing management
             next_time += dt
             sleep_time = next_time - time.perf_counter()
@@ -543,3 +605,162 @@ class RobotFactory:
                 next_time = time.perf_counter()
         
         log.info("Async command loop stopped")
+    
+    # ========== 学习推理相关方法 ==========
+    
+    def _initialize_learning_components(self) -> None:
+        """初始化学习推理组件."""
+        if self._learning_config is None:
+            log.info("📚 未配置学习推理组件，跳过初始化")
+            return
+        
+        try:
+            algorithm = self._learning_config.get("algorithm", "ACT")
+            ckpt_dir = self._learning_config.get("checkpoint_dir")
+            
+            if not ckpt_dir:
+                log.warning("⚠️ 学习配置中未指定checkpoint_dir，跳过学习组件初始化")
+                return
+            
+            # 验证检查点目录
+            if not LearningInferenceFactory.validate_checkpoint_directory(ckpt_dir, algorithm):
+                log.error(f"❌ 检查点目录验证失败: {ckpt_dir}")
+                return
+            
+            # 创建学习推理流水线
+            inference_config = self._learning_config.get("inference_config", {})
+            inference_engine, data_adapter = LearningInferenceFactory.create_learning_pipeline(
+                algorithm=algorithm,
+                robot_type=self._robot_type,
+                ckpt_dir=ckpt_dir,
+                config=inference_config
+            )
+            
+            # 保存引用
+            self._learning_inference_engine = inference_engine
+            self._learning_data_adapter = data_adapter
+            
+            # 设置到机器人对象
+            if self._use_hardware and self._robot:
+                self._robot.set_learning_inference(inference_engine, data_adapter)
+            
+            log.info(f"✅ 学习推理组件初始化成功: {algorithm}")
+            
+        except Exception as e:
+            log.error(f"❌ 学习推理组件初始化失败: {str(e)}")
+            log.warning("⚠️ 继续运行，但学习功能不可用")
+    
+    def setup_learning_inference(
+        self, 
+        algorithm: str,
+        ckpt_dir: str,
+        inference_config: Dict[str, Any]
+    ) -> bool:
+        """动态设置学习推理组件.
+        
+        Args:
+            algorithm: 学习算法名称
+            ckpt_dir: 检查点目录
+            inference_config: 推理配置
+            
+        Returns:
+            bool: 设置是否成功
+        """
+        try:
+            # 创建学习推理流水线
+            inference_engine, data_adapter = LearningInferenceFactory.create_learning_pipeline(
+                algorithm=algorithm,
+                robot_type=self._robot_type,
+                ckpt_dir=ckpt_dir,
+                config=inference_config
+            )
+            
+            # 更新引用
+            self._learning_inference_engine = inference_engine
+            self._learning_data_adapter = data_adapter
+            
+            # 设置到机器人对象
+            if self._use_hardware and self._robot:
+                self._robot.set_learning_inference(inference_engine, data_adapter)
+            
+            log.info(f"✅ 学习推理组件动态设置成功: {algorithm}")
+            return True
+            
+        except Exception as e:
+            log.error(f"❌ 学习推理组件设置失败: {str(e)}")
+            return False
+    
+    def get_learning_prediction(self, camera_data: Dict[str, np.ndarray]) -> Optional[list]:
+        """获取学习策略预测.
+        
+        Args:
+            camera_data: 相机数据字典
+            
+        Returns:
+            Optional[list]: 预测的动作序列
+        """
+        if not self._use_hardware or not self._robot:
+            log.error("❌ 硬件模式下才支持学习推理")
+            return None
+        
+        if not self._robot.is_learning_enabled():
+            log.error("❌ 学习推理组件未启用")
+            return None
+        
+        return self._robot.get_learning_prediction(camera_data)
+    
+    def execute_learned_actions(
+        self, 
+        actions: list,
+        execution_mode: str = "position"
+    ) -> bool:
+        """执行学习策略输出的动作.
+        
+        Args:
+            actions: 动作序列
+            execution_mode: 执行模式
+            
+        Returns:
+            bool: 执行是否成功
+        """
+        if not self._use_hardware or not self._robot:
+            log.error("❌ 硬件模式下才支持动作执行")
+            return False
+        
+        return self._robot.execute_learned_action_sequence(actions, execution_mode=execution_mode)
+    
+    def run_learning_control_loop(
+        self, 
+        camera_data: Dict[str, np.ndarray],
+        execution_mode: str = "position"
+    ) -> bool:
+        """运行学习控制循环.
+        
+        Args:
+            camera_data: 相机数据
+            execution_mode: 执行模式
+            
+        Returns:
+            bool: 控制循环是否成功
+        """
+        if not self._use_hardware or not self._robot:
+            log.error("❌ 硬件模式下才支持学习控制循环")
+            return False
+        
+        return self._robot.run_learning_control_loop(camera_data, execution_mode)
+    
+    def is_learning_enabled(self) -> bool:
+        """检查学习推理是否已启用."""
+        if not self._use_hardware or not self._robot:
+            return False
+        return self._robot.is_learning_enabled()
+    
+    def disable_learning_inference(self) -> None:
+        """禁用学习推理功能."""
+        if self._use_hardware and self._robot:
+            self._robot.disable_learning_inference()
+        
+        self._learning_inference_engine = None
+        self._learning_data_adapter = None
+        
+        log.info("🛑 RobotFactory学习推理功能已禁用")

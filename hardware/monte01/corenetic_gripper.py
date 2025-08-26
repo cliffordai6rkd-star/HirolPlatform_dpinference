@@ -1,6 +1,6 @@
 import importlib.util
 import os
-from .defs import ROBOTLIB_SO_PATH, COM_TYPE_LEFT, COM_TYPE_RIGHT
+from .defs import ROBOTLIB_SO_PATH, COM_TYPE_LEFT, COM_TYPE_RIGHT,CORENETIC_GRIPPER_MAX_POSITION
 from .defs import GRIPPER_ENABLE, GRIPPER_MODE_POSITION_CTRL, GRIPPER_MODE_TORQUE_CTRL
 
 # Load RobotLib dynamically
@@ -20,7 +20,6 @@ import threading
 import numpy as np
 
 # Corenetic gripper constants
-CORENETIC_GRIPPER_MAX_POSITION = 0.074  # Maximum position for Corenetic gripper (0 to 0.074 meters)
 
 class CoreneticGripper(ToolBase):
     _tool_type: ToolType = ToolType.GRIPPER
@@ -103,6 +102,23 @@ class CoreneticGripper(ToolBase):
         self._is_initialized = True
         return True
 
+    def set_hardware_command(self, command: np.array):
+        log.info(f'Setting Corenetic gripper command: {command}')
+        target = np.clip(command, 0, 1)
+        
+        if hasattr(self, '_command_thread') and self._command_thread:
+            # Async queue mode - ultra-low latency
+            with self._queue_lock:
+                # Only queue if different from last command
+                if not self._command_queue or abs(self._command_queue[-1] - target) > 0.001:
+                    self._command_queue.append(target)
+                    # Limit queue size to prevent buildup
+                    if len(self._command_queue) > 3:
+                        self._command_queue = self._command_queue[-2:]  # Keep only last 2
+            
+            log.debug(f"Queued gripper command: {target}")
+            return True
+
     def _set_binary_command(self, target: float) -> bool:
         """Move gripper to specified position. Returns True if successful, False otherwise."""
         
@@ -125,11 +141,8 @@ class CoreneticGripper(ToolBase):
         try:
             success, pos = self.hardware.get_gripper_position(self._component_type)
             if success:
-                # Convert from 0-0.074m range to 0-1 normalized range
-                normalized_pos = pos / CORENETIC_GRIPPER_MAX_POSITION
-                normalized_pos = np.clip(normalized_pos, 0.0, 1.0)
-                log.info(f"Hardware gripper position: raw={pos:.6f}m, normalized={normalized_pos:.4f}")
-                self._state._position = normalized_pos
+                # log.info(f"Hardware gripper position: raw={pos:.6f}m")
+                self._state._position = pos
             else:
                 log.error(f'gripper communication test failed, success: {success}')
         except Exception as e:
@@ -211,7 +224,7 @@ class CoreneticGripper(ToolBase):
                     api_time = time.perf_counter() - api_start
                     
                     if not success:
-                        log.warn(f"gripper async move failed: success={success}, position: {position_real}")
+                        log.debug(f"gripper async move failed: success={success}, position: {position_real}")
                     else:
                         log.debug(f"Hardware gripper async moved to position {position_real:.6f}m in {api_time*1000:.1f}ms")
                         

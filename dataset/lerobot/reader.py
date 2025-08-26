@@ -2,11 +2,8 @@ import os
 import json
 import cv2
 import numpy as np
-import time, enum
+import enum
 from scipy.spatial.transform import Rotation as R
-import rerun as rr
-import rerun.blueprint as rrb
-from datetime import datetime
 os.environ["RUST_LOG"] = "error"
 import glog as log
 
@@ -16,16 +13,28 @@ class ActionType(enum.Enum):
     END_EFFECTOR_POSE = 2
     END_EFFECTOR_POSE_DELTA = 3
     JOINT_TORQUE = 4
+    COMMAND_JOINT_POSITION = 5
+    COMMAND_END_EFFECTOR_POSE = 6
+
+Action_Type_Mapping_Dict = {
+    "joint_position": ActionType.JOINT_POSITION,
+    "joint_position_delta": ActionType.JOINT_POSITION_DELTA,
+    "end_effector_pose": ActionType.END_EFFECTOR_POSE,
+    "end_effector_pose_delta": ActionType.END_EFFECTOR_POSE_DELTA,
+    "command_joint_position": ActionType.COMMAND_JOINT_POSITION,
+    "command_end_effector_pose": ActionType.COMMAND_END_EFFECTOR_POSE
+}
 
 class RerunEpisodeReader:
     def __init__(self, task_dir = ".", json_file="data.json", action_type: ActionType = ActionType.JOINT_POSITION,
-                 action_prediction_step = 2):
+                 action_prediction_step = 2, action_ori_type = "euler"):
         self.task_dir = task_dir
         self.json_file = json_file
         self.action_type = action_type
         self._action_prediction_step = action_prediction_step
+        self._action_ori_type = action_ori_type
 
-    def return_episode_data(self, episode_idx, skip_steps_nums):
+    def return_episode_data(self, episode_idx, skip_steps_nums=1):
         # Load episode data on-demand
         episode_dir = os.path.join(self.task_dir, f"episode_{episode_idx:04d}")
         json_path = os.path.join(episode_dir, self.json_file)
@@ -42,16 +51,15 @@ class RerunEpisodeReader:
         # Loop over the data entries and process each one
         counter = 0
         skip_steps_nums = int(skip_steps_nums)
-        last_state_data = None
         len_json_file = len(json_file['data'])
         json_data = json_file['data']
-        # print(f'json data: {json_data}')
+        # @TODO: maybe pose-process for time synchronization
         for i, item_data in enumerate(json_file['data']):
             # Process images and other data
-            colors = self._process_images(item_data, 'colors', episode_dir)
+            colors, colors_time_stamp = self._process_images(item_data, 'colors', episode_dir)
             if colors is None:
                 continue
-            depths = self._process_images(item_data, 'depths', episode_dir)
+            depths, depths_time_stamp = self._process_images(item_data, 'depths', episode_dir)
             if depths is None:
                 continue
             audios = self._process_audio(item_data, 'audios', episode_dir)
@@ -67,21 +75,40 @@ class RerunEpisodeReader:
                                             action_state=json_data[action_state_id]["joint_states"],
                                             attribute_name="position")
             elif self.action_type == ActionType.END_EFFECTOR_POSE:
+                # @TODO: attribute name "pose"
                 cur_actions = self._get_absolute_action(item_data.get("ee_states", {}),
                                             action_state=json_data[action_state_id]["ee_states"])
+                if self._action_ori_type == 'euler':
+                    modified_action = {}
+                    for key, action in cur_actions.items():
+                        modified_action[key] = np.zeros(6)
+                        modified_action[key][:3] = action[:3]
+                        modified_action[key][3:] = R.from_quat(action[3:]).as_euler("xyz", False)
+                    cur_actions = modified_action
+                elif self._action_ori_type != "quaternion":
+                    raise ValueError(f'The action orientation type {self._action_ori_type} is not supported for reading episode data')
             elif self.action_type == ActionType.JOINT_POSITION_DELTA:
                 joint_states = item_data.get("joint_states", {})
-                cur_actions = self._get_delta_action(joint_states, last_state_data, "position")
-                last_state_data = joint_states
+                if i + 1 >= len_json_file: continue
+                next_state_data = json_data[i+1].get("joint_states", {})
+                cur_actions = self._get_delta_action(joint_states, next_state_data, "position")
             elif self.action_type == ActionType.END_EFFECTOR_POSE_DELTA:
-                # @TODO: 欧拉角转换 for check
                 ee_states = item_data.get("ee_states", {})
-                for key, cur_ee_state in ee_states.items():
-                    ee_states[key][3:] = R.from_quat(cur_ee_state[3:]).as_euler('xyz')
-                cur_actions = self._get_delta_action(ee_states, last_state_data)
-                for key, action in cur_actions.items():
-                    cur_actions[key][3:] = R.from_euler(action[3:], "xyz").as_quat()
-                last_state_data = ee_states
+                if i + 1 >= len_json_file: continue
+                next_state_data = json_data[i+1].get("ee_states", {})
+                next_state_data = self.convert_quat_to_euler_pose(next_state_data)
+                all_ee_euler = self.convert_quat_to_euler_pose(ee_states)
+                # @TODO: attribute name "pose"
+                cur_actions = self._get_delta_action(all_ee_euler, next_state_data)
+                if self._action_ori_type == "quaternion":
+                    modified_action = {}
+                    for key, action in cur_actions.items():
+                        modified_action[key] = np.zeros(7)
+                        modified_action[key][:3] = action[:3]
+                        modified_action[key][3:] = R.from_euler(action[3:], "xyz").as_quat()
+                    cur_actions = modified_action
+                elif self._action_ori_type != "euler":
+                    raise ValueError(f'The action orientation type {self._action_ori_type} is not supported for reading episode data')
             else:
                 raise ValueError(f'The action type {self.action_type} is not supported for reading episode data')
             
@@ -94,7 +121,9 @@ class RerunEpisodeReader:
                     {
                         'idx': item_data.get('idx', 0),
                         'colors': colors,
+                        'colors_time_stamp': colors_time_stamp,
                         'depths': depths,
+                        'depths_time_stamp': depths_time_stamp,
                         'joint_states': item_data.get('joint_states', {}),
                         'ee_states': item_data.get('ee_states', {}),
                         'tools': item_data.get('tools', {}),
@@ -132,39 +161,50 @@ class RerunEpisodeReader:
                 cur_action[key] = action_state[key]
         return cur_action
     
-    def _get_delta_action(self, states, last_state_data, attribute_name = None):
+    def _get_delta_action(self, states, next_state_data, attribute_name = None):
         cur_action = {}
-        last_state_value = {}
-        for key, state in last_state_data.items():
+        next_state_value = {}
+        for key, state in next_state_data.items():
             state_value = state if attribute_name is None else state[attribute_name]
-            last_state_value[key] = state_value
+            next_state_value[key] = state_value
         
         for key, state in states.items():
             state_value = state if attribute_name is None else state[attribute_name]
-            if last_state_data is None:
-                cur_action[key] = [0] * len(state_value)
-            else:
-                cur_action[key] = state_value - last_state_value[key]
+            cur_action[key] = np.array(next_state_value[key]) - np.array(state_value)
         return cur_action
 
+    def convert_quat_to_euler_pose(self, all_ee_states):
+        all_ee_states_euler = {}
+        # @TODO: attribute name "pose"
+        for key, state in all_ee_states.items():
+            all_ee_states_euler[key] = np.zeros(6)
+            all_ee_states_euler[key][:3] = state[:3]
+            all_ee_states_euler[key][3:] = R.from_quat(state[3:]).as_euler('xyz', degrees=False)
+        return all_ee_states_euler
+    
     def _process_images(self, item_data, data_type, dir_path):
-        images = {}
-
-        for key, file_name in item_data.get(data_type, {}).items():
+        images = item_data.get(data_type, {})
+        time_stamp = {}
+        if images is None:
+            return {}, {}
+        
+        for key, data in images.items():
+            file_name = data["path"]
             if file_name:
                 file_path = os.path.join(dir_path, file_name)
                 if os.path.exists(file_path):
                     image = cv2.imread(file_path)
                     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
                     images[key] = image
+                    time_stamp[key] = data["time_stamp"]
                 else:
-                    return None
-        return images
+                    return None, None
+        return images, time_stamp
 
     def _process_audio(self, item_data, data_type, episode_dir):
         audio_item = item_data.get(data_type, {})
         if audio_item is None:
-            return
+            return {}
         
         audio_data = {}
         dir_path = os.path.join(episode_dir, data_type)
@@ -185,8 +225,9 @@ if __name__ == "__main__":
     # offline_logger.log_episode_data(episode_data6)
     # logger_mp.info("Offline visualization completed.")
     
-    # data_folder = "./data/episode_0052"
-    # episode_reader = RerunEpisodeReader(task_dir='./data', action_type=ActionType.JOINT_POSITION_DELTA)
-    # data52 = episode_reader.return_episode_data(52)
-    pass
-    
+    data_folder = "dataset/data/test_now"
+    cur_path = os.path.dirname(os.path.abspath(__file__))
+    task_dir = os.path.join(cur_path, '../..', data_folder)
+    episode_reader = RerunEpisodeReader(task_dir=task_dir, action_type=ActionType.JOINT_POSITION_DELTA)
+    data = episode_reader.return_episode_data(2, 1)
+    print(f'data: {data}')    

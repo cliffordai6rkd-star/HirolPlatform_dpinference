@@ -1,5 +1,5 @@
 <mujoco model="monte01 scene">
-  <include file="robot_description.xml"/>
+  <include file="modified_monte01.xml"/>
 
   <statistic center="0 0 0.5" extent="2.0"/>
   <option gravity="0 0 0.0" />

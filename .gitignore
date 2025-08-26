@@ -28,3 +28,4 @@ dependencies/a2d_sdk
 *.pem
 dependencies/corenetic_ros2_ws
 hardware/base/__pycache__/arm.cpython-310.pyc
+learning/ckpts

@@ -14,7 +14,6 @@ class PikaGripper(ToolBase):
         self._max_distance = 90.0  # mm
         self._min_distance = 0.0   # mm
         self._update_frequency = config.get("update_frequency", 100.0)  # Hz
-        self._gripper_step_value = config.get("step_velue", 5) # 5mm
         self._temp_threshold = config.get("temp_threshold", 60) 
         self._current_threshold = config.get("current_threshold", 100) 
         
@@ -23,8 +22,6 @@ class PikaGripper(ToolBase):
         
         # State management
         self._state._tool_type = self._tool_type
-        self._last_command = 0.0
-        self._gripper_idle = True
         
         # Thread management for state updates
         self._thread_running = False
@@ -75,8 +72,12 @@ class PikaGripper(ToolBase):
         except Exception as e:
             log.error(f"Exception during Pika Gripper initialization: {e}")
             return False
+        
+    def recover(self):
+        # @TODO: recover
+        return 
     
-    def get_motor_status(self):
+    def _get_motor_status(self):
         if not self._is_initialized:
             return None
         
@@ -84,16 +85,13 @@ class PikaGripper(ToolBase):
         current = self._pika_gripper.get_motor_current()
         return (temp, current)
     
-    def set_tool_command(self, target):
-        """Set gripper command with target range [0,1]
-        
-        Args:
-            target: float in range [0,1] where 0=closed, 1=fully open
-        """
-        if not self._gripper_idle:
-            log.debug("Pika Gripper busy, ignoring command")
-            return
-        
+    def check_is_over_current_and_temp(self):
+        temp, current = self._get_motor_status()
+        if temp > self._temp_threshold or current > self._current_threshold:
+            return True
+        else: return False
+    
+    def set_hardware_command(self, command):
         if not self._is_initialized:
             log.warn(f'Pika Gripper is not initialized!')
             return
@@ -105,46 +103,24 @@ class PikaGripper(ToolBase):
         target_distance = self._min_distance + target * (self._max_distance - self._min_distance)
         
         # Avoid continuous identical commands (debounce)
-        if np.isclose(target_distance, self._last_command, rtol=0.001):
+        if np.isclose(target_distance, self._state._position, rtol=0.001):
             return
         
-        def grasp_task():
-            """Non-blocking gripper control task"""
-            try:
-                self._gripper_idle = False
-                current_distance = self._pika_gripper.get_distance()
-                while not np.isclose(current_distance, target_distance):
-                    current_distance += self._gripper_step_value
-                    success = self._pika_gripper.set_gripper_distance(current_distance)
-
-                    if not success:
-                        log.warning(f"Failed to move Pika Gripper to {current_distance:.1f}mm for {target_distance}")
-                        break
-                    else:
-                        with self._lock:
-                            self._state._position = target_distance
-                        self._last_command = target_distance
-                        log.debug(f"Pika Gripper moved to {target_distance:.1f}mm")
-                    
-                    temp, current = self.get_motor_status()
-                    if temp > self._temp_threshold or current > self._current_threshold:
-                        with self._lock:
-                            self._state._is_grasped = True
-                        log.warning(f'Grasp task has overloaded temp or motor current')
-                        break
-            except Exception as e:
-                log.error(f"Exception in Pika Gripper grasp task: {e}")
-            finally:
-                with self._lock:
-                    if self._state._position >= target_distance or np.isclose(self._state._position):
-                        self._state._is_grasped = True 
-                    else: self._state._is_grasped = False
-                self._gripper_idle = True
+        if self.check_is_over_current_and_temp():
+            with self._lock:
+                self._state._is_grasped = True
+            log.warn(f'Grasp task has overloaded temp or motor current')
         
-        # Execute command in separate thread to avoid blocking
-        gripper_thread = threading.Thread(target=grasp_task, daemon=True)
-        gripper_thread.start()
-    
+        success = self._pika_gripper.set_gripper_distance(target_distance)
+        if not success:
+            log.warn(f"Failed to move Pika Gripper to {target_distance:.1f}mm")
+        else:
+            current_position = self._pika_gripper.get_gripper_distance()
+            is_grasped = current_position > target_distance + 2
+            with self._lock:
+                self._state._is_grasped = is_grasped
+                # self._state._position = target_distance
+        
     def get_tool_state(self) -> ToolState:
         """Get current tool state in thread-safe manner"""
         if not self._gripper_state_updated:
@@ -164,14 +140,16 @@ class PikaGripper(ToolBase):
             try:
                 # Read current gripper state
                 current_distance = self._pika_gripper.get_gripper_distance()
-                current_current = self._pika_gripper.get_motor_current()
+                motor_current = self._pika_gripper.get_motor_current()
                 self._gripper_state_updated = True
                 
                 # Update state in thread-safe manner
                 with self._lock:
                     self._state._position = current_distance
+                    self._state._time_stamp = time.perf_counter()
                     # Determine grasp state based on current (high current = grasping)
-                    self._state._is_grasped = (abs(current_current) > self._current_threshold)  # Threshold for grasp detection
+                    if self.check_is_over_current_and_temp():
+                        self._state._is_grasped = True
                 
             except Exception as e:
                 log.warning(f"Error reading Pika Gripper state: {e}")

@@ -1,0 +1,44 @@
+# usage platform
+use_hardware: false
+use_simulation: true
+
+# Notice: the config file path should contain  to locate the file 
+# from the project directory
+robot: "duo_arm"
+robot_config: !include hardware/config/duo_fr3_cfg.yaml
+gripper: "duo_tool"
+gripper_config: !include hardware/config/duo_franka_hand_cfg.yaml
+
+# sensor infos
+# sensor_dicts:
+#   cameras:
+#     # - name: "left_ee_cam"
+#     #   type: "realsense_camera"
+#     #   cfg: !include hardware/sensors/cameras/config
+#     # - name: "right_ee_cam"
+#     #   type: "realsense_camera"
+#     #   cfg: !include hardware/sensors/cameras/config
+#     - name: "third_person_cam"
+#       type: "realsense_camera"
+#       cfg: !include hardware/sensors/cameras/config/d435i_cfg.yaml
+        
+control_frequency: 800
+controller_type: "duo_controller"
+controller_config: !include controller/config/duo_lik_rimpedance.yaml
+
+model_type: "duo_model"
+model_config:
+  name: "duo_fr3_franka_hand"
+  cfg: !include motion/config/robot_model_cfg_duo_fr3.yaml
+
+use_trajectory_planner: false
+buffer_type: "duo_buffer"
+trajectory_planner_type: "cart_polynomial"
+plan_type: "cartesian"
+trajectory_config: !include trajectory/config/cartesian_polynomial_traj_cfg.yaml
+traj_frequency: 450
+
+simulation: "mujoco"
+simulation_config: !include simulation/config/mujoco_duo_fr3_lposition_rimpedance.yaml
+target_site_name: ["targetL_site", "targetR_site"]
+tcp_visualization_site: ["TCPL_site", "TCPR_site"]

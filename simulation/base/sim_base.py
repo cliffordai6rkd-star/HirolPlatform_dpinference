@@ -1,6 +1,7 @@
 import abc
 from hardware.base.utils import RobotJointState
 import numpy as np
+from typing import Optional, List, Dict
 from collections import deque
 
 class SimBase(abc.ABC, metaclass=abc.ABCMeta):
@@ -11,7 +12,7 @@ class SimBase(abc.ABC, metaclass=abc.ABCMeta):
         self._cur_traj_index = 0
         self.base_body_name = config.get("base_body", [])
         self._joint_names = config['joint_names']
-        self._dof = config.get('dof', [len(self._joint_names)])
+        self._dof = config['dof']
         # states
         self._joint_states = RobotJointState()
         
@@ -35,12 +36,12 @@ class SimBase(abc.ABC, metaclass=abc.ABCMeta):
         raise NotImplementedError
     
     @abc.abstractmethod
-    def get_camera_img(self, camera_name: str) -> np.ndarray | None:
+    def get_camera_img(self, camera_name: str) -> Optional[np.ndarray]:
         """get the image from camera"""
         raise NotImplementedError
     
     @abc.abstractmethod
-    def get_all_camera_images(self) -> list[dict] | None:
+    def get_all_camera_images(self) -> Optional[List[Dict]]:
         """
             @brief: get all images form sim
             @return: None for no cameras
@@ -75,5 +76,6 @@ class SimBase(abc.ABC, metaclass=abc.ABCMeta):
         self._visulize_traj_data.append(data)
     
     def get_dof(self):
-        pass
-    
+        if not isinstance(self._dof, list):
+            self._dof = [self._dof]
+        return self._dof

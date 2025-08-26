@@ -4,12 +4,12 @@ duo_controller:
     damping_weight: 0.3
     # ["gaussian_newtown"， "dls", "lm"]
     ik_type: "lm"
-    tolerance: 0.0001
-    max_iteration: 1000
+    tolerance: 0.001
+    max_iteration: 2000
   right:
     type: "ik"
     damping_weight: 0.3
     # ["gaussian_newtown"， "dls", "lm"]
     ik_type: "lm"
-    tolerance: 0.0001
-    max_iteration: 1000
+    tolerance: 0.001
+    max_iteration: 2000

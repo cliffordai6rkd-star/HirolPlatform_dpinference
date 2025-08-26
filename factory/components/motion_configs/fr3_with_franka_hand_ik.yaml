@@ -9,7 +9,7 @@ gripper_config: !include hardware/fr3/config/franka_hand_cfg.yaml
 
 use_smoother: true
 smoother_type: "ruckig" #critical_damped
-smoother_config: !include smoother/config/smoother_config_.yaml
+smoother_config: !include smoother/config/smoother_config_fr3_.yaml
 # Async control configuration
 # This creates true decoupling between low-freq planning and high-freq control
 async_control_frequency: 800.0     # Async thread sends commands at this rate (Hz)
@@ -19,11 +19,11 @@ auto_enable_async_control: true    # Auto-enable async mode on initialization (n
 sensor_dicts:
   cameras:
     - name: "ee_cam"
-      type: "realsense_camera"
-      cfg: !include hardware/sensors/cameras/config/d435i_ee_cfg.yaml
+      type: "network_camera"
+      cfg: !include hardware/sensors/cameras/config/netcam_cfg_ee.yaml
     - name: "third_person_cam"
-      type: "realsense_camera"
-      cfg: !include hardware/sensors/cameras/config/d435i_cfg.yaml
+      type: "network_camera"
+      cfg: !include hardware/sensors/cameras/config/netcam_cfg_third_person.yaml
 
 control_frequency: 800
 controller_type: "ik"

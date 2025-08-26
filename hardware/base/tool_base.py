@@ -1,65 +1,39 @@
 import numpy as np
 import abc
 import warnings
+import glog as log
+import threading
 import time
 from typing import Union, Dict, List
-from hardware.base.utils import ToolState, GripperControlMode
-
-
-class EdgeDetector:
-    """独立的按钮上升沿检测器"""
-    
-    def __init__(self, initial_command: bool = True):
-        """
-        初始化上升沿检测器
-        
-        Args:
-            initial_command: 初始命令状态 (True=开启)
-        """
-        self._last_button_state = False
-        self._current_command = initial_command
-    
-    def detect_rising_edge(self, current_button: bool) -> bool:
-        """
-        检测按钮上升沿并切换命令状态
-        
-        Args:
-            current_button: 当前按钮状态
-            
-        Returns:
-            bool: 当前命令状态 (经过上升沿检测处理)
-        """
-        # 检测上升沿：从False到True的转换
-        if not self._last_button_state and current_button:
-            self._current_command = not self._current_command
-        
-        self._last_button_state = current_button
-        return self._current_command
+from hardware.base.utils import ToolState, ToolControlMode, ToolType
 
 class ToolBase(abc.ABC, metaclass=abc.ABCMeta):
     def __init__(self, config):
         self._config = config
         self._state = ToolState()
+        self._tool_idle = True
         
         # Initialize control mode from config
         control_mode_str = config.get("control_mode", "binary")
-        self._control_mode = GripperControlMode(control_mode_str)
+        self._control_mode = ToolControlMode(control_mode_str)
         
-        # Incremental control state
-        self._current_position = 0.5  # Default middle position
-        self._step_size = config.get("step_size", 0.02)
-        self._move_frequency = config.get("move_frequency", 0.03)
-        self._last_move_time = 0.0
+        # Binary mode configuration
+        if self._control_mode == ToolControlMode.BINARY:
+            self._binary_threshold = config.get("binary_threshold", 0.5)
         
-        # Edge detector for binary mode button input
-        if self._control_mode == GripperControlMode.BINARY:
-            self._edge_detector = EdgeDetector(initial_command=True)
-        
+        # Incremental control state (for incremental mode only)
+        if self._control_mode == ToolControlMode.INCREMENTAL:
+            self._current_position_scaled = config.get("initial_position", 1.0)  # Default fully open position
+            self._step_size = config.get("step_size", 0.02)  # Maximum position change per step
+            self._last_move_time = 0.0
+        self._is_initialized = False
         self._is_initialized = self.initialize()
         
     def print_state(self) -> None:
-        if self._is_initialized() and not self._state is None:
+        if self._is_initialized and not self._state is None:
             print(f'Tool state: {self._state}')
+            if self._control_mode == ToolControlMode.INCREMENTAL:
+                print(f'Current width: {self._state._position:.3f}')
         else:
             warnings.warn('Tool is still not initialized or '
                           'the state is not updated')
@@ -72,14 +46,27 @@ class ToolBase(abc.ABC, metaclass=abc.ABCMeta):
     def get_tool_state(self) -> ToolState:
         raise NotImplementedError
     
-    def set_tool_command(self, target: Union[float, Dict]) -> bool:
+    def recover(self) -> ToolState:
+        pass
+    
+    @abc.abstractmethod
+    def set_hardware_command(self, command: np.array):
         """
-        Unified tool control interface supporting multiple control modes.
+            @brief: set the command to execute the hardware
+        """
+        raise NotImplementedError
+    
+    def set_tool_command(self, target: Union[float, List, np.ndarray, Dict]) -> bool:
+        """
+        Unified tool control interface supporting multiple control modes 
+        and different tool categories.
         
         Args:
-            target: Control target
-                - BINARY mode: float (0-1 range position value)
-                - INCREMENTAL mode: dict {'side': {'single': [bool, bool]}} button states
+            target: Control target, dict is for dou_gripper, only contains keys ["left", "right"]
+                - BINARY mode: numeric value (0.0-1.0), uses threshold to determine open/close
+                  Examples: 0.3 -> close(0.0), 0.7 -> open(1.0) with threshold=0.5
+                - INCREMENTAL mode: precise position value (0.0-1.0)
+                  Examples: 0.3 -> 30% opening, 0.7 -> 70% opening
                 
         Returns:
             bool: Control command execution success flag
@@ -87,165 +74,93 @@ class ToolBase(abc.ABC, metaclass=abc.ABCMeta):
         Raises:
             ValueError: Invalid control target format
         """
-        if self._control_mode == GripperControlMode.BINARY:
-            # Extract value from different input formats
-            value = self._extract_binary_value(target)
-            
-            # Apply edge detection for button inputs (0.0 or 1.0)
-            if isinstance(value, (int, float)) and value in [0.0, 1.0]:
-                processed_target = self._process_button_input(bool(value))
-                return self._set_binary_command(processed_target)
-            else:
-                return self._set_binary_command(float(value))
-        elif self._control_mode == GripperControlMode.INCREMENTAL:
-            if isinstance(target, dict):
-                return self._set_incremental_command(target)
-            elif isinstance(target, (list, np.ndarray)) and len(target) >= 2:
-                # Direct button list format [open_button, close_button]
-                return self._set_incremental_command(target)
-            else:
-                raise ValueError(f"Incremental mode requires dict or button list target, got {type(target)}")   
+        if not self._tool_idle: 
+            log.warn("Tool is currently working on other command, please wait for some time to set new command") 
+            return False
+        
+        if self._state._tool_type != ToolType.GRIPPER and self._state._tool_type != ToolType.SUCTION:
+            # @TODO: handle other tools
+            return self.set_hardware_command(target)
         else:
-            raise ValueError(f"Unsupported control mode: {self._control_mode}")
-    
+            target = np.clip(target, 0, 1)
+            if self._control_mode == ToolControlMode.BINARY:
+                # Binary mode: extract value -> threshold judgment -> 0.0 or 1.0
+                target = self._apply_binary_threshold(target)
+                self._tool_idle = False
+                success = self.set_hardware_command(target)
+                # print(f'incremental tool target: {target}')
+                self._tool_idle = True
+            elif self._control_mode == ToolControlMode.INCREMENTAL:
+                success = self._handle_gripper_incremental_command(target)
+            else:
+                raise ValueError(f"Unsupported control mode: {self._control_mode}")
+            return success
+        
     
     @abc.abstractmethod
     def stop_tool(self):
+        """
+            @brief: stop the usage of the tool
+        """
         raise NotImplementedError
     
     @abc.abstractmethod
     def get_tool_type_dict(self):
-       raise NotImplementedError
-    
-    def _handle_incremental_control(self, buttons: List[bool]) -> float:
-        """
-        Incremental control core logic.
-        
-        Args:
-            buttons: [open_button, close_button] button states list
-            
-        Returns:
-            float: New target position value (0-1 range)
-        """
-        current_time = time.perf_counter()
-        
-        # Check frequency limit
-        if (current_time - self._last_move_time) < self._move_frequency:
-            return self._current_position
-            
-        # Quick exit if no buttons pressed
-        if not (buttons[0] or buttons[1]):
-            return self._current_position
-            
-        new_position = self._current_position
-        
-        # Button 0 - open gripper
-        if buttons[0]:
-            new_position = min(self._current_position + self._step_size, 1.0)
-        # Button 1 - close gripper
-        elif buttons[1]:
-            new_position = max(self._current_position - self._step_size, 0.0)
-        # Update state if position changed
-        if new_position != self._current_position:
-            self._current_position = new_position
-            self._last_move_time = current_time
-
-        return new_position
-    
-    def _extract_binary_value(self, target) -> float:
-        """
-        从不同格式的输入中提取二进制模式的值
-        
-        Args:
-            target: 输入目标值
-            
-        Returns:
-            float: 提取的值
-            
-        Raises:
-            ValueError: 无效的输入格式
-        """
-        if isinstance(target, (int, float, np.number)):
-            return float(target)
-        elif isinstance(target, (list, np.ndarray)) and len(target) > 0:
-            return float(target[0])
-        elif isinstance(target, dict) and 'single' in target:
-            buttons = target['single']
-            if isinstance(buttons, (list, np.ndarray)) and len(buttons) > 0:
-                return float(buttons[0])
-            else:
-                raise ValueError("Invalid 'single' format in dict target")
-        else:
-            raise ValueError(f"Binary mode requires numeric target or array, got {type(target)}")
-    
-    def _process_button_input(self, button_state: bool) -> float:
-        """
-        处理按钮输入的上升沿检测
-        
-        Args:
-            button_state: 原始按钮状态
-            
-        Returns:
-            float: 转换后的位置命令 (0.0 或 1.0)
-        """
-        if not hasattr(self, '_edge_detector'):
-            return float(button_state)  # 简化fallback逻辑
-            
-        command_state = self._edge_detector.detect_rising_edge(button_state)
-        return float(command_state)
-    
-    @abc.abstractmethod
-    def _set_binary_command(self, target: float) -> bool:
-        """
-        Execute binary control command.
-        
-        Args:
-            target: Position target (0-1 range)
-            
-        Returns:
-            bool: Execution success
-        """
         raise NotImplementedError
-        
-    def _set_incremental_command(self, target) -> bool:
+   
+    def close(self) -> bool:
         """
-        Execute incremental control command.
+            @brief: set the tool state to be closed
+        """
+        return self.set_tool_command(0.0)
+    
+    def _apply_binary_threshold(self, value: float) -> float:
+        return 1.0 if value >= self._binary_threshold else 0.0
+    
+    def _handle_gripper_incremental_command(self, target: float, is_wait: bool = False):
+        """
+        Handle gripper incremental command with smooth position transitions in a separate thread.
         
         Args:
-            target: Button states (list or dict)
-            
-        Returns:
-            bool: Execution success
+            target: Target position (0.0-1.0)
+            is_wait: Whether to wait for the thread to complete
         """
-        # Extract button states - handle different input formats
-        buttons = None
+        self._tool_idle = False
         
-        # Handle direct button list
-        if isinstance(target, (list, np.ndarray)) and len(target) >= 2:
-            buttons = target[:2]
-        # Handle nested dict format from teleoperation
-        elif isinstance(target, dict):
-            if 'single' in target and isinstance(target['single'], list):
-                buttons = target['single'][:2] if len(target['single']) >= 2 else [False, False]
-            else:
-                # Try to find buttons in nested structure
-                for value in target.values():
-                    if isinstance(value, dict) and 'single' in value:
-                        buttons = value['single'][:2] if len(value['single']) >= 2 else [False, False]
-                        break
-                        
-        if buttons is None:
-            buttons = [False, False]
-            
-        # Calculate new position
-        new_position = self._handle_incremental_control(buttons)
+        def incremental_execution():
+            """
+            Execute incremental movement in a while loop until target is reached.
+            """
+            while True:
+                position_diff = target - self._current_position_scaled
+                if abs(position_diff) < 1e-3:
+                    break
+                
+                # Apply step size limit for smooth movement
+                if abs(position_diff) > self._step_size:
+                    # Move by step_size in the direction of target
+                    step = self._step_size if position_diff > 0 else -self._step_size
+                    new_position = self._current_position_scaled + step
+                else:
+                    # Close enough, move directly to target
+                    new_position = target
+                
+                # Update internal position state
+                self._current_position_scaled = new_position
+                
+                # Execute hardware command
+                self.set_hardware_command(new_position)
+                
+                # Wait for next move based on frequency
+                time.sleep(0.001)
+                
+            self._tool_idle = True
         
-        # Execute binary command with new position
-        return self._set_binary_command(new_position)
-
-    def close(self) -> bool:
-        if self._control_mode == GripperControlMode.BINARY:
-            self.set_tool_command(0.0)
-        else:
-            self._set_binary_command(0.0)
-   
+        # Start thread for incremental execution
+        thread = threading.Thread(target=incremental_execution)
+        thread.start()
+        
+        # Wait for thread completion if requested
+        if is_wait:
+            thread.join()
+        return True

@@ -34,3 +34,14 @@
     ```
    - check whether connected successfuly by `adb devices -l`
    - reverse port for ip: `adb -s <device_ip>:5555 reverse tcp:8012 tcp:8012`, check by `adb -s <device_ip>:5555 reverse --list`
+
+3. running of the testing scipt
+ - `python test/test_xr_duo_fr3.py`
+ - wear the xr glass and connect the wifi to the hirol
+ - open the webpage of `https://<your pc ip>:8012?ws=wss://<your pc ip>:8012`, the pc ip should be same with your pc running the script
+  
+
+4. Notice for the device in hirol lab
+- device ip: `192.168.171.56`
+- device number: `2G0YC5ZGC900XR`
+  

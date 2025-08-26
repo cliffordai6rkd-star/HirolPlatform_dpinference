@@ -7,11 +7,12 @@ class DataLoaderBase(abc.ABC, metaclass=abc.ABCMeta):
     def __init__(self, config, task_dir:str, json_file_name:str = "data.json", action_type:ActionType = ActionType.JOINT_POSITION):
         self._config = config
         self._action_prediction_step = config.get("action_prediction_step", 2)
+        self._action_type = action_type
+        self._action_ori_type = config.get("action_ori_type", "euler")
+        self._contain_ee_obs = config.get("contain_ee_obs", False)
         self._task_dir = task_dir
         self._json_file = json_file_name
-        self._action_type = action_type
         self._lack_data_json_list = []
-        
     
     """
         parse for single episode given task dir and episode dir
@@ -20,7 +21,8 @@ class DataLoaderBase(abc.ABC, metaclass=abc.ABCMeta):
         self._episode_reader = RerunEpisodeReader(task_dir=task_dir,
                                                   json_file=self._json_file,
                                                   action_type=self._action_type,
-                                                  action_prediction_step=self._action_prediction_step)
+                                                  action_prediction_step=self._action_prediction_step,
+                                                  action_ori_type=self._action_ori_type)
         if 'episode' in episode_dir:
             episode_number = int(episode_dir.lstrip("episode_"))
             episode_id = episode_number
@@ -34,7 +36,7 @@ class DataLoaderBase(abc.ABC, metaclass=abc.ABCMeta):
             return None, None
         
         text_info = self._episode_reader.get_episode_text_info(episode_id)
-        return episode_data, text_info 
+        return episode_data, text_info  
         
     @abc.abstractmethod
     def convert_dataset(self):

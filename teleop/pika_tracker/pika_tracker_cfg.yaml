@@ -1,1 +1,11 @@
-serial_port: "/dev/ttyUSB1"
+serial_port: 
+  left: "/dev/ttyUSB1"
+  right: "/dev/ttyUSB2"
+target_device: 
+  left: "vive_tracker_left"
+  right: "vive_tracker_right" 
+output_left: true
+output_right: true
+init_pose:
+  initial_pose_left: []
+  initial_pose_right: []

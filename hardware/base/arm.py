@@ -4,7 +4,7 @@ from hardware.base.utils import RobotJointState
 from hardware.base.safety_checker import SafetyChecker, SafetyLevel, SafetyLimits
 import threading
 import copy
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any, Optional, Tuple, Union, List
 import glog as log
 class ArmBase(abc.ABC, metaclass=abc.ABCMeta):
     def __init__(self, config):
@@ -18,6 +18,11 @@ class ArmBase(abc.ABC, metaclass=abc.ABCMeta):
         
         # Initialize safety checker
         self._init_safety_checker(config)
+        
+        # Initialize learning inference components
+        self._learning_inference_engine = None
+        self._learning_data_adapter = None
+        self._learning_enabled = False
         
         self._is_initialized = self.initialize()
     
@@ -69,7 +74,7 @@ class ArmBase(abc.ABC, metaclass=abc.ABCMeta):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def set_joint_command(self, mode: str | list[str], command: np.ndarray):
+    def set_joint_command(self, mode: Union[str, List[str]], command: np.ndarray):
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -200,5 +205,179 @@ class ArmBase(abc.ABC, metaclass=abc.ABCMeta):
         else:
             log.info("No valid rollback position available")
             return False
+    
+    # ========== 学习推理相关方法 ==========
+    
+    def set_learning_inference(self, inference_engine, data_adapter) -> None:
+        """设置学习推理引擎和数据适配器.
+        
+        Args:
+            inference_engine: 学习推理引擎实例
+            data_adapter: 数据适配器实例
+        """
+        with self._lock:
+            self._learning_inference_engine = inference_engine
+            self._learning_data_adapter = data_adapter
+            self._learning_enabled = True
+            
+        log.info("✅ 学习推理组件已设置")
+        log.info(f"   - 推理引擎: {type(inference_engine).__name__}")
+        log.info(f"   - 数据适配器: {type(data_adapter).__name__}")
+    
+    def get_learning_prediction(self, camera_data: Dict[str, np.ndarray]) -> Optional[List[float]]:
+        """获取学习策略预测的动作序列.
+        
+        Args:
+            camera_data: 相机名称到图像数据的映射
+            
+        Returns:
+            Optional[List[float]]: 预测的关节动作序列，失败时返回None
+            
+        Raises:
+            RuntimeError: 当学习推理组件未初始化时抛出
+        """
+        if not self._learning_enabled:
+            raise RuntimeError("学习推理组件未初始化，请先调用set_learning_inference()")
+        
+        if not self._is_initialized:
+            raise RuntimeError("机器人臂未初始化")
+        
+        try:
+            # 获取当前关节状态
+            current_joint_state = self.get_joint_states()
+            
+            # 验证数据有效性
+            if not self._learning_data_adapter.validate_robot_state(current_joint_state):
+                log.error("❌ 当前关节状态数据无效")
+                return None
+            
+            if not self._learning_data_adapter.validate_camera_data(camera_data):
+                log.error("❌ 相机数据无效")
+                return None
+            
+            # 数据格式转换
+            state_array = self._learning_data_adapter.robot_state_to_numpy(current_joint_state)
+            image_tensor = self._learning_data_adapter.camera_dict_to_tensor(camera_data)
+            
+            # 学习推理
+            with self._lock:
+                predicted_actions = self._learning_inference_engine.predict(state_array, image_tensor)
+            
+            # 转换回机器人动作格式
+            action_commands = self._learning_data_adapter.numpy_to_robot_actions(predicted_actions)
+            
+            log.debug(f"学习推理完成: {len(action_commands)}个动作")
+            return action_commands
+            
+        except Exception as e:
+            log.error(f"❌ 学习推理失败: {str(e)}")
+            return None
+    
+    def execute_learned_action_sequence(
+        self, 
+        actions: List[float],
+        validate_safety: bool = True,
+        execution_mode: str = "position"
+    ) -> bool:
+        """执行学习策略输出的动作序列.
+        
+        Args:
+            actions: 动作序列
+            validate_safety: 是否进行安全检查
+            execution_mode: 执行模式 ("position", "velocity", "torque")
+            
+        Returns:
+            bool: 执行是否成功
+        """
+        if not self._is_initialized:
+            log.error("❌ 机器人臂未初始化")
+            return False
+        
+        if not actions:
+            log.error("❌ 动作序列为空")
+            return False
+        
+        try:
+            # 验证动作维度
+            expected_dof = sum(self.get_dof())
+            if len(actions) != expected_dof:
+                log.error(f"❌ 动作维度不匹配: 期望{expected_dof}, 实际{len(actions)}")
+                return False
+            
+            # 安全检查
+            if validate_safety:
+                current_state = self.get_joint_states()
+                if not self._safety_checker.check_joint_command_safety(actions, current_state):
+                    log.error("❌ 学习动作未通过安全检查")
+                    return False
+            
+            # 执行动作
+            success = self.set_joint_command([execution_mode], actions)
+            
+            if success:
+                log.debug(f"✅ 学习动作执行成功: {execution_mode}模式")
+            else:
+                log.error(f"❌ 学习动作执行失败")
+            
+            return success
+            
+        except Exception as e:
+            log.error(f"❌ 学习动作执行异常: {str(e)}")
+            return False
+    
+    def run_learning_control_loop(
+        self, 
+        camera_data: Dict[str, np.ndarray],
+        execution_mode: str = "position",
+        max_retries: int = 3
+    ) -> bool:
+        """运行完整的学习控制循环：感知-推理-执行.
+        
+        Args:
+            camera_data: 相机数据
+            execution_mode: 执行模式
+            max_retries: 最大重试次数
+            
+        Returns:
+            bool: 控制循环是否成功
+        """
+        for attempt in range(max_retries):
+            try:
+                # 学习推理
+                predicted_actions = self.get_learning_prediction(camera_data)
+                if predicted_actions is None:
+                    log.warning(f"⚠️ 学习推理失败，尝试 {attempt + 1}/{max_retries}")
+                    continue
+                
+                # 执行动作
+                success = self.execute_learned_action_sequence(
+                    predicted_actions, 
+                    execution_mode=execution_mode
+                )
+                
+                if success:
+                    log.info(f"✅ 学习控制循环成功完成")
+                    return True
+                else:
+                    log.warning(f"⚠️ 动作执行失败，尝试 {attempt + 1}/{max_retries}")
+                    
+            except Exception as e:
+                log.error(f"❌ 学习控制循环异常: {str(e)}")
+        
+        log.error(f"❌ 学习控制循环失败，已重试{max_retries}次")
+        return False
+    
+    def is_learning_enabled(self) -> bool:
+        """检查学习推理是否已启用."""
+        return self._learning_enabled
+    
+    def disable_learning_inference(self) -> None:
+        """禁用学习推理功能."""
+        with self._lock:
+            self._learning_inference_engine = None
+            self._learning_data_adapter = None
+            self._learning_enabled = False
+        
+        log.info("🛑 学习推理功能已禁用")
     
     

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from motion.pin_model import RobotModel
 from controller.controller_base import ControllerBase
 import casadi

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from trajectory.trajectory_base import TrajectoryBase
 import numpy as np
 from scipy.interpolate import CubicSpline, interp1d

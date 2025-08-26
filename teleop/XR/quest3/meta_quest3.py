@@ -4,15 +4,16 @@
 """
 
 from teleop.base.teleoperation_base import TeleoperationDeviceBase
-from hardware.base.utils import convert_homo_2_7D_pose, negate_transform, transform_quat, fast_mat_inv, compute_pose_diff
+from hardware.base.utils import convert_homo_2_7D_pose, negate_transform, transform_quat, fast_mat_inv, pose_diff
 from vuer import Vuer
 from vuer.schemas import ImageBackground, Hands, MotionControllers, WebRTCVideoPlane, WebRTCStereoVideoPlane
 from multiprocessing import Value, Array, Process, shared_memory
+from teleop.base.utils import RisingEdgeDetector
 from typing import Optional
 import numpy as np
 import asyncio
 import cv2, copy
-import os, warnings
+import os
 from pathlib import Path
 import glog as log
 
@@ -76,6 +77,12 @@ class MetaQuest3(TeleoperationDeviceBase):
         self._use_hand_tracking = config["use_hand_tracking"]
         if self._use_hand_tracking:
             self._relative_finger_pose = config.get("relative_finger_pose", True)
+        else:
+            # tool control, binary -> controlled by trigger; continous -> controlled by trigger and squeeze
+            self._tool_control_mode = config["tool_mode"]
+            self._rising_edges = [RisingEdgeDetector(), RisingEdgeDetector()]
+            self._tool_step_sizes = config.get("incremental_step", {})
+            self._last_tool_values = {"left": 1.0, "right": 1.0}
         self._img_shm_name = config["img_shm_name"]
         log.info(f'Image shared memory name: {self._img_shm_name}')
         self._img_shape = config["image_shape"]
@@ -94,6 +101,7 @@ class MetaQuest3(TeleoperationDeviceBase):
             self._img_width  = self._img_shape[1]
         
         self._cert_file = config.get("cert_file", None)
+        
         self._key_file = config.get("key_file", None)
         self._ngork = config.get("ngork", False)
         self._webrtc = config.get("webrtc", False)
@@ -224,14 +232,15 @@ class MetaQuest3(TeleoperationDeviceBase):
         #     else:
         #         new_pose[3:] = self._last_quat[id]
         pose[:7] = new_pose[:7] # update step for sallow copy
+        return new_pose
     
     def parse_data_2_robot_target(self, mode):
         if not self._is_initialized:
-            warnings.warn("The meta quest 3 xr device is not initialized!!!")
+            log.warn("The meta quest 3 xr device is not initialized!!!")
             return False, None, None
         
-        if mode != "absolute" or mode != "absolute_delta":
-            warnings.warn(f'meta quest3 only support absolute related mode!!!!')
+        if mode != "absolute" and mode != "absolute_delta":
+            log.warn(f'meta quest3 only support absolute related mode but get {mode}!!!!')
             return False, None, None
         
         pose_target = {}
@@ -240,11 +249,11 @@ class MetaQuest3(TeleoperationDeviceBase):
         world2right_arm_trans, right_arm_valid = safe_mat_update(self.CONST_RIGHT_ARM_POSE, self.right_arm_pose)
         # Check validity - require at least head and one arm to be valid
         if not head_valid:
-            warnings.warn(f'Head pose is not valid!!!')
+            log.warn(f'Head pose is not valid!!!')
             return False, None, None
         
         if not left_arm_valid and not right_arm_valid:
-            warnings.warn(f'Both arm poses are not valid!!!')
+            log.warn(f'Both arm poses are not valid!!!')
             return False, None, None
         
         # Log validity status for debugging
@@ -253,45 +262,51 @@ class MetaQuest3(TeleoperationDeviceBase):
         
         # basis change
         robot_world2head_trans = self.T_ROBOT_OPENXR @ world2head_trans @ self.T_OPENXR_ROBOT if head_valid else np.eye(4)
-        head_posi = robot_world2head_trans[:3, 3]
         robot_world2left_arm_trans = self.T_ROBOT_OPENXR @ world2left_arm_trans @ self.T_OPENXR_ROBOT if left_arm_valid else np.eye(4)
         robot_world2right_arm_trans = self.T_ROBOT_OPENXR @ world2right_arm_trans @ self.T_OPENXR_ROBOT if right_arm_valid else np.eye(4)
-        
-        #  init convertion and rotation clipping
         pose_left = convert_homo_2_7D_pose(robot_world2left_arm_trans)
-        self.apply_init_offset(pose_left, 0, need_posi_offset=False)
         pose_right = convert_homo_2_7D_pose(robot_world2right_arm_trans)
-        self.apply_init_offset(pose_right, 1, need_posi_offset=False)
-        # head posi offset
-        pose_left[:2] = pose_left[:2] - head_posi[:2]
-        pose_left[2] = 1.8 - (head_posi[2] - pose_left[2])
-        pose_right[:2] = pose_right[:2] - head_posi[:2]
-        pose_right[2] = 1.8 - (head_posi[2] - pose_right[2])
-        if self._init_pose is not None: # To support config based position offset
-            pose_left[:3] += self._init_pose_trans[0]
-            pose_right[:3] += self._init_pose_trans[1]
-       
+        #  init convertion and rotation clipping
+        pose_left = self.apply_init_offset(pose_left, 0)
+        pose_right = self.apply_init_offset(pose_right, 1)
+        debug = [pose_left, pose_right]
+        
+        if mode == "absolute":
+            head_posi = robot_world2head_trans[:3, 3]
+            # head posi offset
+            pose_left[:2] = pose_left[:2] - head_posi[:2]
+            pose_left[2] = 1.0 - (head_posi[2] - pose_left[2])
+            pose_right[:2] = pose_right[:2] - head_posi[:2]
+            pose_right[2] = 1.0 - (head_posi[2] - pose_right[2])
+            # if self._init_pose is not None: # To support config based position offset
+            #     pose_left[:3] += self._init_pose_trans[0]
+            #     pose_right[:3] += self._init_pose_trans[1]
         # Generate pose targets based on config and data validity
-        if self._device_enabled:
-            pose_left = self._get_diff_trans(pose_left, 0)
-            pose_right = self._get_diff_trans(pose_right, 0)
-        if not self._output_left or not left_arm_valid:
-            if right_arm_valid:
-                pose_target['single'] = pose_right
-                log.debug(f'Output single right arm (left disabled or invalid)')
-        elif not self._output_right or not right_arm_valid:
-            if left_arm_valid:
-                pose_target['single'] = pose_left
-                log.debug(f'Output single left arm (right disabled or invalid)')
+        elif mode == "absolute_delta":
+            if self._device_enabled:
+                pose_left = self._get_diff_trans(pose_left, 0)
+                pose_right = self._get_diff_trans(pose_right, 1)
+        
+        if not self._output_left:
+            if right_arm_valid: pose_target['single'] = pose_right
+            else: 
+                log.info(f'Output right arm does not get right arm pose ')
+                return False, None, None
+        elif not self._output_right:
+            if left_arm_valid: pose_target['single'] = pose_left
+            else: 
+                log.info(f'Output left arm doe not get left arm pose')
+                return False, None, None
         else:
+            if not left_arm_valid or not right_arm_valid:
+                log.info(f'Output dual arms: left_valid={left_arm_valid}, right_valid={right_arm_valid}')
+                return False, None, None
+
             # Both arms enabled and valid
             if left_arm_valid:
                 pose_target['left'] = pose_left
             if right_arm_valid:
                 pose_target['right'] = pose_right
-            # log.info(f'[DEBUG] Output dual arms: left_valid={left_arm_valid}, right_valid={right_arm_valid}')
-        
-        # log.info(f'[DEBUG] Final pose_target keys: {list(pose_target.keys())}')
         
         tool_target = {}
         if self._use_hand_tracking:
@@ -300,7 +315,7 @@ class MetaQuest3(TeleoperationDeviceBase):
             left_hand_orientation, left_hand_valid = safe_rot_update(self.CONST_HAND_ROT, self.left_hand_orientations)
             right_hand_orientation, right_hand_valid = safe_rot_update(self.CONST_HAND_ROT, self.right_hand_orientations)
             if not left_hand_valid or not right_hand_valid:
-                warnings.warn(f'Hand rotation is not valid!!!')
+                log.warn(f'Hand rotation is not valid!!!')
                 return False, None, None
             left_hand_orientation = np.einsum('ij, nij -> nij', self.T_ROBOT_OPENXR[:3, :3], left_hand_orientation)
             left_hand_orientation = np.einsum('nij, ij -> nij', left_hand_orientation, self.T_OPENXR_ROBOT[:3, :3])
@@ -361,14 +376,34 @@ class MetaQuest3(TeleoperationDeviceBase):
                                    right_squeeze_value, right_a_button, right_b_button, 
                                    right_thumb_stick_state, right_thumb_stick_value))
             # update init_pose target
-            if left_a_button and left_arm_valid and right_arm_valid:
+            if mode == "absolute_delta":
+                left_data = np.hstack((left_data, left_a_button))
+                right_data = np.hstack((right_data, left_a_button))
+            if left_a_button and left_arm_valid and right_arm_valid and not self._device_enabled:
                 self.INIT_TARGET_POSE[0] = pose_left
                 self.INIT_TARGET_POSE[1] = pose_right
                 self._device_enabled = True
                 log.info(f"{'='*10}INIT TARGET POSE is successfully updated, and could start teleoperation{'='*10}")
                 return False, None, None
+            if right_a_button and self._device_enabled: 
+                log.info(f"{'='*10}Disable the output from meta quest3{'='*10}")
+                self._device_enabled = False
             
             # data: (state, value combination), trigger, squeeze, a,b button, thumb stick
+            for i, (key, tool_mode) in enumerate(self._tool_control_mode.items()):
+                cur_trigger = left_trigger_state if i == 0 else right_trigger_state
+                cur_tool_data = left_data if i == 0 else right_data
+                if tool_mode == "binary":
+                    control_value = self._rising_edges[i].update(float(cur_trigger))
+                    cur_tool_data[0] = float(control_value)
+                else:
+                    cur_squezze = left_squeeze_state if i == 0 else right_squeeze_state
+                    if cur_trigger:
+                        self._last_tool_values[key] += self._tool_step_sizes[key]
+                    elif cur_squezze : 
+                        self._last_tool_values[key] -= self._tool_step_sizes[key]
+                    cur_tool_data[0] = self._last_tool_values[key]
+                    
             tool_left = left_data
             tool_right = right_data
         if not self._output_left:
@@ -379,16 +414,16 @@ class MetaQuest3(TeleoperationDeviceBase):
             tool_target['left'] = tool_left
             tool_target['right'] = tool_right
         
-        if self._device_enabled:
+        if (self._device_enabled and mode == "absolute_delta") or mode == "absolute":
             return True, pose_target, tool_target
-        else: return False, None, None
+        else: 
+            log.warn(f'mode: {mode}, device enabled: {self._device_enabled}')
+            return False, None, None
         
     
     # helper functions
     def _get_diff_trans(self, cur_pose, index):
-        init_pose = self.INIT_TARGET_POSE[index]
-        init_pose_inv = fast_mat_inv(init_pose)
-        diff_pose = cur_pose @ init_pose_inv
+        diff_pose = pose_diff(cur_pose, self.INIT_TARGET_POSE[index])
         return diff_pose
     
     # related to vuer xr helper function
@@ -402,8 +437,7 @@ class MetaQuest3(TeleoperationDeviceBase):
             pass
 
     async def _on_controller_move(self, event, session, fps=60):
-        # print(f'triggered controller move!!!!!')
-        # print(f'controller key: {event.key} value: {event.value}')
+        # log.info(f'triggered controller move!!!!!')
         try:
             with self._left_arm_pose_shared.get_lock():
                 self._left_arm_pose_shared[:] = event.value["left"]
@@ -412,31 +446,35 @@ class MetaQuest3(TeleoperationDeviceBase):
 
             left_controller_state = event.value["leftState"]
             right_controller_state = event.value["rightState"]
+            # log.info(f'left value: {left_controller_state} \n right value: {right_controller_state}')
 
             def extract_controller_states(state_dict, prefix):
+                # log.info(f'extract controller statets for {prefix}, state_dict: {state_dict}')
                 # trigger
-                with getattr(self, f"{prefix}_trigger_state_shared").get_lock():
-                    getattr(self, f"{prefix}_trigger_state_shared").value = bool(state_dict.get("trigger", False))
-                with getattr(self, f"{prefix}_trigger_value_shared").get_lock():
-                    getattr(self, f"{prefix}_trigger_value_shared").value = float(state_dict.get("triggerValue", 0.0))
+                with getattr(self, f"_{prefix}_trigger_state_shared").get_lock():
+                    getattr(self, f"_{prefix}_trigger_state_shared").value = bool(state_dict.get("trigger", False))
+                with getattr(self, f"_{prefix}_trigger_value_shared").get_lock():
+                    getattr(self, f"_{prefix}_trigger_value_shared").value = float(state_dict.get("triggerValue", 0.0))
                 # squeeze
-                with getattr(self, f"{prefix}_squeeze_state_shared").get_lock():
-                    getattr(self, f"{prefix}_squeeze_state_shared").value = bool(state_dict.get("squeeze", False))
-                with getattr(self, f"{prefix}_squeeze_value_shared").get_lock():
-                    getattr(self, f"{prefix}_squeeze_value_shared").value = float(state_dict.get("squeezeValue", 0.0))
+                with getattr(self, f"_{prefix}_squeeze_state_shared").get_lock():
+                    getattr(self, f"_{prefix}_squeeze_state_shared").value = bool(state_dict.get("squeeze", False))
+                with getattr(self, f"_{prefix}_squeeze_value_shared").get_lock():
+                    getattr(self, f"_{prefix}_squeeze_value_shared").value = float(state_dict.get("squeezeValue", 0.0))
                 # thumbstick
-                with getattr(self, f"{prefix}_thumbstick_state_shared").get_lock():
-                    getattr(self, f"{prefix}_thumbstick_state_shared").value = bool(state_dict.get("thumbstick", False))
-                with getattr(self, f"{prefix}_thumbstick_value_shared").get_lock():
-                    getattr(self, f"{prefix}_thumbstick_value_shared")[:] = state_dict.get("thumbstickValue", [0.0, 0.0])
+                with getattr(self, f"_{prefix}_thumbstick_state_shared").get_lock():
+                    getattr(self, f"_{prefix}_thumbstick_state_shared").value = bool(state_dict.get("thumbstick", False))
+                with getattr(self, f"_{prefix}_thumbstick_value_shared").get_lock():
+                    getattr(self, f"_{prefix}_thumbstick_value_shared")[:] = state_dict.get("thumbstickValue", [0.0, 0.0])
                 # buttons
-                with getattr(self, f"{prefix}_aButton_shared").get_lock():
-                    getattr(self, f"{prefix}_aButton_shared").value = bool(state_dict.get("aButton", False))
-                with getattr(self, f"{prefix}_bButton_shared").get_lock():
-                    getattr(self, f"{prefix}_bButton_shared").value = bool(state_dict.get("bButton", False))
+                with getattr(self, f"_{prefix}_aButton_shared").get_lock():
+                    getattr(self, f"_{prefix}_aButton_shared").value = bool(state_dict.get("aButton", False))
+                with getattr(self, f"_{prefix}_bButton_shared").get_lock():
+                    getattr(self, f"_{prefix}_bButton_shared").value = bool(state_dict.get("bButton", False))
 
             extract_controller_states(left_controller_state, "left")
+            # log.info('finished left gripper state extraction')
             extract_controller_states(right_controller_state, "right")
+            # log.info('finished both gripper state extraction')
         except:
             pass
 
@@ -570,21 +608,21 @@ class MetaQuest3(TeleoperationDeviceBase):
         while True:
             display_image = cv2.cvtColor(self._img_array, cv2.COLOR_BGR2RGB)
             aspect_ratio = self._img_width / self._img_height
-            session.upsert(
-                [
-                    ImageBackground(
-                        display_image,
-                        aspect=1.778,
-                        height=1,
-                        distanceToCamera=1,
-                        format="jpeg",
-                        quality=50,
-                        key="background-mono",
-                        interpolate=True,
-                    ),
-                ],
-                # to="bgChildren",
-            )
+            # session.upsert(
+            #     [
+            #         ImageBackground(
+            #             display_image,
+            #             aspect=1.778,
+            #             height=1,
+            #             distanceToCamera=1,
+            #             format="jpeg",
+            #             quality=50,
+            #             key="background-mono",
+            #             interpolate=True,
+            #         ),
+            #     ],
+            #     # to="bgChildren",
+            # )
             await asyncio.sleep(0.016)
 
     async def _main_image_webrtc(self, session, fps=60):

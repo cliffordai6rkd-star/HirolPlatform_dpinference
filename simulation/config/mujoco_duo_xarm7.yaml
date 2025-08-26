@@ -1,7 +1,7 @@
 mujoco:
   # the file path should be related to the hirol platform folder
   base_xml_file: "assets/monte_01/urdf/scene_monte01.xml"
-  robot_xml: "assets/monte_01/urdf/robot_description.xml"
+  robot_xml: "assets/monte_01/urdf/modified_monte01.xml"
   quat_sequence: "xyzw"
   dt: 0.002
   dof: [7, 7]

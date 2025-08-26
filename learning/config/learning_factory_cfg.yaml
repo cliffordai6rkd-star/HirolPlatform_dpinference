@@ -1,0 +1,102 @@
+# 学习推理工厂配置文件
+# 用于配置整个学习推理系统的参数
+
+# 工厂配置
+factory:
+  # 支持的算法列表
+  supported_algorithms:
+    - "ACT"
+    - "PPO"  # 预留
+    - "SAC"  # 预留
+  
+  # 默认算法
+  default_algorithm: "ACT"
+  
+  # 支持的机器人类型
+  supported_robots:
+    - "fr3"
+    - "monte01" 
+    - "generic"
+  
+  # 组件创建配置
+  component_creation:
+    validate_checkpoints: true
+    auto_device_selection: true
+    fallback_to_cpu: true
+
+# 性能配置
+performance:
+  # 内存管理
+  max_memory_usage: "2GB"
+  enable_memory_monitoring: false
+  
+  # 并发配置
+  max_concurrent_inferences: 1
+  thread_safe: true
+  
+  # 缓存配置
+  enable_model_caching: true
+  cache_size_limit: "1GB"
+
+# 错误处理配置
+error_handling:
+  # 重试策略
+  max_retries: 3
+  retry_backoff: "exponential"  # linear, exponential
+  base_retry_delay: 0.1
+  max_retry_delay: 2.0
+  
+  # 错误恢复
+  auto_recovery: true
+  fallback_to_safe_mode: true
+  
+  # 错误报告
+  detailed_error_logging: true
+  error_metrics_collection: false
+
+# 验证配置
+validation:
+  # 模型文件验证
+  check_model_integrity: true
+  validate_config_consistency: true
+  
+  # 运行时验证
+  validate_input_data: true
+  validate_output_actions: true
+  
+  # 安全验证
+  enable_safety_checks: true
+  joint_limit_checking: true
+  action_smoothness_checking: false
+
+# 监控配置
+monitoring:
+  # 性能监控
+  track_inference_time: true
+  track_memory_usage: false
+  track_error_rates: true
+  
+  # 统计配置
+  enable_statistics: false
+  statistics_window_size: 100
+  
+  # 日志配置
+  log_level: "INFO"
+  log_component_lifecycle: true
+  log_performance_metrics: false
+
+# 开发配置
+development:
+  # 调试模式
+  debug_mode: false
+  verbose_logging: false
+  
+  # 测试配置
+  enable_mock_mode: false
+  mock_inference_delay: 0.05
+  
+  # 实验性功能
+  experimental_features:
+    parallel_processing: false
+    advanced_caching: false
+    dynamic_model_loading: false

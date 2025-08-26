@@ -2,7 +2,7 @@ import pyrealsense2 as rs
 from hardware.base.camera import CameraBase
 import warnings, threading, time
 import numpy as np
-
+import glog as log
 class RealsenseCamera(CameraBase):
     def __init__(self, config):
         """
@@ -25,8 +25,8 @@ class RealsenseCamera(CameraBase):
         self._pipeline = rs.pipeline()
         rs_config = rs.config()
         if self._serial_number is not None:
-            rs_config.enable_device(self._serial_number)
-
+            ret = rs_config.enable_device(self._serial_number)
+            log.info(f"enable_device {self._serial_number}: {ret}")
         rs_config.enable_stream(rs.stream.color, self._img_shape[1], self._img_shape[0], rs.format.bgr8, self._fps)
 
         if self._contain_depth:
@@ -37,6 +37,7 @@ class RealsenseCamera(CameraBase):
             rs_config.enable_stream(rs.stream.gyro, rs.format.motion_xyz32f, 200)   # gyro
         
         profile = self._pipeline.start(rs_config)
+
         self._device = profile.get_device()
         if self._device is None:
             raise ValueError(f"Could not construct the realsense camera {self._serial_number}")
@@ -84,6 +85,7 @@ class RealsenseCamera(CameraBase):
 
             self._lock.acquire()
             self._image_data = np.asanyarray(color_frame.get_data())
+            self._time_stamp = time.perf_counter()
             # color_image = cv2.cvtColor(color_image, cv2.COLOR_BGR2RGB)
             self._depth_map_data = np.asanyarray(depth_frame.get_data()) if self._contain_depth else None
             if self._contain_imu:

@@ -118,7 +118,8 @@ class Ros2Camera(CameraBase):
             
             try:
                 # Create ROS2 node with timeout protection
-                self._ros_node = Node('ros2_camera_node')
+                node_name = f'ros2_camera_{id(self)}'
+                self._ros_node = Node(node_name)
                 log.info(f"ROS2 Camera node created")
                 signal.alarm(0)  # Cancel the alarm
             except TimeoutError:
@@ -256,6 +257,7 @@ class Ros2Camera(CameraBase):
             # Use direct assignment instead of deepcopy for better performance
             with self._lock:
                 self._image_data = cv_image.copy()  # OpenCV copy is faster than deepcopy
+                self._time_stamp = time.perf_counter()
             
             # Monitor frame rate
             current_time = time.perf_counter()

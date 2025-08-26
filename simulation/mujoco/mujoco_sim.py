@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 os.environ["MUJOCO_GL"] = "glfw"  
 import mujoco
@@ -251,7 +253,9 @@ class MujocoSim(SimBase):
             name = cam_info['name']
             self._cam_render[name].update_scene(self._data, camera=cam_info['id'])
             img = self._cam_render[name].render()[:,:,::-1]
-            collected_img.append({'name': name+'_color', 'img': img, 'resolution': cam_info['resolution']})
+            time_stamp = time.perf_counter()
+            collected_img.append({'name': name+'_color', 'img': img, 
+                'resolution': cam_info['resolution'], 'time_stamp': time_stamp})
             nums_image += 1
         if nums_image:
             images = collected_img
@@ -389,9 +393,6 @@ class MujocoSim(SimBase):
         self.set_target_mocap_rotation(mocap_name, pose[3:], quat_seq)
         self.set_target_mocap_position(mocap_name, pose[:3])
         
-    def get_dof(self):
-        return self._dof
-
     def move_to_start(self, joint_commands=None):
         if joint_commands is None:
             commands = self._init_pose
@@ -405,6 +406,7 @@ if __name__ == '__main__':
     cur_path = os.path.dirname(os.path.abspath(__file__))
     # /config/mujoco_fr3_cfg.yaml,config/mujoco_duo_fr3.yaml, config/mujoco_fr3_scene.yaml
     cfg = '../config/mujoco_fr3_scene.yaml'
+    cfg = '../config/mujoco_duo_xarm7.yaml'
     cfg_file = os.path.join(cur_path, cfg)
     print(f'cfg file name: {cfg_file}')
     with open(cfg_file, 'r') as stream:

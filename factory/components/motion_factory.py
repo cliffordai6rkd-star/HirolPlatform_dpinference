@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from trajectory.trajectory_base import TrajectoryBase
 from motion.model_base import ModelBase
 from motion.pin_model import RobotModel
@@ -5,26 +7,29 @@ from motion.duo_model import DuoRobotModel
 from controller.controller_base import ControllerBase, IKController
 from controller.whole_body_ik import WholeBodyIk
 from controller.impedance_controller import ImpedanceController
+
 from controller.cartesian_impedance_controller import CartesianImpedanceController
 from controller.duo_controller import DuoController
 from trajectory.cartesian_trajectory import CartessianTrajectory
 from hardware.base.utils import Buffer
 import threading
 from hardware.base.utils import object_class_check, TrajectoryState
-import time, warnings
+import time
 from factory.components.robot_factory import RobotFactory
-from hardware.base.utils import convert_homo_2_7D_pose, get_joint_slice_value, RobotJointState
+from hardware.base.utils import convert_homo_2_7D_pose, get_joint_slice_value, \
+    RobotJointState, negate_pose, transform_pose
 import copy
 import numpy as np
 import glog as log
+from typing import Dict
 
 # Import performance profiler
 from tools.performance_profiler import PerformanceProfiler, timer
 from enum import Enum
 
 class Robot_Space(Enum):
-    CARTESIAN_SPACE = 0,
-    JOINT_SPACE = 1,
+    CARTESIAN_SPACE = "cartesian"
+    JOINT_SPACE = "joint"
 
 # Used for different robot component into one robot system
 class MotionFactory:
@@ -51,6 +56,9 @@ class MotionFactory:
         self._robot_system = robot
         self._execute_hardware = False
         self._blocking_motion = False
+        self._latest_action = {}
+        self._latest_action_lock = threading.Lock()
+        self._update_action = False
             
         # object classes
         self._model_classes = {
@@ -125,6 +133,8 @@ class MotionFactory:
             self._traj_thread.start()
         
         self._ee_links = self.get_model_end_effector_link_list()
+        self._ee_index = ["single"] if len(self._ee_links) == 1 else ["left", "right"]
+        self._sim_world2base, _ = self.get_sim_base_world_transform()
         
     def _controller_task(self):
         log.info('Controller thread started!!!')
@@ -148,16 +158,24 @@ class MotionFactory:
                         self._buffer_lock.acquire()
                         get_data, data, time_stamp = self._buffer.pop_data()
                         self._buffer_lock.release()
-                        # @TODO: test
+                        # @TODO: test, online planning
                         current_time_stamp = time.perf_counter()
                         if get_data and current_time_stamp - time_stamp > 0.1:
+                            log.debug(f'traj execution slow, clearing outdated data, time: {current_time_stamp - time_stamp}')
                             self._buffer.clear_outdated_data(current_time_stamp)
                             get_data = False
-                        # log.info(f'data: {data}, get data: {get_data}, buffer size: {self._buffer.size()}')
                         if get_data:
+                            # traj visualization in sim
+                            if self._robot_system._use_simulation:
+                                for i, _ in enumerate(self._ee_links):
+                                    cur_world2base = self._sim_world2base[0] if len(self._sim_world2base) == 1 else self._sim_world2base[i]
+                                    if i == 0:
+                                        cur_traj_pint_sim = transform_pose(cur_world2base, data[:7])
+                                    else:
+                                        cur_traj_pint_sim = transform_pose(cur_world2base, data[7:14])
+                                    self._robot_system._simulation.update_trajectory_data(cur_traj_pint_sim)
                             target = self._get_controller_target(data)
                     # log.info(f'controller target: {target}')
-                # log.info(f'target use time {target_time - start_time}s')
             
             # Controller execution
             if len(target) != 0 and not self._blocking_motion:
@@ -175,14 +193,24 @@ class MotionFactory:
                         joint_mode = joint_mode if isinstance(joint_mode, list) else [joint_mode]
                         # log.info(f'controller mode: {joint_mode}')
                         self._robot_system.set_joint_commands(joint_target, joint_mode,
-                                                            self._execute_hardware)
+                                self._execute_hardware, update_action=self._update_action,
+                                change_action_status=True)
+                        # update action
+                        if self._update_action:
+                            self._latest_action_lock.acquire()
+                            get_robot_action_status = self._robot_system._update_robot_action(self._latest_action)
+                            if get_robot_action_status:
+                                for i, ee_target_dict in enumerate(target):
+                                    key = self._ee_index[i]
+                                    self._latest_action[key]["ee"] = dict(
+                                            pose=list(ee_target_dict.values())[0].tolist(), time_stamp=time.perf_counter())
+                            self._latest_action_lock.release()
                     else:
                         # if use hardware; directly map the hardware joints to sim
                         if self._robot_system._use_hardware \
                             and self._robot_system._use_simulation:
                             joint_mode = ["position"] * len(self._ee_links)
                             self._robot_system.set_joint_commands(curr_joint_state._positions, joint_mode, False)
-                            # self._robot_system._simulation.move_to_start(curr_joint_state._positions) 
                         log.warning(f"Controller failed to compute valid joint commands for target: {target}")
             
             next_run_time += ctrl_period
@@ -278,21 +306,19 @@ class MotionFactory:
     def set_joint_positions(self, joint_commands, is_continous_joint_command = True):
         self._blocking_motion = True
         position_mode = ["position"]
-        if len(self.get_model_end_effector_link_list()) > 1: position_mode = position_mode * 2
+        if len(self._ee_links) > 1: position_mode = position_mode * 2
         self._robot_system.set_joint_commands(joint_commands, position_mode, 
                                               self._execute_hardware)
         if not is_continous_joint_command:
             self._blocking_motion = False
-        
-    def get_frame_pose(self, frame_name, model_type, need_vel = False, need_acc = False):
-        """
-            @brief: get frame pose in 7D format [x, y, z, qx, qy, qz, qw]
-            @params:
-                frame_name: the frame link name
-                model_type: ['single', 'left', 'right', 'dual']
-        """
-        joint_states = self._robot_system.get_joint_states()
-        # print(f'posi: {joint_states._positions}')
+            
+    def only_set_simulation(self, command):
+        if self._robot_system._use_simulation:
+            mode = ['position'] * len(command)
+            self._robot_system._simulation.set_joint_command(mode, command)
+            
+    def get_frame_pose_with_joint_state(self, joint_states: RobotJointState, frame_name,
+                                        model_type, need_vel = False, need_acc = False):
         pose = self._robot_model.get_frame_pose(frame_name, joint_states._positions,
                                                 need_update=True, model_type=model_type)
         pose = convert_homo_2_7D_pose(pose)
@@ -307,32 +333,67 @@ class MotionFactory:
                                                 need_update=True, model_type=model_type)
             pose = np.hstack((pose, acc))
         return pose
+        
+    def get_frame_pose(self, frame_name, model_type, need_vel = False, need_acc = False):
+        """
+            @brief: get frame pose in 7D format [x, y, z, qx, qy, qz, qw]
+            @params:
+                frame_name: the frame link name
+                model_type: ['single', 'left', 'right', 'dual']
+        """
+        joint_states = self._robot_system.get_joint_states()
+        return self.get_frame_pose_with_joint_state(joint_states,
+                frame_name, model_type, need_vel, need_acc)
     
+    def set_tool_command(self, tool_command: list[np.ndarray] | Dict):
+        tool_type_dict = self._robot_system.get_tool_dict_state()
+        if tool_type_dict is None:
+            log.warn(f'There is no tool for the robot config!!!')
+            return False
+        
+        # log.info(f'motion tool: {tool_command}')
+        parsed_tool_command = {}
+        if len(tool_type_dict) == 1:
+            if not isinstance(tool_command, dict):
+                parsed_tool_command["single"] = tool_command
+            else: parsed_tool_command = tool_command
+        else: # for duo tool
+            if len(tool_type_dict) != len(tool_command):
+                log.error(f'tool command should have len of two for duo tool command but get {len(tool_command)}')
+                return False
+            if not isinstance(tool_command, dict):
+                parsed_tool_command["left"] = tool_command[0]
+                parsed_tool_command["right"] = tool_command[1]
+            else: parsed_tool_command = tool_command
+        # log.info(f'after tool: {parsed_tool_command}')
+        return self._robot_system.set_tool_command(parsed_tool_command)
+
     def reset_robot_system(self, arm_command: list[float] | None = None, 
                            space: Robot_Space = Robot_Space.JOINT_SPACE,
-                           tool_command: dict[str, np.ndarray] = None):
+                           tool_command: Dict[str, np.ndarray] = None):
+        mode = ["position"] * len(self._ee_links)
         if space == Robot_Space.CARTESIAN_SPACE:
             if arm_command is not None:
                 self.enable_high_level_update = False
-                self.update_execute_hardware(False)
                 # wait for the trajectory done
                 self.clear_traj_buffer()
                 self.wait_buffer_empty()
                 log.info('Trajectory buffer has all been consumed for cartesian space reset!!!')
                 # @TODO: attach to current tcp
                 self.set_next_pose_target(arm_command)
-                self.update_execute_hardware(True)
+                time.sleep(2.0)
                 self.enable_high_level_update = True
             else:
                 self.move_to_start_blocking()
         else:
-            self.move_to_start_blocking(arm_command)
+            self.move_to_start_blocking(arm_command, mode)
         
         # Reset controller if it has a reset method
         if hasattr(self._controller, 'reset'):
             # Get current robot state and end-effector frame name
             robot_state = self._robot_system.get_joint_states()
-            ee_links = self.get_model_end_effector_link_list()
+            ee_links = self._ee_links
+            # @TODO: bug here for duo robot
             if ee_links:
                 # Use the first end-effector link as the frame name
                 frame_name = ee_links[0]
@@ -341,10 +402,13 @@ class MotionFactory:
                 log.info('Controller reset completed')
         
         if tool_command is not None:
-            self._robot_system.set_tool_command(tool_command)
+            self.set_tool_command(tool_command)
     
     def update_execute_hardware(self, enable_hardware):
         self._execute_hardware = enable_hardware
+        
+    def change_update_action_status(self, update_action):
+        self._update_action = update_action
        
     def close(self):
         self._controller_thread_running = False
@@ -369,6 +433,9 @@ class MotionFactory:
         model_dof.insert(0, 0) # [0 dof_left dof_right]
         return model_dof
     
+    def get_tool_dof_list(self):
+        pass
+    
     def get_model_end_effector_link_list(self):
         end_effector_links = self._robot_model.get_model_end_links()
         
@@ -378,9 +445,8 @@ class MotionFactory:
 
     def _get_controller_target(self, data):
         target = []
-        end_effector_links = self.get_model_end_effector_link_list()
         dimensions = [0, 7, 14]
-        for i, cur_target_frame in enumerate(end_effector_links):
+        for i, cur_target_frame in enumerate(self._ee_links):
             cur_target = {cur_target_frame: data[dimensions[i]:dimensions[i+1]]}
             target.append(cur_target)
         return target
@@ -394,9 +460,10 @@ class MotionFactory:
             sliced_joint_states = get_joint_slice_value(dofs[1], dofs[1]+dofs[2], joint_states)
         return sliced_joint_states
     
-    def move_to_start_blocking(self, joint_commands = None):
+    def move_to_start_blocking(self, joint_commands = None, mode=None):
         self._blocking_motion = True
-        self._robot_system.move_to_start(joint_commands)
+        if joint_commands is not None: joint_commands = np.array(joint_commands)
+        self._robot_system.move_to_start(joint_commands, mode=mode)
         self._blocking_motion = False
         
     def clear_traj_buffer(self):
@@ -411,3 +478,25 @@ class MotionFactory:
     def get_model_types(self):
         return ['single'] if self._model_type == 'model' else ['left', 'right']
     
+    def get_latest_action(self):
+        if len(self._latest_action) == 0 or not self._update_action:
+            return None
+        
+        with self._latest_action_lock:
+            latest_action = copy.deepcopy(self._latest_action)
+        return latest_action
+    
+    def get_sim_base_world_transform(self):
+        if not self._robot_system._use_simulation:
+            return None, None
+        
+        world2base_pose = [np.array([0, 0, 0, 0, 0, 0, 1])]
+        base2world_pose = [negate_pose(world2base_pose[0])]
+        if len(self._robot_system._simulation.base_body_name) != 0:
+            world2base_pose = []
+            base2world_pose = []
+            for cur_base_body in self._robot_system._simulation.base_body_name:
+                cur_world2base = self._robot_system._simulation.get_body_pose(cur_base_body)
+                world2base_pose.append(cur_world2base)
+                base2world_pose.append(negate_pose(cur_world2base))
+        return world2base_pose, base2world_pose

@@ -25,6 +25,7 @@
     <light pos="0 0 1.5" dir="0 0 -1" directional="true" />
     <geom name="floor" size="0 0 0.05" type="plane" material="groundplane" />
 
+    <camera name="third_cam" pos="1.2 0 0.62" xyaxes="0 1 0 0 0 1" fovy="60"/>
 
     <!-- Mocap object as target -->
     <body name="targetL" pos="0.3 0.3 0.45" quat="0 1 0 0" mocap="true">

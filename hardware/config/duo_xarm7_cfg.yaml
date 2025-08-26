@@ -1,10 +1,28 @@
 duo_arm:
   dof: [7,7]
+  
   left:
       type: "xarm7"
       dof: 7
       ip: "192.168.11.11"
+      init_joint_positions: [-5.3135271072387695, 0.799048662185669, 1.0790538787841797, 1.4869738817214966, 1.2350175380706787, 0.9408000111579895, -1.2921161651611328] #xarm frame
+      # 为ACT推理优化的宽松安全限制
+      safety_level: "permissive"
+      safety_limits:
+        max_joint_change: 1.0        # 增加到1.8 rad (比默认1.5更宽松)
+        max_joint_velocity: 20.0     # 增加速度限制
+        max_joint_acceleration: 30.0 # 增加加速度限制
+        min_command_interval: 0.001  # 最小命令间隔
+      
   right:
       type: "xarm7"
       dof: 7
       ip: "192.168.11.12"
+      init_joint_positions: [-1.133772850036621, 1.1817576885223389, -0.9229789972305298, 1.461632490158081, 5.2708845138549805, 0.9470471143722534, 3.1440067291259766] #xarm frame
+      # 为ACT推理优化的宽松安全限制
+    #   safety_level: "permissive"
+    #   safety_limits:
+    #     max_joint_change: 1.8        # 增加到1.8 rad (比默认1.5更宽松)
+    #     max_joint_velocity: 30.0     # 增加速度限制
+    #     max_joint_acceleration: 30.0 # 增加加速度限制
+    #     min_command_interval: 0.001  # 最小命令间隔

@@ -10,8 +10,7 @@ import threading, time
 import numpy as np
 
 from hardware.monte01.xarm_defs import *
-
-JP_XARM2CORENETIC = np.array([0.0, 1.5708, -1.5708, -3.1416, -1.5708, 0.0, 0.0])
+from hardware.monte01.coordinate_transforms import JP_XARM2CORENETIC
 
 class Xarm7Arm(ArmBase):
     def __init__(self, config):
@@ -88,7 +87,7 @@ class Xarm7Arm(ArmBase):
     def initialize(self):
         if self._control_mode is None:
             self._control_mode = "position"
-            self._robot.set_collision_tool_model(tool_type=TOOL_TYPE_XARM_GRIPPER)
+            # self._robot.set_collision_tool_model(tool_type=TOOL_TYPE_XARM_GRIPPER)
         if not self._is_initialized:
             # if self._collision_behaviour is not None:
             #     self.set_collision_threshold(self._collision_behaviour["torque_min"],
@@ -126,6 +125,7 @@ class Xarm7Arm(ArmBase):
         # print(f'posi: {self._joint_states._positions}')
         self._joint_states._velocities = np.array(self._state[1])
         # self._joint_states._torques = np.array(self._fr3_state.tau_J)
+        self._joint_states._time_stamp = time.perf_counter()
         
         # Update safety checker with current joint positions
         self.update_safety_state(np.array(self._state[0]))
@@ -383,9 +383,23 @@ class Xarm7Arm(ArmBase):
             log.error(f"Exception getting end effector pose: {e}")
             return np.eye(4)
     
-    def move_to_start(self):
+    def move_to_start(self, joint_commands = None):
         if self._init_joint_positions is None:
             log.error("Initial joint positions not set, cannot move to start position")
         else:
             # self.set_joint_command('position', self._init_joint_positions)
             log.warn(f"TODO: Move to start position not implemented for XArm7 {self._init_joint_positions}")
+            self._robot.clean_error()
+            time.sleep(0.005)
+            self._robot.motion_enable(enable=True)
+            time.sleep(0.005)
+            self._robot.set_mode(XARM_MODE_POSITION)
+            time.sleep(0.005)
+            self._robot.set_state(state=XARM_STATE_SPORT)
+            time.sleep(0.005)
+            # set command
+            code = self._robot.set_servo_angle(angle=self._init_joint_positions, is_radian=True, wait=True)
+            if code != XARM_SUCCESS:
+                log.error(f"Failed to move to start position: code={code}")
+            else:
+                log.info("Robot moved to start position successfully")

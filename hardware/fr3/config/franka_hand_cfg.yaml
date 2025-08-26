@@ -1,4 +1,15 @@
 franka_hand:
   ip: "192.168.1.208"
-  grasp_speed: 0.3
+  grasp_speed: 0.4
   grasp_force: 20
+  epsilon_inner: 0.05
+  epsilon_outer: 0.06
+  
+  control_mode: "binary"
+  binary_threshold: 0.5 # [0, 1]
+
+  # franka hand 最好不要用incremental
+  # control_mode: "incremental"
+  initial_position: 1.0
+  step_size: 0.02
+  
