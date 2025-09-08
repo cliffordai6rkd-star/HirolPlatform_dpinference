@@ -1,0 +1,37 @@
+# IK Benchmark Test Robot Configuration
+# Based on fr3_with_franka_hand_ik.yaml but optimized for testing
+
+# Platform usage
+use_hardware: false
+use_simulation: true
+
+robot: "fr3"
+robot_config: !include hardware/fr3/config/fr3_cfg.yaml
+
+# Disable smoother for simpler testing
+use_smoother: false
+
+# Control configuration
+control_frequency: 1000  # Reduced for faster testing
+controller_type: "ik"
+controller_config: !include controller/config/ik_fr3_cfg.yaml
+
+# Robot model
+model_type: "model"
+model_config:
+  name: "fr3_only"
+  cfg: !include motion/config/robot_model_fr3_cfg.yaml
+
+# Trajectory configuration (not used in IK testing but required)
+use_trajectory_planner: false
+buffer_type: "buffer"
+trajectory_planner_type: "cart_polynomial"
+plan_type: "cartesian"
+trajectory_config: !include trajectory/config/cartesian_polynomial_traj_cfg.yaml
+traj_frequency: 100
+
+# Simulation configuration
+simulation: "mujoco"
+simulation_config: !include simulation/config/mujoco_fr3_cfg.yaml
+target_site_name: ["target_site"]
+tcp_visualization_site: ["TCP_site"]

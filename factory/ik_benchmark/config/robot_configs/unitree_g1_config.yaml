@@ -1,0 +1,36 @@
+# Unitree G1 Robot Specific Benchmark Configuration
+
+robot_config:
+  robot_type: "unitree_g1"
+  use_hardware: false
+  use_simulation: true
+
+# Unitree G1-specific test scenarios (humanoid robot)
+test_scenarios:
+  random_sampling:
+    count: 400  # Fewer poses due to complexity
+    seed: 789
+    
+  trajectory_tests:
+    - type: "line"
+      waypoints: 30
+      start_pos: [0.3, -0.3, 0.8]  # Upper body workspace
+      end_pos: [0.5, 0.3, 1.2]
+      
+    - type: "circle"
+      waypoints: 60
+      center: [0.4, 0.0, 1.0]
+      radius: 0.15
+      normal: [1, 0, 0]  # Vertical circle for arm motion
+
+# Humanoid-specific evaluation parameters
+evaluation:
+  tolerance: 2.0e-6          # Relaxed tolerance for complex kinematics
+  max_iterations: 2000       # More iterations for humanoid
+  noise_levels: [0.002, 0.01, 0.02, 0.05]
+
+# Unitree G1 simulation settings
+simulation:
+  validation_enabled: false  # Complex simulation, may be unstable
+  robot_type: "unitree_g1"
+  validation_tolerance: 2.0e-3

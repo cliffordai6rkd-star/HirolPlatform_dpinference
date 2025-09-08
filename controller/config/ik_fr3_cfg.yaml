@@ -1,7 +1,43 @@
 "ik": 
   damping_weight: 0.3
-  # ["gaussian_newtown", "pyroki"， "dls", "lm"]
-  # pyroki 慎用， 关节会有跳变
+  # ["gaussian_newtown", "pyroki"， "dls", "lm","curobo","pink"]
+  # pyroki 慎用， 关节会有跳变；可以用于执行单个位置的IK求解（相对来说求解成功率高）
   ik_type: "lm"
   tolerance: 0.000001
-  max_iteration: 3000
+  max_iteration: 200
+      # Pyroki专用高级参数
+  pyroki_config:
+    num_seeds_init: 64        # 初始种子数量 (默认: 64)
+    num_seeds_final: 8        # 最终候选数量 (默认: 4)  
+    total_steps: 22           # 总优化步数 (默认: 16)
+    init_steps: 8             # 初始化步数 (默认: 6)
+    pos_weight: 10.0          # 位置误差权重 (默认: 10.0)
+    ori_weight: 5.0          # 姿态误差权重 (默认: 5.0)
+    limit_weight: 100.0       # 关节限制权重 (默认: 50.0)
+    lambda_initial: 1.0       # 初始阻尼参数 (默认: 10.0)
+    max_iterations: 22        # 等同于 total_steps
+    
+    # 平滑性优化参数 (用于运动连续性)
+    enable_smoothness: true  # 启用平滑性优化 (默认: false, 软约束，效果一般)
+    smoothness_weight: 10    # 平滑性权重 (默认: 1.0)
+
+  # # CuRobo专用高级参数 ---test 中---(not stable)
+  # curobo_config:
+  #   # 基础配置
+  #   # robot_config_name: "franka.yml"        # CuRobo机器人配置文件 (默认: 'franka.yml')
+  #   # world_config_name: "collision_test.yml" # 世界配置文件 (默认: 'collision_test.yml')
+
+  #   # 精度控制                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
+  #   position_threshold: 0.005              # 位置容差 (默认: 0.005)
+  #   rotation_threshold: 0.05               # 旋转容差 (默认: 0.05)  
+  #   high_precision: false                   # 高精度模式 (默认: false)
+
+  #   # 求解参数
+  #   num_seeds: 64                          # IK种子数量 (默认: 16)
+
+  #   # GPU优化
+  #   use_gpu: true                          # 强制使用GPU (默认: auto-detect)
+  #   use_cuda_graph: true                   # 启用CUDA图优化 (默认: true)
+
+  #   # 碰撞检测
+  #   collision_free: false                  # 启用碰撞检测 (默认: false)

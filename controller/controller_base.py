@@ -4,7 +4,7 @@ import numpy as np
 from hardware.base.utils import RobotJointState
 from scipy.spatial.transform import Rotation as R
 from hardware.base.utils import convert_7D_2_homo
-from motion.ik import GaussianNetwon, IK_DLS, IK_LM
+from motion.ik import GaussianNewton, IK_DLS, IK_LM, IK_PPINK, IK_PYROKI, IK_CUROBO
 from motion.pin_model import RobotModel
 from hardware.base.utils import object_class_check
 import copy
@@ -38,13 +38,24 @@ class IKController(ControllerBase):
         self._tol = config.get("tolerance", 1e-4)
         self._max_iter = config.get("max_iteration", 1000)
         ik_class = {
-            "gaussian_newtown": GaussianNetwon,
+            "gaussian_newton": GaussianNewton,
             "dls": IK_DLS,
-            "lm": IK_LM
+            "lm": IK_LM,
+            "pink": IK_PPINK,
+            "pyroki": IK_PYROKI,
+            "curobo": IK_CUROBO
         }
         if not object_class_check(ik_class, self._ik_type):
             raise ValueError
-        self._ik_object = ik_class[self._ik_type]()
+        
+        # Get solver-specific configuration
+        solver_config = {}
+        if self._ik_type == "pyroki" and "pyroki_config" in config:
+            solver_config = config["pyroki_config"]
+        elif self._ik_type == "curobo" and "curobo_config" in config:
+            solver_config = config["curobo_config"]
+        
+        self._ik_object = ik_class[self._ik_type](**solver_config)
 
     def compute_controller(self, target: list[dict[str, np.ndarray]], 
                            robot_state: RobotJointState | None = None):

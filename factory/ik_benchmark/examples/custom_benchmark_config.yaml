@@ -1,0 +1,31 @@
+
+# Custom IK Benchmark Configuration
+robot_config: null  # Will be set programmatically
+
+ik_methods:
+  - gaussian_newton
+  - dls
+
+test_scenarios:
+  random_sampling:
+    count: 50
+    seed: 42
+  
+  trajectory_tests:
+    - type: line
+      waypoints: 15
+      start_pos: [0.4, -0.2, 0.3]
+      end_pos: [0.5, 0.2, 0.4]
+
+evaluation:
+  tolerance: 1.0e-6
+  max_iterations: 800
+  noise_levels: [0.001, 0.01]
+
+simulation:
+  validation_enabled: false
+
+output:
+  directory: config_based_results
+  formats: [html, json]
+  plots: [accuracy, timing]

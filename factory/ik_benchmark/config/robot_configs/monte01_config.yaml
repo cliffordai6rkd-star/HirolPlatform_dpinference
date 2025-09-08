@@ -1,0 +1,36 @@
+# Monte01 Robot Specific Benchmark Configuration
+
+robot_config:
+  robot_type: "monte01"
+  use_hardware: false
+  use_simulation: true
+
+# Monte01-specific test scenarios
+test_scenarios:
+  random_sampling:
+    count: 600
+    seed: 456
+    
+  trajectory_tests:
+    - type: "line"
+      waypoints: 50
+      start_pos: [0.3, -0.35, 0.25]  # Monte01 workspace
+      end_pos: [0.55, 0.35, 0.55]
+      
+    - type: "circle"
+      waypoints: 100
+      center: [0.45, 0.0, 0.4]
+      radius: 0.2
+      normal: [0, 0, 1]
+
+# Monte01-specific evaluation parameters
+evaluation:
+  tolerance: 1.0e-6
+  max_iterations: 1000
+  noise_levels: [0.001, 0.005, 0.01, 0.03]
+
+# Monte01 simulation settings  
+simulation:
+  validation_enabled: false  # Disable if simulation not stable
+  robot_type: "monte01"
+  validation_tolerance: 1.0e-3

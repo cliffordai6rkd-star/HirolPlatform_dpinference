@@ -1,0 +1,182 @@
+# IK Benchmark Configuration File
+# Comprehensive configuration for IK algorithm benchmarking
+
+# Robot configuration
+robot_config:
+  robot_type: "fr3"  # Robot type: fr3, monte01, unitree_g1, agibot_g1
+  use_hardware: false
+  use_simulation: true
+  simulation_type: "mujoco"
+
+# IK methods to benchmark
+ik_methods:
+  - "gaussian_newton"
+  - "dls"  # Damped Least Squares
+  - "lm"   # Levenberg-Marquardt
+  - "pink" # PINK QP-based solver
+  - "pyroki" # Pyroki JAX-based solver (optional)
+  - "curobo" # CuRobo PyTorch-based solver (optional)
+
+# Test scenarios configuration
+test_scenarios:
+  random_sampling:
+    count: 500          # Number of random poses
+    seed: 42           # Random seed for reproducibility
+    
+  trajectory_tests:
+    - type: "line"
+      waypoints: 50
+      start_pos: [0.3, -0.3, 0.3]
+      end_pos: [0.5, 0.3, 0.5]
+      
+    - type: "circle" 
+      waypoints: 100
+      center: [0.4, 0.0, 0.4]
+      radius: 0.2
+      normal: [0, 0, 1]
+      
+    - type: "helix"
+      waypoints: 80
+      center: [0.4, 0.0, 0.3]
+      radius: 0.15
+      pitch: 0.1
+      turns: 2.0
+      
+  singular_tests:
+    count: 200          # Poses near singularities
+    margin: 0.01       # Distance margin from singular configurations
+    
+  workspace_grid:
+    resolution: [8, 8, 5]    # Grid resolution (x, y, z)
+    orientation_samples: 4    # Orientation samples per position
+
+# Evaluation parameters
+evaluation:
+  tolerance: 1.0e-6          # Convergence tolerance
+  max_iterations: 100       # Maximum IK iterations
+  timeout_threshold: 2.0     # Timeout threshold in seconds
+  position_tolerance: 1.0e-6 # Position accuracy tolerance
+  rotation_tolerance: 1.0e-6 # Rotation accuracy tolerance
+  
+  # Noise levels for robustness testing
+  noise_levels: [0.001, 0.005, 0.01, 0.05, 0.1]
+  
+  # Trajectory analysis parameters
+  trajectory_dt: 0.01        # Time step for continuity analysis
+
+# Method-specific parameters for optimal performance
+method_specific_params:
+  gaussian_newton:
+    damping_weight: 1e-6
+    max_iterations: 200
+  
+  dls:
+    damping_weight: 0.2
+    max_iterations: 200
+  
+  lm:
+    damping_weight: 0.05
+    max_iterations: 200
+  
+  pink:
+    damping_weight: 1e-6
+    max_iterations: 200
+  
+  pyroki:
+    # Pyroki-specific parameters
+    num_seeds_init: 64          # Number of initial seeds
+    num_seeds_final: 4          # Number of final seeds  
+    total_steps: 16             # Total optimization steps
+    init_steps: 6               # Initial optimization steps
+    pos_weight: 10.0            # Position error weight
+    ori_weight: 5.0             # Orientation error weight
+    limit_weight: 50.0          # Joint limit weight
+    lambda_initial: 10.0        # Initial damping parameter
+    max_iterations: 16          # Equivalent to total_steps
+  
+  curobo:
+    # CuRobo-specific parameters  
+    robot_config_name: "franka.yml"  # Robot config file
+    world_config_name: "collision_test.yml"  # World config file
+    position_threshold: 0.005   # Position tolerance (m)
+    rotation_threshold: 0.05    # Rotation tolerance (rad)
+    num_seeds: 16               # Number of IK seeds
+    use_cuda_graph: true        # Enable CUDA graph optimization
+    high_precision: false       # Enable high precision mode
+    collision_free: false       # Enable collision checking
+    use_gpu: true               # Force GPU usage if available
+    max_iterations: 100         # Equivalent parameter
+
+# Simulation validation settings
+simulation:
+  validation_enabled: false  # Enable simulation validation
+  robot_type: "fr3"         # Robot type for simulation
+  validation_tolerance: 1.0e-3  # Simulation validation tolerance
+  execution_timeout: 5.0     # Execution timeout in simulation
+  
+# Output configuration
+output:
+  directory: "factory/ik_benchmark/results/benchmark_results"  # Output directory
+  formats: ["html", "json"]      # Export formats: html, json, pdf
+  
+  # Plot configuration
+  plots: 
+    - "heatmap"              # Workspace error heatmap
+    - "convergence"          # Convergence rate curves
+    - "timing"               # Time distribution plots
+    - "robustness"           # Robustness radar chart
+    - "accuracy"             # Accuracy comparison
+    - "dashboard"            # Summary dashboard
+    
+  # Statistics export
+  export_csv: true           # Export statistical tables as CSV
+  export_raw_data: false     # Export raw test data
+
+# Performance and resource limits
+performance:
+  max_test_poses: 1000       # Maximum poses per test scenario
+  parallel_testing: false    # Enable parallel testing (not implemented)
+  memory_limit_gb: 4         # Memory limit for testing
+  
+# Logging configuration
+logging:
+  level: "INFO"              # Log level: DEBUG, INFO, WARNING, ERROR
+  console_output: true       # Enable console logging
+  file_output: true          # Enable file logging
+  log_file: "benchmark.log"  # Log file name
+
+# Advanced settings
+advanced:
+  # Data generation settings
+  workspace_sampling_count: 1000  # Poses for workspace bounds estimation
+  
+  # Robustness testing
+  robustness_poses_limit: 50      # Limit poses for robustness tests (performance)
+  initial_seed_variations: 10     # Number of seed variations per pose
+  
+  # Statistical analysis
+  confidence_level: 0.95          # Confidence level for statistics
+  outlier_detection: true         # Enable outlier detection
+  outlier_threshold: 3.0          # Z-score threshold for outliers
+  
+  # Visualization
+  plot_dpi: 300                   # Plot resolution
+  plot_style: "seaborn"           # Plot style
+  color_palette: "husl"           # Color palette for plots
+  
+# Custom test configurations (optional)
+custom_tests:
+  # Example custom test scenario
+  precision_test:
+    enabled: false
+    description: "High precision IK testing"
+    tolerance: 1.0e-8
+    max_iterations: 5000
+    test_poses: 100
+    
+  speed_test:
+    enabled: false
+    description: "Speed benchmark test"
+    tolerance: 1.0e-6
+    max_iterations: 100
+    test_poses: 1000

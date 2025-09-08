@@ -1,0 +1,50 @@
+# FR3 Robot Specific Benchmark Configuration
+
+robot_config:
+  robot_type: "fr3"
+  urdf_path: "assets/franka_fr3/fr3.urdf"
+  base_link: "fr3_link0"
+  end_effector_link: "fr3_hand"
+  use_hardware: false
+  use_simulation: true
+
+# FR3-specific test scenarios  
+test_scenarios:
+  random_sampling:
+    count: 800
+    seed: 123
+    
+  trajectory_tests:
+    - type: "line"
+      waypoints: 60
+      start_pos: [0.4, -0.4, 0.2]  # FR3 workspace
+      end_pos: [0.6, 0.4, 0.6]
+      
+    - type: "circle"
+      waypoints: 120
+      center: [0.5, 0.0, 0.4]
+      radius: 0.25
+      normal: [0, 0, 1]
+      
+  workspace_grid:
+    resolution: [10, 10, 6]
+    orientation_samples: 6
+
+# FR3-specific evaluation parameters
+evaluation:
+  tolerance: 5.0e-7          # Tighter tolerance for precision robot
+  max_iterations: 1500       # More iterations for complex poses
+  noise_levels: [0.0005, 0.002, 0.005, 0.02]  # Finer noise levels
+
+# FR3 simulation settings
+simulation:
+  validation_enabled: true
+  robot_type: "fr3"
+  config_file: "simulation/config/mujoco_fr3_cfg.yaml"
+  validation_tolerance: 5.0e-4
+
+# FR3-specific performance expectations
+performance:
+  expected_convergence_rate: 0.95
+  expected_mean_time: 0.01      # 10ms expected solve time
+  workspace_coverage_target: 0.85

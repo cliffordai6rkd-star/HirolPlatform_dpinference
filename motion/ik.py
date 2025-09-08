@@ -1,6 +1,15 @@
 import pinocchio as pin
 import numpy as np
 import abc
+from typing import Tuple, Dict, Optional
+
+try:
+    import pink
+    from pink.tasks import FrameTask
+    import qpsolvers
+    PINK_AVAILABLE = True
+except ImportError:
+    PINK_AVAILABLE = False
 
 class IkBase(abc.ABC, metaclass=abc.ABCMeta):
     def ik(self, pin_model: pin.Model, pin_data: pin.Data, target_pose_dict: dict, 
@@ -21,7 +30,7 @@ class IkBase(abc.ABC, metaclass=abc.ABCMeta):
         """
         raise NotImplementedError
     
-class GaussianNetwon(IkBase):
+class GaussianNewton(IkBase):
     def ik(self, pin_model: pin.Model, pin_data: pin.Data, target_pose: dict, 
            curr_joint_positions: np.ndarray, tolerance: float, max_iter:float, 
            damping = 0.3) -> tuple[bool, np.ndarray, str]:
@@ -245,3 +254,393 @@ class IK_LM(IkBase):
             print(f"Warning: LM IK did not converge after {max_iter} iterations. Best error: {error_norm}")
 
         return converged, q, "position"
+    
+class IK_PPINK(IkBase):
+    def __init__(self):
+        """Initialize PINK IK solver with cached components for performance."""
+        if not PINK_AVAILABLE:
+            raise ImportError(
+                "PINK library not available. Please install 'pin-pink' and 'qpsolvers' packages."
+            )
+        
+        # Cache QP solver selection (expensive operation)
+        available_solvers = qpsolvers.available_solvers
+        if "proxqp" in available_solvers:
+            self._solver = "proxqp"
+        elif "quadprog" in available_solvers:
+            self._solver = "quadprog" 
+        elif "osqp" in available_solvers:
+            self._solver = "osqp"
+        else:
+            self._solver = available_solvers[0]
+        
+        # Cache constant parameters
+        self._dt = 1e-2  # Integration timestep
+        self._position_cost = 1.0  # [cost] / [m]
+        self._orientation_cost = 1.0  # [cost] / [rad]
+        self._lm_damping = 0.0  # Use QP solver damping instead
+        self._gain = 1.0
+        
+        # Frame task cache - will be created/reused based on frame_name
+        self._frame_task = None
+        self._current_frame_name = None
+    
+    def ik(self, pin_model: pin.Model, pin_data: pin.Data, target_pose_dict: Dict[str, np.ndarray], 
+           curr_joint_positions: np.ndarray, tolerance: float, max_iter: int, 
+           damping: float = 1e-8) -> Tuple[bool, np.ndarray, str]:
+        """
+        Solve inverse kinematics using PINK (QP-based) solver.
+        
+        Args:
+            pin_model: Pinocchio robot model
+            pin_data: Pinocchio model data  
+            target_pose_dict: Target poses {frame_name: 4x4_homogeneous_matrix}
+            curr_joint_positions: Current joint positions as initial guess
+            tolerance: Convergence tolerance for position and orientation errors
+            max_iter: Maximum number of iterations
+            damping: Tikhonov regularization damping parameter
+            
+        Returns:
+            Tuple of (converged, joint_solution, "position")
+            
+        Raises:
+            ValueError: If frame name not found or invalid target pose
+        """
+        # Use provided joint limits
+        lower_limits = pin_model.lowerPositionLimit
+        upper_limits = pin_model.upperPositionLimit
+        
+        # Initialize joint configuration 
+        q = curr_joint_positions.copy()
+        q = np.clip(q, lower_limits, upper_limits)
+        
+        # Extract frame name and target pose
+        if not target_pose_dict:
+            raise ValueError("target_pose_dict cannot be empty")
+        
+        frame_name = next(iter(target_pose_dict.keys()))
+        target_pose = next(iter(target_pose_dict.values()))
+        
+        # Validate frame exists
+        if not pin_model.existFrame(frame_name):
+            raise ValueError(f"Frame '{frame_name}' not found in model")
+        
+        # Convert target pose to SE3
+        if target_pose.shape != (4, 4):
+            raise ValueError("Target pose must be a 4x4 homogeneous transformation matrix")
+        
+        target_placement = pin.SE3(target_pose[:3, :3], target_pose[:3, 3])
+        
+        # Create PINK configuration
+        configuration = pink.Configuration(pin_model, pin_data, q)
+        
+        # Create or reuse frame task (performance optimization)
+        if self._frame_task is None or self._current_frame_name != frame_name:
+            self._frame_task = FrameTask(
+                frame_name,
+                position_cost=self._position_cost,
+                orientation_cost=self._orientation_cost,
+                lm_damping=self._lm_damping,
+                gain=self._gain
+            )
+            self._current_frame_name = frame_name
+        
+        # Update target (this is cheap operation)
+        self._frame_task.set_target(target_placement)
+        tasks = [self._frame_task]
+        
+        # Iterative solving
+        converged = False
+        for i in range(max_iter):
+            # Compute current error
+            error = self._frame_task.compute_error(configuration)
+            error_norm = np.linalg.norm(error)
+            
+            # Check convergence
+            if error_norm < tolerance:
+                converged = True
+                break
+                
+            try:
+                # Solve IK step using cached solver
+                velocity = pink.solve_ik(
+                    configuration,
+                    tasks=tasks,
+                    dt=self._dt,
+                    damping=damping,
+                    solver=self._solver
+                )
+                
+                # Integrate velocity to get joint displacement
+                q_new = pin.integrate(pin_model, configuration.q, velocity * self._dt)
+                
+                # Apply joint limits
+                q_new = np.clip(q_new, lower_limits, upper_limits)
+                
+                # Update configuration
+                configuration = pink.Configuration(pin_model, pin_data, q_new)
+                
+            except Exception as e:
+                # If PINK solver fails, return current best solution
+                print(f"Warning: PINK IK solver failed at iteration {i}: {str(e)}")
+                break
+        
+        if not converged:
+            print(f"Warning: PINK IK did not converge after {max_iter} iterations. Best error: {error_norm:.6f}")
+        
+        return converged, configuration.q, "position" 
+
+
+class IK_PYROKI(IkBase):
+    """Pyroki IK solver integration with HIROL platform."""
+    
+    def __init__(self, urdf_path: str = None, end_effector_link: str = None, **kwargs):
+        """
+        Initialize Pyroki IK solver with optional parameters for factory pattern support.
+        
+        Args:
+            urdf_path: Path to robot URDF file (optional for factory pattern)
+            end_effector_link: Name of end effector link (optional for factory pattern)
+            **kwargs: Additional Pyroki configuration parameters
+        """
+        self._urdf_path = urdf_path
+        self._ee_link = end_effector_link
+        self._kwargs = kwargs
+        self._adapter = None
+        self._initialized = False
+        
+        # If parameters provided, initialize immediately (direct instantiation)
+        if urdf_path is not None and end_effector_link is not None:
+            self._initialize_adapter()
+    
+    def _initialize_adapter(self):
+        """Initialize the Pyroki adapter with current parameters."""
+        if self._initialized:
+            return
+            
+        try:
+            from .adapters import PyrokiAdapter, PYROKI_AVAILABLE
+            if not PYROKI_AVAILABLE:
+                raise ImportError("Pyroki dependencies not available")
+            
+            if self._urdf_path is None or self._ee_link is None:
+                raise ValueError("URDF path and end effector link must be provided")
+                
+            self._adapter = PyrokiAdapter(self._urdf_path, self._ee_link, **self._kwargs)
+            self._initialized = True
+            
+        except ImportError as e:
+            raise ImportError(f"Failed to initialize Pyroki IK solver: {e}")
+    
+    def _configure_from_pinocchio(self, pin_model: pin.Model):
+        """Extract configuration from Pinocchio model as fallback."""
+        if self._urdf_path is None:
+            # Try to get URDF path from pinocchio model if available
+            # This is a fallback - ideally parameters should be provided
+            import inspect
+            frame = inspect.currentframe()
+            try:
+                # Walk up the call stack to find robot_model reference
+                caller_locals = frame.f_back.f_back.f_locals if frame.f_back and frame.f_back.f_back else {}
+                self_obj = caller_locals.get('self')
+                if self_obj and hasattr(self_obj, '_robot_model'):
+                    robot_model = self_obj._robot_model
+                    if robot_model and hasattr(robot_model, 'urdf_path'):
+                        self._urdf_path = robot_model.urdf_path
+                    if robot_model and hasattr(robot_model, 'ee_link'):
+                        self._ee_link = robot_model.ee_link
+            finally:
+                del frame
+        
+        if self._ee_link is None:
+            # Use the first frame name from target as fallback
+            self._ee_link = "gripper_link"  # Common default
+    
+    def ik(self, pin_model: pin.Model, pin_data: pin.Data, target_pose: dict, 
+           curr_joint_positions: np.ndarray, tolerance: float, max_iter: float, 
+           damping = None) -> tuple[bool, np.ndarray, str]:
+        """
+        Solve inverse kinematics using Pyroki.
+        
+        Args:
+            pin_model: Pinocchio model (used for joint limits fallback)
+            pin_data: Pinocchio data (not used by Pyroki)
+            target_pose: Target pose dict, key: frame name, value: 4x4 homogeneous matrix
+            curr_joint_positions: Initial joint positions (used as fallback seed)
+            tolerance: Convergence tolerance
+            max_iter: Maximum iterations (passed to adapter)
+            damping: Damping parameter (not used by Pyroki)
+            
+        Returns:
+            Tuple of (converged, joint_angles, "position")
+        """
+        # Lazy initialization: configure from context if not already done
+        if not self._initialized:
+            self._configure_from_pinocchio(pin_model)
+            
+            # Use target frame name if ee_link still not set
+            if self._ee_link is None and target_pose:
+                self._ee_link = next(iter(target_pose.keys()))
+            
+            self._initialize_adapter()
+        
+        if not target_pose:
+            raise ValueError("Target pose dictionary cannot be empty")
+        
+        # Extract target pose (Pyroki handles single target)
+        target_pose_matrix = next(iter(target_pose.values()))
+        
+        try:
+            # Solve using Pyroki adapter
+            converged, solution, solve_time = self._adapter.solve_single(
+                target_pose_matrix, 
+                curr_joint_positions,
+                tolerance=tolerance,
+                max_iterations=int(max_iter)
+            )
+            
+            if converged and solution is not None:
+                return True, solution, "position"
+            else:
+                # Fallback to middle of joint range if failed
+                if hasattr(pin_model, 'lowerPositionLimit'):
+                    fallback_solution = (pin_model.lowerPositionLimit + pin_model.upperPositionLimit) / 2
+                else:
+                    fallback_solution = curr_joint_positions
+                return False, fallback_solution, "position"
+                
+        except Exception as e:
+            print(f"Warning: Pyroki IK failed: {e}")
+            # Return fallback solution
+            if hasattr(pin_model, 'lowerPositionLimit'):
+                fallback_solution = (pin_model.lowerPositionLimit + pin_model.upperPositionLimit) / 2
+            else:
+                fallback_solution = curr_joint_positions
+            return False, fallback_solution, "position"
+
+
+class IK_CUROBO(IkBase):
+    """CuRobo IK solver integration with HIROL platform."""
+    
+    def __init__(self, urdf_path: str = None, end_effector_link: str = None, **kwargs):
+        """
+        Initialize CuRobo IK solver with optional parameters for factory pattern support.
+        
+        Args:
+            urdf_path: Path to robot URDF file (optional for factory pattern)
+            end_effector_link: Name of end effector link (optional for factory pattern) 
+            **kwargs: Additional CuRobo configuration parameters
+        """
+        self._urdf_path = urdf_path
+        self._ee_link = end_effector_link
+        self._kwargs = kwargs
+        self._adapter = None
+        self._initialized = False
+        
+        # If parameters provided, initialize immediately (direct instantiation)
+        if urdf_path is not None and end_effector_link is not None:
+            self._initialize_adapter()
+    
+    def _initialize_adapter(self):
+        """Initialize the CuRobo adapter with current parameters."""
+        if self._initialized:
+            return
+            
+        try:
+            from .adapters import CuroboAdapter, CUROBO_AVAILABLE
+            if not CUROBO_AVAILABLE:
+                raise ImportError("CuRobo dependencies not available")
+            
+            if self._urdf_path is None or self._ee_link is None:
+                raise ValueError("URDF path and end effector link must be provided")
+                
+            self._adapter = CuroboAdapter(self._urdf_path, self._ee_link, **self._kwargs)
+            self._initialized = True
+            
+        except ImportError as e:
+            raise ImportError(f"Failed to initialize CuRobo IK solver: {e}")
+    
+    def _configure_from_pinocchio(self, pin_model: pin.Model):
+        """Extract configuration from Pinocchio model as fallback."""
+        if self._urdf_path is None:
+            # Try to get URDF path from pinocchio model if available
+            import inspect
+            frame = inspect.currentframe()
+            try:
+                # Walk up the call stack to find robot_model reference
+                caller_locals = frame.f_back.f_back.f_locals if frame.f_back and frame.f_back.f_back else {}
+                self_obj = caller_locals.get('self')
+                if self_obj and hasattr(self_obj, '_robot_model'):
+                    robot_model = self_obj._robot_model
+                    if robot_model and hasattr(robot_model, 'urdf_path'):
+                        self._urdf_path = robot_model.urdf_path
+                    if robot_model and hasattr(robot_model, 'ee_link'):
+                        self._ee_link = robot_model.ee_link
+            finally:
+                del frame
+        
+        if self._ee_link is None:
+            # Use the first frame name from target as fallback
+            self._ee_link = "gripper_link"  # Common default
+    
+    def ik(self, pin_model: pin.Model, pin_data: pin.Data, target_pose: dict, 
+           curr_joint_positions: np.ndarray, tolerance: float, max_iter: float, 
+           damping = None) -> tuple[bool, np.ndarray, str]:
+        """
+        Solve inverse kinematics using CuRobo.
+        
+        Args:
+            pin_model: Pinocchio model (used for joint limits fallback)
+            pin_data: Pinocchio data (not used by CuRobo)
+            target_pose: Target pose dict, key: frame name, value: 4x4 homogeneous matrix
+            curr_joint_positions: Initial joint positions (used as seed)
+            tolerance: Convergence tolerance
+            max_iter: Maximum iterations (passed to adapter)
+            damping: Damping parameter (not used by CuRobo)
+            
+        Returns:
+            Tuple of (converged, joint_angles, "position")
+        """
+        # Lazy initialization: configure from context if not already done
+        if not self._initialized:
+            self._configure_from_pinocchio(pin_model)
+            
+            # Use target frame name if ee_link still not set
+            if self._ee_link is None and target_pose:
+                self._ee_link = next(iter(target_pose.keys()))
+            
+            self._initialize_adapter()
+        
+        if not target_pose:
+            raise ValueError("Target pose dictionary cannot be empty")
+        
+        # Extract target pose (CuRobo handles single target)
+        target_pose_matrix = next(iter(target_pose.values()))
+        
+        try:
+            # Solve using CuRobo adapter
+            converged, solution, solve_time = self._adapter.solve_single(
+                target_pose_matrix, 
+                curr_joint_positions,
+                tolerance=tolerance,
+                max_iterations=int(max_iter)
+            )
+            
+            if converged and solution is not None:
+                return True, solution, "position"
+            else:
+                # Fallback to middle of joint range if failed
+                if hasattr(pin_model, 'lowerPositionLimit'):
+                    fallback_solution = (pin_model.lowerPositionLimit + pin_model.upperPositionLimit) / 2
+                else:
+                    fallback_solution = curr_joint_positions
+                return False, fallback_solution, "position"
+                
+        except Exception as e:
+            print(f"Warning: CuRobo IK failed: {e}")
+            # Return fallback solution
+            if hasattr(pin_model, 'lowerPositionLimit'):
+                fallback_solution = (pin_model.lowerPositionLimit + pin_model.upperPositionLimit) / 2
+            else:
+                fallback_solution = curr_joint_positions
+            return False, fallback_solution, "position"
