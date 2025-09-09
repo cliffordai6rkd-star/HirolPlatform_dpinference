@@ -79,4 +79,36 @@ class DuoController(ControllerBase):
         else:
             sliced_joint_states = get_joint_slice_value(left_dof, left_dof+right_dof, joint_states)
         return sliced_joint_states
+    
+    def reset(self, frame_name: str, robot_state: RobotJointState) -> None:
+        """
+        Reset the specific sub-controller based on frame_name
+        
+        Args:
+            frame_name: End-effector frame name to reset
+            robot_state: Current robot joint state
+        """
+        ee_links = self._robot_model.get_model_end_links()
+        if not isinstance(ee_links, list):
+            ee_links = [ee_links]
+        
+        # Ensure we have exactly 2 end-effector links for duo robot
+        if len(ee_links) != 2:
+            log.warning(f"Expected 2 end-effector links for duo robot, got {len(ee_links)}: {ee_links}")
+            return
+        
+        # Determine which controller to reset based on frame_name
+        if frame_name == ee_links[0]:  # Left arm frame
+            left_joint_state = self._slice_robot_joint_states(True, robot_state)
+            log.info(f'Resetting left controller with frame: {frame_name}')
+            self._controller['left'].reset(frame_name, left_joint_state)
+        elif frame_name == ee_links[1]:  # Right arm frame
+            right_joint_state = self._slice_robot_joint_states(False, robot_state)
+            log.info(f'Resetting right controller with frame: {frame_name}')
+            self._controller['right'].reset(frame_name, right_joint_state)
+        else:
+            log.warning(f"Unknown frame_name '{frame_name}' for duo robot. Expected one of: {ee_links}")
+            return
+        
+        log.info(f'Duo controller reset completed for frame: {frame_name}')
         

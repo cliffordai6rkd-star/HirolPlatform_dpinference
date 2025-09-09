@@ -1,5 +1,5 @@
 # usage platform
-use_hardware: false
+use_hardware: true
 use_simulation: true
 
 # Notice: the config file path should contain  to locate the file 
@@ -20,8 +20,8 @@ gripper_config: !include hardware/fr3/config/franka_hand_cfg.yaml
 #       cfg: !include hardware/sensors/cameras/config/d435i_cfg.yaml
 
 control_frequency: 800
-controller_type: "impedance"
-controller_config: !include controller/config/impedance_fr3_cfg.yaml
+controller_type: "cartesian_impedance"
+controller_config: !include controller/config/cartesian_impedance_fr3_cfg.yaml
 
 model_type: "model"
 model_config: 

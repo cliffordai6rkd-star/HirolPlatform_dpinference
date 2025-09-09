@@ -32,7 +32,7 @@ model_config:
   name: "duo_fr3_franka_hand"
   cfg: !include motion/config/robot_model_cfg_duo_fr3.yaml
 
-use_trajectory_planner: false
+use_trajectory_planner: true
 buffer_type: "duo_buffer"
 trajectory_planner_type: "cart_polynomial"
 plan_type: "cartesian"

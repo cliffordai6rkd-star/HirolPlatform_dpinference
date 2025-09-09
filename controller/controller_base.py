@@ -32,6 +32,17 @@ class ControllerBase(abc.ABC, metaclass=abc.ABCMeta):
         """
         raise NotImplementedError
     
+    def reset(self, frame_name: str, robot_state: RobotJointState) -> None:
+        """
+        Reset controller internal state. Default implementation does nothing.
+        Override this method in controllers that maintain internal state.
+        
+        Args:
+            frame_name: End-effector frame name
+            robot_state: Current robot joint state
+        """
+        pass
+    
 class IKController(ControllerBase):
     def __init__(self, config, robot_model: RobotModel):
         super().__init__(config, robot_model)

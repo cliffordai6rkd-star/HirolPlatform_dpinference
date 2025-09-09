@@ -395,7 +395,9 @@ class MetaQuest3(TeleoperationDeviceBase):
                 cur_tool_data = left_data if i == 0 else right_data
                 if tool_mode == "binary":
                     control_value = self._rising_edges[i].update(float(cur_trigger))
-                    cur_tool_data[0] = float(control_value)
+                    if control_value:
+                        self._last_tool_values[key] = not self._last_tool_values[key]
+                    cur_tool_data[0] = float(self._last_tool_values[key])
                 else:
                     cur_squezze = left_squeeze_state if i == 0 else right_squeeze_state
                     if cur_trigger:
@@ -413,6 +415,8 @@ class MetaQuest3(TeleoperationDeviceBase):
         else:
             tool_target['left'] = tool_left
             tool_target['right'] = tool_right
+        tool_target["reset"] = np.array([left_b_button, right_b_button, 
+            right_thumb_stick_state, left_thumb_stick_state])
         
         if (self._device_enabled and mode == "absolute_delta") or mode == "absolute":
             return True, pose_target, tool_target

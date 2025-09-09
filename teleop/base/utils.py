@@ -39,7 +39,7 @@ class RisingEdgeDetector:
         Raises:
             AssertionError: If signal is not a valid number.
         """
-        assert isinstance(signal, (int, float)), "Signal must be a number"
+        assert isinstance(signal, (int, float)), f"Signal must be a number, but get {signal} with type: {type(signal)}"
         
         current_high = signal > self._threshold
         previous_high = self._previous_value > self._threshold

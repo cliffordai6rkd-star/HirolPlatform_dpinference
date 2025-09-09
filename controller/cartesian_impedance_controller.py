@@ -27,6 +27,7 @@ class CartesianImpedanceController(ControllerBase):
         
         self.arm_joint_idxes = config.get("arm_joint_idxes", None)
         
+        # Match C++ default values for better recovery capability
         self.translational_clip_min = np.array(config.get("translational_clip_min", [-0.1, -0.1, -0.1]))
         self.translational_clip_max = np.array(config.get("translational_clip_max", [0.1, 0.1, 0.1]))
         self.rotational_clip_min = np.array(config.get("rotational_clip_min", [-0.3, -0.3, -0.3]))
@@ -34,7 +35,7 @@ class CartesianImpedanceController(ControllerBase):
         
         self.delta_tau_max = config.get("delta_tau_max", 1.0)
         
-        self.filter_params = config.get("filter_params", 0.005)
+        self.filter_params = config.get("filter_params", 0.005)  # Increased default for better responsiveness
         
         self.saturation_values = config.get("saturation", None)
         
@@ -104,6 +105,22 @@ class CartesianImpedanceController(ControllerBase):
         
         position_target = np.array(target_pose[:3])
         orientation_target = R.from_quat(target_pose[3:])
+        
+        
+        # Reset integral error unconditionally when new target is set (matching C++ equilibriumPoseCallback)
+                # Reset integral error when target changes significantly (like C++ equilibriumPoseCallback)
+        # if hasattr(self, '_last_target_pose'):
+        #     position_change = np.linalg.norm(position_target - self._last_target_pose[:3])
+        #     orientation_change = np.arccos(np.clip(
+        #         np.abs(np.dot(orientation_target.as_quat(), R.from_quat(self._last_target_pose[3:]).as_quat())), 
+        #         -1, 1))
+        #     # Reset if position changes > 1cm or orientation changes > 5 degrees
+        #     if position_change > 0.01 or orientation_change > np.deg2rad(5):
+        #         self.error_integral = np.zeros(6)
+
+        # C++ version: error_i.setZero() is called every time equilibriumPoseCallback is invoked
+        self.error_integral = np.zeros(6)
+        self._last_target_pose = target_pose.copy()
         
         self.position_d = self.filter_params * position_target + (1.0 - self.filter_params) * self.position_d
         

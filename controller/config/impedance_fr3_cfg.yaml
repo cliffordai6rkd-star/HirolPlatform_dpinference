@@ -1,11 +1,11 @@
 impedance:
   enable_gravity_compensation: false
   # stiffness: [100.0, 100.0, 100.0, 50, 50, 50]
-  stiffness: [500.0, 500.0, 500.0, 50, 50, 50]
+  stiffness: [240.0, 240.0, 240.0, 20, 20, 20]
   # arm_joint_idxes: []
   saturation: 
-   min: [-75, -75, -75, -75, -10, -10, -10]
-   max: [75, 75, 75, 75, 10, 10, 10]
+   min: [-40, -40, -40, -40, -40, -40, -40]
+   max: [40, 40, 40, 40, 40, 40, 40]
   #  如果没有下面两项config， diable nullspace
   kp_null: [6.5, 6.5, 3.0, 3.0, 2.0, 1.0, 1.0]
   # kp_null: [0, 0, 0, 0, 0, 0, 0]

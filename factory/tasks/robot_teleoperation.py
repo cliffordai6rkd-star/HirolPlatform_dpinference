@@ -75,7 +75,9 @@ class TeleoperationFactory:
             self._xr_img_shape = teleoperation_cfg['image_shape']
             self._image_array = np.ndarray(self._xr_img_shape, 
                                            dtype=np.uint8, buffer=self._img_shm.buf)
-            self._reset_rising_edge = RisingEdgeDetector()
+            self._reset_rising_edges = dict(reset_hardware=RisingEdgeDetector(), 
+                                            reset_record=RisingEdgeDetector(),
+                                            quit=RisingEdgeDetector())
         self._interface = self._interface_classes[self._teleop_interface_type](teleoperation_cfg)
 
         # initialize all objects
@@ -208,13 +210,17 @@ class TeleoperationFactory:
                     # log.info(f'tool target: {tool_target}')
                     # coupling with vr
                     if self._teleop_interface_type == "meta_quest3":
-                        if tool_target["left"][5]:
+                        whether_to_reset_hardware = self._reset_rising_edges["reset_hardware"].update(float(tool_target['reset'][0]))
+                        if whether_to_reset_hardware:
                             self._reset_hardware()
-                        whether_to_reset = self._reset_rising_edge.update(tool_target['right'][5])
-                        if whether_to_reset:
+                        whether_to_reset_record = self._reset_rising_edges["reset_record"].update(float(tool_target['reset'][1]))
+                        if whether_to_reset_record:
                             self._reset_recording()
-                        if tool_target["right"][6]:
+                        if tool_target["reset"][2]:
                             self._reset_robot()
+                        whether_to_quit = self._reset_rising_edges["quit"].update(float(tool_target['reset'][3]))
+                        if whether_to_quit:
+                            self.close()
                     
                     self._robot_system.set_tool_command(tool_target)
                     # update action, hack: @TODO: zyx
@@ -358,16 +364,7 @@ class TeleoperationFactory:
         if key == 'h':
             self._reset_hardware()         
         elif key == 'q' and self._is_initialized:
-            log.info(f"{'='*15}Closing the teleoperation thread!!!{'='*15}")
-            stop_listening()
-            self._teleop_thread_running = False
-            self._data_recording_thread.join()
-            self._robot_motion_system.close()
-            self._interface.close()
-            if self.data_recorder is not None:
-                self.data_recorder.close()
-            if self._img_visualization:
-                cv2.destroyAllWindows()
+            self.close()
         elif key == 'r':
             self._reset_recording()
         elif key == 'o':
@@ -418,3 +415,17 @@ class TeleoperationFactory:
         self._robot_motion_system.update_execute_hardware(
                                     self._enable_hardware)            
     
+    def close(self):
+        log.info(f"{'='*15}Closing the teleoperation thread!!!{'='*15}")
+        self._update_high_level_state = False
+        self._robot_motion_system._execute_hardware(False)
+        stop_listening()
+        self._teleop_thread_running = False
+        self._data_recording_thread.join()
+        self._robot_motion_system.close()
+        self._interface.close()
+        if self.data_recorder is not None:
+            self.data_recorder.close()
+        if self._img_visualization:
+            cv2.destroyAllWindows()
+            

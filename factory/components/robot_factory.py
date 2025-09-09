@@ -339,9 +339,18 @@ class RobotFactory:
         
         # Only execute direct commands in synchronous mode or when smoother not used
         if not self._async_mode or not should_use_smoother:
-            # log.info(f"Set joint command: mode: {mode}")
-            self.set_robot_joint_command(joint_command, mode, execute_hardware, update_action)
+            self.set_robot_joint_command(joint_command, mode, execute_hardware,update_action)
                 
+    def check_robot_recovery(self) -> bool:
+        """
+        Check if the robot recovered from an error state
+        Returns:
+            True if recovery occurred
+        """
+        if self._use_hardware and hasattr(self._robot, 'check_and_clear_recovery_flag'):
+            return self._robot.check_and_clear_recovery_flag()
+        return False
+    
     def set_robot_joint_command(self, joint_command, mode, execute_hardware:bool = True,
                                 update_action = False):
         dofs = self.get_robot_dofs()

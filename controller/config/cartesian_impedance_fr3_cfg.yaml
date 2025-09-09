@@ -3,14 +3,14 @@ cartesian_impedance:
   
   # Stiffness parameters
   translational_stiffness: 2000.0  # N/m
-  rotational_stiffness: 250.0      # Nm/rad
-  #rotational_stiffness: 150.0 
+  # rotational_stiffness: 250.0      # Nm/rad
+  rotational_stiffness: 150.0 
 
 
   # Damping parameters
   translational_damping: 89.0     # Ns/m
-  rotational_damping: 9.0         # Nms/rad
-  #rotational_damping: 7.0         # Nms/rad
+  # rotational_damping: 9.0         # Nms/rad
+  rotational_damping: 7.0         # Nms/rad
   
   # Integral gain parameters (for steady-state error)
   translational_ki: 0.0
@@ -21,17 +21,17 @@ cartesian_impedance:
   # joint1_nullspace_stiffness: 20.0
   
   # Error clipping parameters
-  translational_clip_min: [-0.002, -0.0016, -0.005]  # meters
-  translational_clip_max: [0.0075, 0.0016, 0.0055]      # meters
-  rotational_clip_min: [-0.01, -0.025, -0.005]      # radians
-  rotational_clip_max: [0.01, 0.025, 0.005]        # radians
+  # translational_clip_min: [-0.002, -0.0016, -0.005]  # meters
+  # translational_clip_max: [0.0075, 0.0016, 0.0055]      # meters
+  # rotational_clip_min: [-0.01, -0.025, -0.005]      # radians
+  # rotational_clip_max: [0.01, 0.025, 0.005]        # radians
 
 
   # Optional: precision parameters for fine control
-  translational_clip_min: [-0.1, -0.1, -0.1]  # meters
-  translational_clip_max: [0.1, 0.1, 0.1]      # meters
-  rotational_clip_min: [-0.5, -0.5, -0.5]      # radians
-  rotational_clip_max: [0.5, 0.5, 0.5]        # radians
+  translational_clip_min: [-0.01, -0.01, -0.01]  # meters
+  translational_clip_max: [0.01, 0.01, 0.01]      # meters
+  rotational_clip_min: [-0.03, -0.03, -0.03]      # radians
+  rotational_clip_max: [0.03, 0.03, 0.03]        # radians
 
 
 
@@ -64,8 +64,8 @@ cartesian_impedance:
   
   # Joint torque saturation
   saturation:
-    min: [-40, -40, -40, -40, -40, -40, -40]
-    max: [40, 40, 40, 40, 40, 40, 40]
+    min: [-40, -40, -40, -40, -12, -12, -12]
+    max: [40, 40, 40, 40, 12, 12, 12]
   
   # Optional: specify arm joint indices if not using all joints
   # arm_joint_idxes: [0, 1, 2, 3, 4, 5, 6]

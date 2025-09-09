@@ -20,11 +20,13 @@ class Fr3Arm(ArmBase):
         self._filter_coefficient = config.get("filter_coeff", None)
         self._collision_behaviour = config.get("collision_behaviour", None)
         self._control_mode = None
+        self._need_recover = False
         self._thread = threading.Thread(target=self.update_robot_state_thread)
         self._last_velocities = np.zeros(7)
         self._fr3_state = None
         self._fr3_state_update_flag = False
         self._thread_running = True
+        self._recovery_occurred = False  # Track if recovery happened
         
         # init
         super().__init__(config)
@@ -59,7 +61,8 @@ class Fr3Arm(ArmBase):
             
     def initialize(self):
         # Stop any existing controller to avoid concurrent operation errors
-        self._fr3_robot.stop_controller()
+        if self._control_mode is not None:
+            self._fr3_robot.stop_controller()
         
         if self._control_mode is None:
             self._panda_py_controller = controllers.JointPosition()
@@ -125,6 +128,10 @@ class Fr3Arm(ArmBase):
         # self._tcp_pose[3:] = R.from_matrix(tcp_pose[:3, :3]).as_quat()
     
     def set_joint_command(self, mode, command):
+        if self._need_recover:
+            log.warn(f'Fr3 with {self._ip} is still in the recover mode!!')
+            return False
+        
         # controller setting or controller change
         if not self._is_initialized or self._control_mode != mode:
             # Stop current controller before switching modes
@@ -142,6 +149,8 @@ class Fr3Arm(ArmBase):
                 return False
             self._control_mode = mode
             self._is_initialized = self.initialize()
+            if not self._is_initialized:
+                raise ValueError(f'Failed to reset controller for fr3 with ip {self._ip}')
 
         # set command, checking
         if len(command) != self._dof:
@@ -152,6 +161,14 @@ class Fr3Arm(ArmBase):
         # checking error state
         if self.recover():
             log.warn(f'The robot falls in error state and finished recover!!!')
+            self._recovery_occurred = True  # Mark that recovery happened
+            time.sleep(1.0)
+            self._fr3_state_update_flag = False
+            while not self._fr3_state_update_flag:
+                pass
+            log.info(f'Successfully finished the reset procedures!!!!')
+            time.sleep(0.5)
+            self._need_recover = False
             return False
         
         # set command
@@ -204,6 +221,7 @@ class Fr3Arm(ArmBase):
             self._fr3_robot.raise_error()
             return False
         except:
+            self._need_recover = True
             # Stop controller before recovery to avoid concurrent operation error
             self.stop_controller()
             
@@ -215,6 +233,7 @@ class Fr3Arm(ArmBase):
                 self._lock.release()
             
             self.initialize()
+            self._recovery_occurred = True  # Mark that recovery happened
             return True
     
     # @TODO: check move2start bug
@@ -240,6 +259,17 @@ class Fr3Arm(ArmBase):
                 command = self._init_joint_positions
             self.set_joint_command('position', command)
 
+    def check_and_clear_recovery_flag(self) -> bool:
+        """
+        Check if recovery occurred and clear the flag
+        Returns:
+            True if recovery occurred since last check
+        """
+        if self._recovery_occurred:
+            self._recovery_occurred = False
+            return True
+        return False
+    
     def set_collision_threshold(self, torque_min: float | list[float],
                                 torque_max: float | list[float],
                                 force_min: float | list[float],

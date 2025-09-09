@@ -205,6 +205,17 @@ class MotionFactory:
                                     self._latest_action[key]["ee"] = dict(
                                             pose=list(ee_target_dict.values())[0].tolist(), time_stamp=time.perf_counter())
                             self._latest_action_lock.release()
+                        
+                        # Check if robot recovered from error and reset controller
+                        if self._robot_system.check_robot_recovery():
+                            log.info("Robot recovery detected, resetting controller...")
+                            ee_links = self.get_model_end_effector_link_list()
+                            if ee_links:
+                                curr_joint_state = self._robot_system.get_joint_states()
+                                for frame_name in ee_links:
+                                    log.info(f"Resetting controller for frame: {frame_name}")
+                                    self._controller.reset(frame_name, curr_joint_state)
+                                log.info("Controller reset after recovery completed")
                     else:
                         # if use hardware; directly map the hardware joints to sim
                         if self._robot_system._use_hardware \
@@ -388,18 +399,14 @@ class MotionFactory:
         else:
             self.move_to_start_blocking(arm_command, mode)
         
-        # Reset controller if it has a reset method
-        if hasattr(self._controller, 'reset'):
-            # Get current robot state and end-effector frame name
-            robot_state = self._robot_system.get_joint_states()
-            ee_links = self._ee_links
-            # @TODO: bug here for duo robot
-            if ee_links:
-                # Use the first end-effector link as the frame name
-                frame_name = ee_links[0]
+        # Reset controller
+        robot_state = self._robot_system.get_joint_states()
+        ee_links = self._ee_links
+        if ee_links:
+            for frame_name in ee_links:
                 log.info(f'Resetting controller with frame: {frame_name}')
                 self._controller.reset(frame_name, robot_state)
-                log.info('Controller reset completed')
+            log.info('All controllers reset completed')
         
         if tool_command is not None:
             self.set_tool_command(tool_command)

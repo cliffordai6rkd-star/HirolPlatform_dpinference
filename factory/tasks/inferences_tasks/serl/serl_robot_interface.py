@@ -71,10 +71,6 @@ class SerlRobotInterface:
         # Create motion components (includes robot system creation)
         self._motion_factory.create_motion_components()
         self._motion_factory.update_execute_hardware(True)
-        
-        # Open gripper initially to ensure known state
-        self._robot_system.set_tool_command({"single": np.array([1.0])})
-        self._current_gripper_state = 1.0
         time.sleep(0.5)
         
         # Get initial state
@@ -224,21 +220,19 @@ class SerlRobotInterface:
     
     def open_gripper(self) -> None:
         """Open the gripper (1.0 = fully open)"""
-        print("[DEBUG] Opening gripper to 1.0")
+        log.info("[DEBUG] Opening gripper to 1.0")
         self._robot_system.set_tool_command({"single": np.array([1.0])})
-        time.sleep(0.5)  # Wait for gripper to open
+        # time.sleep(0.5)  # Wait for gripper to open
         # Update state after gripper moves
         self._update_state()
-        print(f"[DEBUG] Gripper opened, state={self._current_gripper_state:.2f}")
+        log.info(f"[DEBUG] Gripper opened, state={self._current_gripper_state:.2f}")
     
     def close_gripper(self) -> None:
         """Close the gripper (0.0 = fully closed)"""
-        print("[DEBUG] Closing gripper to 0.0")
-        self._robot_system.set_tool_command({"single": np.array([0.0])})
-        time.sleep(0.5)  # Wait for gripper to close
+        self._robot_system.set_tool_command({"single": np.array([0.])})
         # Update state after gripper moves
         self._update_state()
-        print(f"[DEBUG] Gripper closed, state={self._current_gripper_state:.2f}")
+        log.info(f"[DEBUG] Gripper closed, state={self._current_gripper_state:.2f}")
     
     def send_gripper_command(self, width: float, mode: str = "binary") -> None:
         """
@@ -276,7 +270,8 @@ class SerlRobotInterface:
         try:
             # Try to reinitialize gripper
             if hasattr(self._robot_system, '_tool') and self._robot_system._tool:
-                self._robot_system._tool.initialize()
+                # self._robot_system._tool.initialize()
+                self._robot_system._tool.recover()
             
             # Open and close to verify
             self.open_gripper()

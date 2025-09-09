@@ -1,6 +1,6 @@
 # usage platform
-motion_config: !include factory/components/motion_configs/fr3_with_franka_hand_ik_tactile.yaml
-# motion_config: !include factory/components/motion_configs/fr3_with_franka_hand_ik.yaml
+# motion_config: !include factory/components/motion_configs/fr3_with_franka_hand_ik_tactile.yaml
+motion_config: !include factory/components/motion_configs/fr3_with_franka_hand_ik.yaml
 
 target_site_name: ["target_site"]
 tcp_visualization_site: ["TCP_site"]
@@ -12,7 +12,7 @@ inteface_output_mode: "relative"
 # teleoperation used parameter
 # if you are using mujoco simulation target instead of teleoperation device,
 # set use_simulation_target as true
-use_simulation_target: false
+use_simulation_target: true
 teleoperation_loop_time: 0.005
 
 # reset related
