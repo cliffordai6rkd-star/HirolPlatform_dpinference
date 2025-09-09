@@ -205,6 +205,7 @@
                     <geom mesh="link6_6" material="black" class="visual"/>
                     <geom mesh="link6_7" material="button_blue" class="visual"/>
                     <geom name="right_fr3_link6_collision" class="collision" mesh="link6_coll"/>
+                    <!-- euler="1.5707963 0 1.5707963" -->
                     <body name="right_fr3_link7" pos="0.088 0 0" quat="1 1 0 0">
                       <inertial pos="0.00452258 0.00862619 -0.0161633" quat="0.727579 0.0978688 -0.24906 0.63168"
                         mass="0.627143" diaginertia="0.000223836 0.000223642 5.64132e-07"/>

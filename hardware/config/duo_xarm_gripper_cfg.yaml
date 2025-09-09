@@ -9,4 +9,12 @@ duo_tool:
     move_frequency: 0.02         # Minimum time between moves (100Hz)
     # grasp_force: 20
       
-  right: null  # Right gripper not installed
+  right: 
+    type: "xarm_gripper"
+    ip: "192.168.11.12"
+    # grasp_speed: 0.3
+    # ctrl_mode: 0
+
+    control_mode: "incremental"  # "binary" | "incremental"
+    step_size: 0.02              # Incremental step size (2% per press)
+    move_frequency: 0.02         # Minimum time between moves (100Hz)

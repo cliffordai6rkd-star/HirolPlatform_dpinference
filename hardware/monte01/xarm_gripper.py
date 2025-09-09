@@ -91,6 +91,9 @@ class XArmGripper(ToolBase):
         self._is_initialized = True
         return True
 
+    def set_hardware_command(self, command):
+        self._set_binary_command(command)
+
     def _set_binary_command(self, target: float) -> bool:
         """Move gripper to specified position. Returns True if successful, False otherwise."""
         

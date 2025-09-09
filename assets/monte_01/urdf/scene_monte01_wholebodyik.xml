@@ -21,6 +21,8 @@
     <light pos="0 0 1.5" dir="0 0 -1" directional="true"/>
     <geom name="floor" size="0 0 0.05" type="plane" material="groundplane"/>
 
+    <camera name="third_cam" pos="1.6 0 0.9" xyaxes="0 1 0 0 0 1" fovy="60"/>
+
     <body name="targetL" pos="0.40 0.35 1.1" quat="0 0.7071 0 0.7071" mocap="true">
       <geom type="box" size=".04 .04 .04" contype="0" conaffinity="0" rgba=".6 .3 .3 .4" />
       <site type="sphere" name="targetL_site" size="0.005" rgba="0 0 1 1" group="1" />

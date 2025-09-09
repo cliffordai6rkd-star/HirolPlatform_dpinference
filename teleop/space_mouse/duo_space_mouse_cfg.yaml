@@ -19,4 +19,4 @@ duo_space_mouse:
       low_threshold: [0.02, 0.02, 0.02, 0.04, 0.04, 0.04]
       enable_rotation: true
       tool_mode: "incremental"
-      incremental_step: 0.05
+      incremental_step: 0.005

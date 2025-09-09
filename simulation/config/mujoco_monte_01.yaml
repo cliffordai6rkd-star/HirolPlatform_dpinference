@@ -51,6 +51,10 @@ mujoco:
   extra_render: true
   max_traj_len: 80
   use_custom_key_frame: true
-  # sensor_dict:
-    # ee_cam: 
-    #  resolution: [480, 640]
+  sensor_dict:
+    head_front_cam: 
+     resolution: [480, 640] #@TODO support 720p
+    left_ee_cam: 
+     resolution: [480, 640]
+    third_cam:
+     resolution: [480, 640]

@@ -108,6 +108,7 @@
               <inertial pos="-5.78417e-05 -0.00454218 -0.0338959" quat="0.487598 0.87279 -0.0172294 -0.0137859" mass="0.442755" diaginertia="0.000126387 0.000116255 0.000114828"/>
               <joint name="head_joint_1" pos="0 0 0" axis="0 0 1" range="-1.55334 1.55334" class="stable_joint"/>
               <body name="head_pitch_link">
+                <camera name="head_front_cam" pos="0.12 0 0.02" xyaxes="0 -1 0 0 0 1" fovy="60"/>
                 <inertial pos="0.0619108 -0.0007342 0.0254911" quat="0.620889 0.620002 -0.34213 0.336218" mass="0.315564" diaginertia="0.000299509 0.000271913 9.92176e-05"/>
                 <joint name="head_joint_2" pos="0 0 0" axis="0 1 0" range="-0.418879 0.418879" class="stable_joint"/>
                 <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.902 0.902 0.902 1" mesh="head_pitch_link"/>
@@ -202,6 +203,7 @@
                               <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" mesh="gripper_left_inner_knuckle"/>
                               <geom type="mesh" contype="0" conaffinity="0" rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" mesh="gripper_left_inner_knuckle"/>
                             </body>
+                            <camera name="left_ee_cam" pos="0 0.1 0" xyaxes="1 0 0 0 -1 0" fovy="60"/>
                             <site name="left_tcp" pos="7.0199E-05 -0.0004 0.19142"/>
                           </body>
                         </body>

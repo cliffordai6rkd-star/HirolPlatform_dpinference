@@ -8,7 +8,7 @@ from dataset.lerobot.data_process import EpisodeWriter
 from hardware.base.utils import convert_homo_2_7D_pose, Buffer, negate_pose, transform_pose, object_class_check
 from hardware.base.utils import ToolState, ToolType
 from hardware.base.img_utils import combine_image
-from motion.duo_model import DuoRobotModel
+from teleop.base.utils import RisingEdgeDetector
 import warnings, os
 import numpy as np
 import threading, time, copy
@@ -75,6 +75,7 @@ class TeleoperationFactory:
             self._xr_img_shape = teleoperation_cfg['image_shape']
             self._image_array = np.ndarray(self._xr_img_shape, 
                                            dtype=np.uint8, buffer=self._img_shm.buf)
+            self._reset_rising_edge = RisingEdgeDetector()
         self._interface = self._interface_classes[self._teleop_interface_type](teleoperation_cfg)
 
         # initialize all objects
@@ -205,6 +206,16 @@ class TeleoperationFactory:
                 
                 if success_get_target:
                     # log.info(f'tool target: {tool_target}')
+                    # coupling with vr
+                    if self._teleop_interface_type == "meta_quest3":
+                        if tool_target["left"][5]:
+                            self._reset_hardware()
+                        whether_to_reset = self._reset_rising_edge.update(tool_target['right'][5])
+                        if whether_to_reset:
+                            self._reset_recording()
+                        if tool_target["right"][6]:
+                            self._reset_robot()
+                    
                     self._robot_system.set_tool_command(tool_target)
                     # update action, hack: @TODO: zyx
                     tool_type_dict = self._robot_system.get_tool_type_dict()
@@ -343,10 +354,7 @@ class TeleoperationFactory:
                 
     def _keyboard_on_press(self, key):
         if key == 'h':
-            self._enable_hardware = not self._enable_hardware
-            log.info(f"{'='*15}Hardware execution status {self._enable_hardware}!!!.{'='*15}")
-            self._robot_motion_system.update_execute_hardware(
-                                        self._enable_hardware)               
+            self._reset_hardware()         
         elif key == 'q' and self._is_initialized:
             log.info(f"{'='*15}Closing the teleoperation thread!!!{'='*15}")
             stop_listening()
@@ -359,40 +367,52 @@ class TeleoperationFactory:
             if self._img_visualization:
                 cv2.destroyAllWindows()
         elif key == 'r':
-            self._enable_recording = not self._enable_recording
-            if self._enable_recording and self.data_recorder is None:
-                os.makedirs(self._save_path_dir, exist_ok=True)
-                log.info(f"{'='*15}Build data recoreder at {self._save_path_dir}{'='*15}")
-                self.data_recorder = EpisodeWriter(task_dir=self._save_path_dir, 
-                                                rerun_log=self._visual_data,
-                                                task_description=self._task_description,
-                                                task_description_goal=self._task_description_goal,
-                                                task_description_steps=self._task_description_step)
-            if self._enable_recording: # start record a new episode
-                # Record the episode data
-                self._robot_motion_system.change_update_action_status(True)
-                if not self.data_recorder.create_episode():
-                    warnings.warn(f'Episode write failed to create a episode for recording data!!!!')
-                else:
-                    log.info(f"{'='*15}Data recorder started to write the episode data!!!!{'='*15}")
-            else: # finish the episode write
-                self.data_recorder.save_episode()
-                self._robot_motion_system.change_update_action_status(False)
-                time.sleep(0.5)
-                log.info(f"{'='*15}Data recorder stoped recording the episode data!!!!{'='*15}")
+            self._reset_recording()
         elif key == 'o':
-            # move to start
-            self._update_high_level_state = False
-            log.info(f"{'='*20}, Blocking the Motion process to reset the robot to init state{'='*20}")
-            # @TODO: reset tools 
-            self._robot_motion_system.reset_robot_system(self._reset_arm_command, self._reset_space,
-                                                         self._reset_tool_command)
-            self._init_pose = {}
-            if not self._robot_motion_system._use_traj_planner:
-                self._robot_motion_system.clear_traj_buffer()
-                self._robot_motion_system.wait_buffer_empty()
-                self._robot_motion_system.clear_high_level_command()
-            time.sleep(0.01)
-            self._update_high_level_state = True
-            log.info(f"{'='*20}, Motion resumes normal!!!{'='*20}")
-            
+            self._reset_robot()
+    
+    def _reset_recording(self):
+        self._enable_recording = not self._enable_recording
+        if self._enable_recording and self.data_recorder is None:
+            os.makedirs(self._save_path_dir, exist_ok=True)
+            log.info(f"{'='*15}Build data recoreder at {self._save_path_dir}{'='*15}")
+            self.data_recorder = EpisodeWriter(task_dir=self._save_path_dir, 
+                                            rerun_log=self._visual_data,
+                                            task_description=self._task_description,
+                                            task_description_goal=self._task_description_goal,
+                                            task_description_steps=self._task_description_step)
+        if self._enable_recording: # start record a new episode
+            # Record the episode data
+            self._robot_motion_system.change_update_action_status(True)
+            if not self.data_recorder.create_episode():
+                warnings.warn(f'Episode write failed to create a episode for recording data!!!!')
+            else:
+                log.info(f"{'='*15}Data recorder started to write the episode data!!!!{'='*15}")
+        else: # finish the episode write
+            self.data_recorder.save_episode()
+            self._robot_motion_system.change_update_action_status(False)
+            time.sleep(0.5)
+            log.info(f"{'='*15}Data recorder stoped recording the episode data!!!!{'='*15}")
+    
+    def _reset_robot(self):
+        # move to start
+        self._update_high_level_state = False
+        log.info(f"{'='*20}, Blocking the Motion process to reset the robot to init state{'='*20}")
+        # @TODO: reset tools 
+        self._robot_motion_system.reset_robot_system(self._reset_arm_command, self._reset_space,
+                                                        self._reset_tool_command)
+        self._init_pose = {}
+        if not self._robot_motion_system._use_traj_planner:
+            self._robot_motion_system.clear_traj_buffer()
+            self._robot_motion_system.wait_buffer_empty()
+            self._robot_motion_system.clear_high_level_command()
+        time.sleep(0.01)
+        self._update_high_level_state = True
+        log.info(f"{'='*20}, Motion resumes normal!!!{'='*20}")
+    
+    def _reset_hardware(self):
+        self._enable_hardware = not self._enable_hardware
+        log.info(f"{'='*15}Hardware execution status {self._enable_hardware}!!!.{'='*15}")
+        self._robot_motion_system.update_execute_hardware(
+                                    self._enable_hardware)            
+    

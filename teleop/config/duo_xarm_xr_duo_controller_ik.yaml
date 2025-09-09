@@ -3,8 +3,12 @@ motion_config: !include factory/components/motion_configs/duo_xarm_duo_ik.yaml
 target_site_name: ["targetL_site", "targetR_site"]
 tcp_visualization_site: ["TCPL_site", "TCPR_site"]
 
+teleop_interface: "meta_quest3"
+interface_config: !include teleop/XR/quest3/config/meta_quest3_duo_xarm.yaml
+inteface_output_mode: "absolute_delta"
+
 # teleoperation used parameter
 # if you are using mujoco simulation target instead of teleoperation device,
 # set use_simulation_target as true
-use_simulation_target: false
+use_simulation_target: true
 teleoperation_loop_time: 0.01
