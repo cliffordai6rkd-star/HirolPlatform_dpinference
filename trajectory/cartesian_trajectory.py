@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from trajectory.trajectory_base import TrajectoryBase
 import numpy as np
 from scipy.interpolate import CubicSpline, interp1d
@@ -45,7 +47,7 @@ class CartessianTrajectory(TrajectoryBase):
                                                      target._zero_order_values[1][7:],
                                                 finish_time)
             end_time = max(end_time, end_time1)
-        log.debug(f'end time: {end_time}')
+        # log.info(f'end time: {end_time}')
         if end_time < 0:
             self.trajectory_idle = True
             return 
@@ -75,10 +77,10 @@ class CartessianTrajectory(TrajectoryBase):
                 curr_point_l = self._eval_profile(trans_coeff['left'], slerp['left'], cur_time)
                 curr_point_r = self._eval_profile(trans_coeff['right'], slerp['right'], cur_time)
                 curr_point = np.hstack((curr_point_l, curr_point_r))
+            time_stamp = time.perf_counter()
             
             # update buffer
             self._buffer_lock.acquire()
-            time_stamp = start_time
             self._buffer.push_data(curr_point, time_stamp)
             self._buffer_lock.release()
             # time.sleep(self.dt)

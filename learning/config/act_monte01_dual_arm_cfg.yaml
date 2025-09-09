@@ -1,0 +1,153 @@
+# Monte01双臂机器人ACT推理配置文件
+# 专用于Monte01双臂机器人 (16 DOF) 的Action Chunking with Transformers模型推理
+
+# 基本配置
+algorithm: "ACT"
+checkpoint_dir: "learning/ckpts/monte01_dual_arm/policy_best.ckpt"  # 需要根据实际路径修改
+
+# 推理配置
+inference_config:
+  # 机器人状态配置 - Monte01双臂专用
+  state_dim: 16  # Monte01双臂: (7关节+1夹爪) × 2臂 = 16 DOF
+  
+  # 三相机配置 - Monte01双臂专用
+  camera_names:
+    - "left_ee_cam"      # 左臂末端相机
+    - "right_ee_cam"     # 右臂末端相机  
+    - "third_person_cam" # 第三人称视角相机
+  
+  # ACT模型参数 - 针对双臂优化
+  lr: 1.5e-5              # 双臂训练可能需要稍低学习率
+  num_queries: 100      # action chunk size
+  kl_weight: 10
+  hidden_dim: 512
+  dim_feedforward: 3200
+  lr_backbone: 1e-5
+  backbone: "resnet18"
+  enc_layers: 4
+  dec_layers: 7
+  nheads: 8
+  
+  # VQ参数 (通常不使用)
+  vq: false
+  vq_class: null
+  vq_dim: null
+  
+  # 编码器配置
+  no_encoder: false
+  
+  # Monte01双臂特有参数
+  gripper_range: [0.0, 0.074]  # Monte01夹爪位置范围(米)
+  batch_size: 16               # 双臂模型可能需要更小的batch size
+
+# 推理运行时配置
+runtime:
+  # 设备配置
+  device: "auto"  # auto, cuda, cpu
+  
+  # 图像预处理
+  image_preprocessing:
+    target_size: [480, 640]  # [height, width]
+    normalize: true
+    
+  # 安全检查 - 双臂特有
+  safety_validation: true
+  dual_arm_collision_check: true    # 双臂防碰撞检查
+  arm_workspace_limit: true         # 单臂工作空间限制
+  
+  # 性能配置
+  max_batch_size: 1
+  inference_timeout: 2.0    # 双臂推理可能需要更长时间
+  
+  # 重试配置  
+  max_retries: 3
+  retry_delay: 0.1
+
+# 数据适配器配置
+data_adapter:
+  robot_type: "monte01"     # 自动使用Monte01DataAdapter (16 DOF)
+  validation_enabled: true
+  
+  # Monte01双臂数据格式配置
+  joint_position_range: [-3.14, 3.14]  # 关节位置范围检查
+  gripper_position_range: [0.0, 0.074] # Monte01夹爪范围
+  image_channels: 3         # RGB通道数
+  
+  # 双臂状态分离配置
+  left_arm_indices: [0, 1, 2, 3, 4, 5, 6, 7]    # 左臂在16维状态中的索引
+  right_arm_indices: [8, 9, 10, 11, 12, 13, 14, 15]  # 右臂在16维状态中的索引
+  
+  # 数据转换配置
+  position_scaling: 1.0
+  action_scaling: 1.0
+
+# 双臂协调控制配置
+dual_arm_control:
+  # 碰撞避免
+  collision_detection:
+    enabled: true
+    safety_distance: 0.1    # 双臂最小安全距离(米)
+    
+  # 运动同步
+  motion_sync:
+    enabled: false          # 是否强制双臂运动同步
+    max_velocity_diff: 0.5  # 双臂最大速度差异
+    
+  # 工作空间配置
+  workspace_limits:
+    left_arm:
+      x_range: [-0.8, 0.0]   # 左臂X方向工作范围
+      y_range: [-0.5, 0.5]   # 左臂Y方向工作范围  
+      z_range: [0.1, 1.0]    # 左臂Z方向工作范围
+    right_arm:
+      x_range: [0.0, 0.8]    # 右臂X方向工作范围
+      y_range: [-0.5, 0.5]   # 右臂Y方向工作范围
+      z_range: [0.1, 1.0]    # 右臂Z方向工作范围
+
+# 控制频率配置
+control:
+  frequency: 10.0           # 控制频率 (Hz)
+  max_episode_length: 1500  # 双臂任务可能需要更多步数
+  action_repeat: 1
+  
+# 可视化配置
+visualization:
+  enable_image_display: true
+  display_window_size: [640, 480]
+  display_refresh_rate: 15
+  
+  # 双臂状态可视化
+  joint_position_visualization:
+    enabled: true
+    left_arm_color: [0, 255, 0]   # 左臂显示颜色(绿色)
+    right_arm_color: [0, 0, 255]  # 右臂显示颜色(蓝色)
+
+# 日志配置
+logging:
+  level: "INFO"
+  log_inference_time: true
+  log_data_validation: false
+  log_action_commands: false
+  log_dual_arm_coordination: true  # 记录双臂协调信息
+
+# 动作聚合配置 - 双臂优化
+action_aggregation:
+  enabled: true
+  method: "weighted_average"  # 加权平均可能对双臂更稳定
+  window_size: 5
+  discontinuity_threshold: 0.15   # 双臂可能需要更宽松的阈值
+  discontinuity_smooth_factor: 0.4
+
+# 夹爪后处理配置 - 双臂
+gripper_postprocess:
+  enabled: true
+  left_gripper:
+    threshold: 0.5
+    hysteresis: 0.1
+    min_open_position: 0.06
+    min_close_position: 0.01
+  right_gripper:
+    threshold: 0.5  
+    hysteresis: 0.1
+    min_open_position: 0.06
+    min_close_position: 0.01

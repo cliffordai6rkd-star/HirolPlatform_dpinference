@@ -21,3 +21,4 @@ ARM_STATE_PAUSE=1
 ARM_STATE_STOP=2
 
 BODY_JOINT_IDS = [1,2,3,4,5,]
+CORENETIC_GRIPPER_MAX_POSITION = 0.074  # Maximum position for Corenetic gripper (0 to 0.074 meters)

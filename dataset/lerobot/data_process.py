@@ -13,6 +13,7 @@ from dataset.lerobot.rerun_visualizer import RerunLogger
 from queue import Queue, Empty
 import warnings
 from threading import Thread
+import glog as log
 
 class EpisodeWriter():
     def __init__(self, task_dir, frequency=30, image_size=[640, 480], rerun_log = True, 
@@ -35,7 +36,7 @@ class EpisodeWriter():
                 Each episode data is stored under the task dir/<episode_id>, e/g.
                 the first episde is stored in task_dir/episode_0000
         """
-        print("==> EpisodeWriter initializing...\n")
+        log.info("==> EpisodeWriter initializing...\n")
         self.task_dir = task_dir
         self.frequency = frequency
         self.image_size = image_size
@@ -43,9 +44,9 @@ class EpisodeWriter():
 
         self.rerun_log = rerun_log
         if self.rerun_log:
-            print("==> RerunLogger initializing...\n")
+            log.info("==> RerunLogger initializing...\n")
             self.rerun_logger = RerunLogger(prefix="online/", IdxRangeBoundary = 60, memory_limit = "300MB")
-            print("==> RerunLogger initializing ok.\n")
+            log.info("==> RerunLogger initializing ok.\n")
         
         self.data = {}
         self.episode_data = []
@@ -55,10 +56,10 @@ class EpisodeWriter():
             episode_dirs = [episode_dir for episode_dir in os.listdir(self.task_dir) if 'episode_' in episode_dir]
             episode_last = sorted(episode_dirs)[-1] if len(episode_dirs) > 0 else None
             self.episode_id = 0 if episode_last is None else int(episode_last.split('_')[-1])
-            print(f"==> task_dir directory already exist, now self.episode_id is:{self.episode_id}\n")
+            log.info(f"==> task_dir directory already exist, now self.episode_id is:{self.episode_id}\n")
         else:
             os.makedirs(self.task_dir)
-            print(f"==> episode directory does not exist, now create one.\n")
+            log.info(f"==> episode directory does not exist, now create one.\n")
         self.data_info(version=version, date=date, author=author)
         self.text = {}
         self.add_text_prompt(task_description_goal, task_description, task_description_steps)
@@ -72,7 +73,7 @@ class EpisodeWriter():
         self.worker_thread = Thread(target=self.process_queue)
         self.worker_thread.start()
 
-        print("==> EpisodeWriter initialized successfully.\n")
+        log.info("==> EpisodeWriter initialized successfully.\n")
 
     def data_info(self, version='1.0.0', date=None, author=None):
         self.info = {
@@ -112,7 +113,7 @@ class EpisodeWriter():
             Once successfully created, this function will only be available again after save_episode complete its save task.
         """
         if not self.is_available:
-            print("==> The class is currently unavailable for new operations. Please wait until ongoing tasks are completed.")
+            log.info("==> The class is currently unavailable for new operations. Please wait until ongoing tasks are completed.")
             return False  # Return False if the class is unavailable
 
         # Reset episode-related data and create necessary directories
@@ -134,11 +135,11 @@ class EpisodeWriter():
             self.online_logger = RerunLogger(prefix="online/", IdxRangeBoundary = 60, memory_limit="300MB")
 
         self.is_available = False  # After the episode is created, the class is marked as unavailable until the episode is successfully saved
-        print(f"==> New episode created: {self.episode_dir}")
+        log.info(f"==> New episode created: {self.episode_dir}")
         return True  # Return True if the episode is successfully created
         
     def add_item(self, colors, depths=None, joint_states=None, ee_states=None, 
-                tools=None, tactiles=None, imus=None, audios=None, sim_state=None):
+                tools=None, tactiles=None, imus=None, audios=None, actions=None):
         """
             called from external to add new data for current episode,
             please make sure your data (except for image & audio data) are python list instead of np array 
@@ -155,8 +156,8 @@ class EpisodeWriter():
             'tactiles': tactiles,
             'imus': imus,
             'audios': audios,
-            'tools': tools
-            # 'sim_state': sim_state,
+            'tools': tools,
+            'actions': actions
         }
         # Enqueue the item data
         self.item_data_queue.put(item_data)
@@ -166,10 +167,10 @@ class EpisodeWriter():
             # Process items in the queue
             try:
                 item_data = self.item_data_queue.get(timeout=1)
-                try:
-                    self._process_item_data(item_data)
-                except Exception as e:
-                    print(f"Error processing item_data (idx={item_data['idx']}): {e}")
+                # try:
+                self._process_item_data(item_data)
+                # except Exception as e:
+                #     log.info(f"Error processing item_data (idx={item_data['idx']}): {e}")
                 self.item_data_queue.task_done()
             except Empty:
                 pass
@@ -187,11 +188,11 @@ class EpisodeWriter():
 
         # Save images
         if colors:
-            self._add_images_to_item_data(idx, colors, item_data, self.color_dir, 'colors')
+            self._add_images_to_item_data(idx, colors, item_data, self.color_dir, 'colors', attribute_name='data')
 
         # Save depths
         if depths:
-            self._add_images_to_item_data(idx, depths, item_data, self.depth_dir, 'depths')
+            self._add_images_to_item_data(idx, depths, item_data, self.depth_dir, 'depths', attribute_name='data')
                 
         # save tactiles
         if tactiles:
@@ -211,7 +212,7 @@ class EpisodeWriter():
         # Log data if necessary
         if self.rerun_log:
             curent_record_time = time.time()
-            print(f"==> episode_id:{self.episode_id}  item_id:{idx}  current_time:{curent_record_time}")
+            log.info(f"==> episode_id:{self.episode_id}  item_id:{idx}  current_time:{curent_record_time}")
             self.rerun_logger.log_item_data(item_data)
 
     def save_episode(self):
@@ -219,7 +220,7 @@ class EpisodeWriter():
         Trigger the save operation. This sets the save flag, and the process_queue thread will handle it.
         """
         self.need_save = True  # Set the save flag
-        print(f"==> Episode saved start...")
+        log.info(f"==> Episode saved start...")
 
     def _save_episode(self):
         """
@@ -232,7 +233,7 @@ class EpisodeWriter():
             jsonf.write(json.dumps(self.data, indent=4, ensure_ascii=False))
         self.need_save = False     # Reset the save flag
         self.is_available = True   # Mark the class as available after saving
-        print(f"==> Episode saved successfully to {self.json_path}.")
+        log.info(f"==> Episode saved successfully to {self.json_path}.")
 
     def close(self):
         """
@@ -246,14 +247,17 @@ class EpisodeWriter():
         self.stop_worker = True
         self.worker_thread.join()
         
-    def _add_images_to_item_data(self, idx, image_data, item_data, save_dir, image_desc):
+    def _add_images_to_item_data(self, idx, image_data, item_data, save_dir, image_desc, attribute_name=None):
         for id, (image_key, image_value) in enumerate(image_data.items()):
+            image_data = image_value[attribute_name] if attribute_name is not None else image_value
             extension = '.jpg' if '_color' in image_key else '.png'
             image_name = f'{str(idx).zfill(6)}_{image_key}{extension}'
-            if not cv2.imwrite(os.path.join(save_dir, image_name), image_value):
-                print(f"Failed to save {image_desc} image.")
-            # @TODO: why not save the image path
-            item_data[image_desc][image_key] = os.path.join(image_desc, image_name)
+            if not cv2.imwrite(os.path.join(save_dir, image_name), image_data):
+                log.info(f"Failed to save {image_desc} image.")
+            item_data[image_desc][image_key] = dict(
+                path = os.path.join(image_desc, image_name),
+                time_stamp = image_value["time_stamp"]
+            )
         
     def _dict_contain_images(dict_data: dict):
         for key, value in dict_data.items():

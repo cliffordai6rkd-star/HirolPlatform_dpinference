@@ -1,18 +1,22 @@
 duo_space_mouse:
     left:
-      frequency: 60
+      frequency: 200
       # please check your device id by the check_device_id.py
       device_id: 0
       # scale for each action dimension
       # scale: [0.008, 0.008, 0.008, 0.008, 0.008, 0.024] # this is for fr3 teleop
-      scale: [0.0002, 0.0002, 0.0002, 0.002, 0.002, 0.002] # this is for monte teleop
+      scale: [0.0006, 0.0006, 0.0006, 0.002, 0, 0] # this is for monte teleop
       low_threshold: [0.02, 0.02, 0.02, 0.04, 0.04, 0.04]
       enable_rotation: true
+      tool_mode: "incremental"
+      incremental_step: 0.005
     right:
-      frequency: 60
+      frequency: 200
       # please check your device id by the check_device_id.py
       device_id: 3
       # scale for each action dimension
-      scale: [0.0002, 0.0002, 0.0002, 0.002, 0.002, 0.002]
+      scale: [0.0006, 0.0006, 0.0006, 0.002, 0.002, 0.002]
       low_threshold: [0.02, 0.02, 0.02, 0.04, 0.04, 0.04]
       enable_rotation: true
+      tool_mode: "incremental"
+      incremental_step: 0.05

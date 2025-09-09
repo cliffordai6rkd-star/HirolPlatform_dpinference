@@ -4,6 +4,7 @@ from hardware.fr3.franka_hand import FrankaHand
 from hardware.monte01.xarm_gripper import XArmGripper
 from hardware.monte01.corenetic_gripper import CoreneticGripper
 import numpy as np
+import glog as log
 
 class DuoTool(ToolBase):
     _tool_type: dict[str, ToolType] = None
@@ -51,37 +52,11 @@ class DuoTool(ToolBase):
         
     def get_tool_state(self):
         # Get states from existing tools
-        left_state = self._tool["left"].get_tool_state() if self._tool["left"] is not None else None
-        right_state = self._tool["right"].get_tool_state() if self._tool["right"] is not None else None
+        left_state = self._tool["left"].get_tool_state() if self._tool["left"] is not None else ToolState()
+        right_state = self._tool["right"].get_tool_state() if self._tool["right"] is not None else ToolState()
         
-        # Handle position concatenation
-        positions = []
-        if left_state is not None:
-            positions.append(left_state._position)
-        if right_state is not None:
-            positions.append(right_state._position)
-        self._state._position = np.hstack(positions) if positions else np.array([])
-        
-        # Handle force concatenation
-        forces = []
-        if left_state is not None:
-            forces.append(left_state._force)
-        if right_state is not None:
-            forces.append(right_state._force)
-        self._state._force = np.hstack(forces) if forces else np.array([])
-        
-        # Handle grasp state (both tools must be grasped, or single tool if only one exists)
-        left_grasped = left_state._is_grasped if left_state is not None else True
-        right_grasped = right_state._is_grasped if right_state is not None else True
-        self._state._is_grasped = left_grasped and right_grasped
-        
-        # Handle tool types
-        self._state._tool_type = {}
-        if left_state is not None:
-            self._state._tool_type['left'] = left_state._tool_type
-        if right_state is not None:
-            self._state._tool_type['right'] = right_state._tool_type
-        
+        self._state = {}
+        self._state['left'] = left_state; self._state['right'] = right_state
         return self._state
         
     def _set_binary_command(self, target: float) -> bool:
@@ -100,7 +75,10 @@ class DuoTool(ToolBase):
         if self._tool["right"] is not None:
             success &= self._tool["right"]._set_binary_command(target)
         return success
-        
+    
+    def set_hardware_command(self, command):
+        pass
+
     def set_tool_command(self, target):
         """
         Override to handle both unified and per-side control.
@@ -118,7 +96,8 @@ class DuoTool(ToolBase):
             # Send command to left tool if it exists and command is provided
             if "left" in target and self._tool["left"] is not None:
                 target_left = target["left"]
-                success &= self._tool["left"].set_tool_command(target_left)
+                status = self._tool["left"].set_tool_command(target_left)
+                success &= status
             
             # Send command to right tool if it exists and command is provided  
             if "right" in target and self._tool["right"] is not None:

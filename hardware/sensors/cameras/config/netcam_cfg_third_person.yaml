@@ -1,0 +1,17 @@
+network_camera:
+  # ip: "192.168.1.234"
+  # ip: "192.168.35.213"
+  ip: "192.168.1.33"
+  # ip: "192.168.252.82"
+  port: "5555"
+  topic: "D435i_STREAM"
+  image_shape: [720, 1280]
+  # image_shape: [480, 640]
+  fps: 15
+  # serial_number: "243322073850"
+  # serial_number: "243122071795"
+  serial_number: "243322073850"
+  
+  contain_depth: false
+  contain_imu: false
+

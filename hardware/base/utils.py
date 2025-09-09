@@ -1,4 +1,5 @@
 import numpy as np
+from typing import Union, Optional, Tuple
 from scipy.spatial.transform import Rotation as R
 import pinocchio as pin
 import yaml
@@ -12,11 +13,13 @@ class RobotJointState:
     _velocities: np.ndarray
     _accelerations: np.ndarray
     _torques: np.ndarray
+    _time_stamp: float
     def __init__(self):
         self._positions = np.zeros_like(7)
         self._velocities = np.zeros_like(7)
         self._accelerations = np.zeros_like(7)
         self._torques = np.zeros_like(7)
+        self._time_stamp = time.perf_counter()
     
 def get_joint_slice_value(start, end, joint_state: RobotJointState):
     new_state = RobotJointState()
@@ -24,6 +27,7 @@ def get_joint_slice_value(start, end, joint_state: RobotJointState):
     new_state._velocities = joint_state._velocities[start:end]
     new_state._accelerations = joint_state._accelerations[start:end]
     new_state._torques = joint_state._torques[start:end]
+    new_state._time_stamp = joint_state._time_stamp
     return new_state
 
 def combine_two_joint_states(joint_state1: RobotJointState, joint_state2: RobotJointState):
@@ -32,24 +36,27 @@ def combine_two_joint_states(joint_state1: RobotJointState, joint_state2: RobotJ
     new_state._velocities = np.hstack((joint_state1._velocities, joint_state2._velocities))
     new_state._accelerations = np.hstack((joint_state1._accelerations, joint_state2._accelerations))
     new_state._torques = np.hstack((joint_state1._torques, joint_state2._torques))
+    new_state._time_stamp = (joint_state1._time_stamp + joint_state2._time_stamp) / 2
     return new_state
 
 class ToolType(Enum):
-    GRIPPER = 0,
-    SUCTION = 1,
+    GRIPPER = 0
+    SUCTION = 1
     HAND = 2
 
-class GripperControlMode(Enum):
+class ToolControlMode(Enum):
     BINARY = "binary"
     INCREMENTAL = "incremental"
+    HAND = "hand"
 
 class ToolState:
-    _position: np.float32
+    _position: np.float32 = 0.0
     # contact force
-    _force: np.float32 | np.ndarray = 0.0
+    _force: Union[np.float32, np.ndarray] = 0.0
     # grasp status
     _is_grasped: bool = False
     _tool_type: ToolType = ToolType.GRIPPER
+    _time_stamp: float = 0.0
     
 class TrajectoryState:
     # size: [num_state, dim_traj]
@@ -80,7 +87,7 @@ class Buffer:
         self._time_stamp.append(stamp)
         return True
         
-    def pop_data(self) -> tuple[bool , np.ndarray | None]:
+    def pop_data(self) -> Tuple[bool, Optional[np.ndarray]]:
         """
             Pop the data from the buffer
             @returns
@@ -266,7 +273,7 @@ def transform_quat(quat1, quat2):
     rot_ac = rot_ab * rot_bc  # R_ac = R_ab * R_bc
     return rot_ac.as_quat()  # [qx, qy, qz, qw]
     
-def transform_pose(pose1, pose2):
+def transform_pose(pose1, pose2, posi_translation=True):
     """
         @ brief: assuming pose1 is T_ab pose 2 is T_bc,
             this function return the pose of T_ac, format"[x,y,z,qx,qy,qz,qw]
@@ -287,11 +294,25 @@ def transform_pose(pose1, pose2):
     rot_ac = rot_ab * rot_bc  # R_ac = R_ab * R_bc
 
     # translation
-    t_ac = t_ab + rot_ab.apply(t_bc)
-
+    if posi_translation:
+        t_ac = t_ab + rot_ab.apply(t_bc)
+    else: t_ac = t_ab + t_bc
+    
     # result
     T_ac = np.concatenate([t_ac, rot_ac.as_quat()])
     return T_ac
+
+def pose_diff(pose1, pose2):
+    assert pose1.shape == (7,), f"pose1 must be 7D array, got shape {pose1.shape}"
+    assert pose2.shape == (7,), f"pose2 must be 7D array, got shape {pose2.shape}"
+    
+    res = np.zeros(7)
+    res[:3] = pose1[:3] - pose2[:3]
+    rot1 = R.from_quat(pose1[3:])
+    rot2 = R.from_quat(pose2[3:])
+    rot = rot2.inv() * rot1
+    res[3:] = rot.as_quat()
+    return res
 
 def fast_mat_inv(mat):
     ret = np.eye(4)

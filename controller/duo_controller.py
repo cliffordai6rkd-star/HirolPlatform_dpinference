@@ -3,14 +3,14 @@ from controller.impedance_controller import ImpedanceController
 from motion.duo_model import DuoRobotModel
 from hardware.base.utils import RobotJointState, get_joint_slice_value
 import warnings
+import glog as log
 import numpy as np
 
 def check_joint_state(robot_state: RobotJointState, num_arm: int):
     dim = len(robot_state._positions)
     res = dim > 7 and num_arm == 2
-    res = res or dim <= 7 and num_arm == 1
+    res = res or (dim <= 7 and num_arm == 1)
     return res
-
 
 class DuoController(ControllerBase):
     _controller: dict[str, ControllerBase]
@@ -43,12 +43,12 @@ class DuoController(ControllerBase):
                 target: list of dict[str, np.ndarray]
         """
         if not check_joint_state(robot_state, 2):
-            warnings.warn(f'the joint state dim did not match with duo arm robot')
-            raise ValueError("Wrong dim for joint state dim")
+            log.warn(f'the joint state dim did not match with duo arm robot')
+            raise ValueError(f"Wrong dim for joint state dim, get ")
         
         if len(target) != 2:
-            warnings.warn(f'Did not get two targets for the controller')
-            raise ValueError("Wrong length of target for the controller")
+            log.warn(f'Did not get two targets for the controller')
+            raise ValueError(f"Wrong length of target for the controller, get len: {len(target)}")
         
         joint_left = None; mode_left = None; success_left = False
         joint_right = None; mode_right = None; success_right = False

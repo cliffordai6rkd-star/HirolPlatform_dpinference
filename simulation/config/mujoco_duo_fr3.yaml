@@ -24,6 +24,8 @@ mujoco:
   sensor_dict:
     left_ee_cam: 
      resolution: [480, 640]
+    third_cam: 
+     resolution: [480, 640]
     right_ee_cam: 
      resolution: [480, 640]
-     
+    

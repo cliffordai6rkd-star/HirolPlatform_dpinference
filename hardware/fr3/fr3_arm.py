@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 from hardware.base.arm import ArmBase
 import numpy as np
-import panda_py
 from panda_py import controllers 
 # import panda_py.constants
 from panda_py import Panda
@@ -54,7 +55,7 @@ class Fr3Arm(ArmBase):
             # elif dt > 2.0 / read_frequency:
             #     log.warn(f"Reading fr3 robot state is slower than the read frequency "
             #                   f"{read_frequency}Hz, actual: {1.0 / dt}Hz")
-        print(f'Fr3 with ip {self._ip} stopped its thread!!!')
+        log.info(f'Fr3 with ip {self._ip} stopped its thread!!!')
             
     def initialize(self):
         # Stop any existing controller to avoid concurrent operation errors
@@ -76,7 +77,8 @@ class Fr3Arm(ArmBase):
             not isinstance(self._panda_py_controller, controllers.PureTorque):
             self._panda_py_controller.set_filter(self._filter_coefficient)
         # controller start
-        self._fr3_robot.start_controller(self._panda_py_controller)    
+        with self._lock:
+            self._fr3_robot.start_controller(self._panda_py_controller)    
 
         if not self._is_initialized:
             if self._collision_behaviour is not None:
@@ -89,14 +91,22 @@ class Fr3Arm(ArmBase):
         self._fr3_state_update_flag = False
         while not self._fr3_state_update_flag:
             pass
-        print(f'Fr3 robot with ip {self._ip} is successfully updated!!!')
+        log.info(f'Fr3 robot with ip {self._ip} is successfully updated!!!')
         return True
     
     def close(self):
         self._thread_running = False
-        self._thread.join()
+
+        if hasattr(self, '_state_thread') and self._thread.is_alive():
+            self._thread.join(timeout=2.0) # 給予2秒的等待時間
+
+        if hasattr(self, '_state_thread') and self._state_thread.is_alive():
+            log.error("FR3狀態執行緒在2秒內未能停止！")
+        else:
+            log.info("FR3狀態執行緒已成功停止。")
+            
         self._fr3_robot.stop_controller()
-        print(f'Fr3 robot with ip {self._ip} is closed!!')        
+        log.info(f'Fr3 robot with ip {self._ip} is closed!!')        
                    
     def update_arm_states(self):
         if not self._fr3_state_update_flag:
@@ -104,10 +114,10 @@ class Fr3Arm(ArmBase):
             return 
         
         self._joint_states._positions = np.array(self._fr3_state.q)
-        # print(f'posi: {self._joint_states._positions}')
+        # log.info(f'posi: {self._joint_states._positions}')
         self._joint_states._velocities = np.array(self._fr3_state.dq)
         self._joint_states._torques = np.array(self._fr3_state.tau_J)
-
+        self._joint_states._time_stamp = time.perf_counter()
         
         # tcp_pose = np.array(self._fr3_state.O_T_EE)
         # tcp_pose = np.reshape(tcp_pose, (4, 4))
@@ -266,10 +276,10 @@ if __name__ == '__main__':
     config = None
     cur_path = os.path.dirname(os.path.abspath(__file__))
     cfg_file = os.path.join(cur_path, 'config', 'fr3_cfg.yaml')
-    print(f'cfg file name: {cfg_file}')
+    log.info(f'cfg file name: {cfg_file}')
     with open(cfg_file, 'r') as stream:
         config = yaml.safe_load(stream)
-    print(f'yaml data: {config}')
+    log.info(f'yaml data: {config}')
     fr3 = Fr3Arm(config['fr3'])
     
     test_mode = "position"
@@ -280,9 +290,9 @@ if __name__ == '__main__':
     init_state = fr3.get_joint_states()
     while counter <= test_times:
         joint_state = fr3.get_joint_states()
-        # print(f'joint acc: {joint_state._accelerations}')
-        print(f'tor: {joint_state._torques}')
-        # fr3.print_state()
+        # log.info(f'joint acc: {joint_state._accelerations}')
+        log.info(f'tor: {joint_state._torques}')
+        # fr3.log.info_state()
         if test_mode == "position":
             joint_command = init_state._positions
             if counter % 2 == 0:
@@ -299,11 +309,11 @@ if __name__ == '__main__':
         else:
             raise ValueError(f"Not support for mode {test_mode}")
         
-        print(f'command: {joint_command}, mode: {test_mode}')
+        log.info(f'command: {joint_command}, mode: {test_mode}')
         fr3.set_joint_command(test_mode, joint_command)
         
         counter += 1     
         time.sleep(0.1)
         
-    print('Exit the testing of fr3 arm!!!!')
+    log.info('Exit the testing of fr3 arm!!!!')
     

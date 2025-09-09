@@ -1,0 +1,160 @@
+# FR3机器人ACT推理配置文件
+
+# MotionFactory配置 (关键：为MotionFactory提供完整配置)
+motion_config: !include factory/components/motion_configs/fr3_with_franka_hand_ik.yaml
+
+# 硬件配置 (从motion_config统一读取，避免重复配置)
+
+# robot, gripper, simulation配置从motion_config读取
+
+# 传感器配置从motion_config读取
+
+# 动作时间聚合配置
+action_aggregation:
+  enabled: true
+  
+  joint_smoothing_enabled: true
+  gripper_smoothing_enabled: false
+  joint_ema_alpha: 0.5              # 快速响应的关节平滑 (优化: 0.15→0.6)
+  gripper_ema_alpha: 0.6            # 夹爪也可以稍微平滑
+
+  window_size: 30                    # 减小窗口提升响应速度 (优化: 50→5)
+  method: 'mean'
+  
+# 学习推理配置
+learning:
+  algorithm: "ACT"
+  state_dim: 8  # FR3: 7 DOF arm + 1 DOF gripper
+  camera_names: ["ee_cam", "third_person_cam"]
+  
+  # ACT模型参数
+  num_queries: 100  # chunk_size
+  hidden_dim: 512
+  dim_feedforward: 3200
+  enc_layers: 4
+  dec_layers: 7
+  nheads: 8
+  lr: 1e-5
+  kl_weight: 10
+  backbone: "resnet18"
+  
+  # 数据处理参数
+  normalize_images: true
+  image_target_size: [480, 640]  # [height, width]
+
+# 控制参数
+control_frequency: 30.0  # ACT推理控制频率 (Hz) - 优化提升至30Hz
+max_episode_length: 1200  # 最大episode步数
+action_repeat: 1
+sliding_window_size: 10  # 滑动窗口大小：每执行N步重新推理一次
+
+gripper_postprocess:
+  # 趋势检测参数
+  trend_window_size: 5              # 趋势检测窗口大小
+  closing_trend_threshold: -0.001   # 闭合趋势阈值（负值表示减小，更严格）
+  opening_trend_threshold: 0.001    # 打开趋势阈值（正值表示增大，更敏感）
+  
+  # 状态切换参数
+  close_action_threshold: 0.074     # 动作值小于此值认为要闭合（匹配当前模型输出0.071-0.075）
+  open_action_threshold: 0.075      # 动作值大于此值认为要打开 (优化: 0.078→0.075)
+  
+  # 保持状态参数  
+  holding_stability_threshold: 0.003  # HOLDING状态下的稳定阈值
+  min_holding_steps: 45               # 最小保持步数 (30Hz下约1.5秒)
+  
+  # 末端稳定性检测参数  
+  stability_threshold: 0.03           # 关节位置变化阈值（弧度） - 适中设置，既不过严也不过松
+  min_stable_steps: 5                 # 需要稳定的最小步数 - 确保真正稳定
+  
+  # 安全重开参数
+  safety_reopen_enabled: true         # 启用安全重开机制
+  max_safety_failures: 5               # 连续安全失败N次后重开夹爪
+  
+  # 抓取失败检测参数
+  grasp_check_enabled: true           # 启用抓取成功检测
+  grasp_width_threshold: 0.001         # 已弃用 - 现使用范围检查 [min_grasp_width - max_grasp_width]
+  grasp_check_delay: 60               # 闭合后等待N步再检查 (30Hz下2秒)
+  max_grasp_retries: 3                # 最大重试次数
+  retry_wait_time: 23                 # 重新打开后等待时间 (30Hz下0.75秒)
+  
+  # 新增：抓取检查范围参数 (修正逻辑)
+  min_grasp_width: 0.005              # 最小抓取宽度（5mm）- 确保夹住物体
+  max_grasp_width: 0.070              # 最大抓取宽度（70mm）- 避免误判完全打开状态
+  
+  # 任务完成检测参数
+  task_completion_enabled: true        # 启用任务完成检测
+  task_completion_stable_time: 20      # 需要稳定的步数 (30Hz下0.67秒)
+  task_completion_position_threshold: 0.025   # 位置稳定阈值（米）- 更严格的位置要求
+  task_completion_max_holding: 45      # 最大保持步数 (30Hz下1.5秒) - 减少等待时间
+  task_completion_force_open: true     # 任务完成后强制打开
+  
+  # 强制夹取机制（备用）
+  force_grasp_enabled: false           # 暂时禁用强制夹取机制
+  force_grasp_stable_time: 100         # 稳定N步后强制夹取（增加等待时间）
+
+# 关节位置实时可视化配置
+joint_position_visualization:
+  enabled: false                       # 启用关节位置实时绘图（默认关闭）
+  window_size: [1200, 800]             # 绘图窗口大小 [width, height]
+  update_frequency: 5                  # 更新频率 (Hz)
+  history_length: 1000                 # 保留的历史数据点数
+  save_data: true                      # 是否保存数据到CSV文件
+  save_interval: 300                   # 自动保存间隔（秒）
+
+# MotionFactory控制参数说明:
+# - MotionFactory内部运行在800Hz (通过motion_config设置)
+# - ACT推理在15Hz产生高级动作指令
+# - MotionFactory负责高频内插和安全执行
+#
+# 关节位置可视化说明:
+# - 实时显示7个关节 + 1个夹爪的位置曲线
+# - 用于调试和分析推理过程中的运动轨迹
+# - 可自动保存数据到CSV文件供后续分析
+
+# 安全参数 (针对30Hz ACT推理优化)
+safety:
+  # 关节限制 (FR3关节限制 + 夹爪限制, 单位: 弧度/米)
+  joint_limits:
+    # FR3 arm joints (7 DOF) + gripper (1 DOF)
+    lower: [-2.8973, -1.7628, -2.8973, -3.0718, -2.8973, -0.0175, -2.8973, 0.0]
+    upper: [2.8973, 1.7628, 2.8973, -0.0698, 2.8973, 3.7525, 2.8973, 0.08]
+  
+  # 速度限制 (rad/s, m/s for gripper) - 针对30Hz推理优化
+  velocity_limits: [3.0, 3.0, 3.0, 3.0, 3.5, 3.5, 3.5, 0.3]
+  
+  # ACT推理安全参数 - 30Hz推理优化参数
+  max_joint_change: 0.6        # 允许更大关节变化 (优化: 0.4→0.6)
+  max_velocity_per_step: 2.4   # 每步最大速度限制 (30Hz: 0.6*30≈18rad/s peak)
+  safety_scale_factor: 0.95    # 安全动作缩放因子 (优化: 0.85→0.95)
+  
+  # 安全检查开关
+  enable_collision_detection: true
+  enable_workspace_limits: true
+  emergency_stop_threshold: 0.1
+  
+  # ACT特定的安全设置
+  act_safety:
+    chunk_validation: true      # 验证整个动作序列的安全性
+    progressive_scaling: true   # 渐进式动作缩放
+    max_failed_actions: 5       # 最大连续失败次数
+
+# 实验参数
+experiment:
+  max_episodes: 1
+  reset_robot_between_episodes: true
+  initial_position: "home"  # "home", "current", 或具体关节角度
+
+# 日志和监控
+logging:
+  log_level: "INFO"
+  save_trajectory: true
+  trajectory_save_path: "./logs/trajectories"
+  monitor_frequency: true
+  monitor_safety: true
+  save_camera_data: false
+
+# 图像显示配置
+visualization:
+  enable_image_display: true  # 启用图像显示
+  display_window_size: [640, 480]  # 显示窗口大小 [width, height]
+  display_refresh_rate: 15  # 显示刷新频率 (Hz), 应与控制频率匹配

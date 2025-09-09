@@ -50,6 +50,7 @@ class OpencvCamera(CameraBase):
             if ret:
                 self._lock.acquire()
                 self._image_data = copy.deepcopy(color_image)
+                self._time_stamp = time.perf_counter()
                 self._lock.release()
 
             dt = time.time() - last_read_time

@@ -1,4 +1,4 @@
-import abc, threading, warnings, copy
+import abc, threading, warnings, copy, time
 
 class CameraBase(abc.ABC, metaclass=abc.ABCMeta):
     def __init__(self, config):
@@ -13,6 +13,7 @@ class CameraBase(abc.ABC, metaclass=abc.ABCMeta):
         self._image_data = None
         self._depth_map_data = None
         self._imu_data = None
+        self._time_stamp = time.perf_counter()
         self._is_initialized = False
         self._is_initialized = self.initialize()
 
@@ -20,7 +21,7 @@ class CameraBase(abc.ABC, metaclass=abc.ABCMeta):
         if not self._is_initialized:
             raise RuntimeError("Camera is not initialized, cannot capture data.")
         
-        _, image = self.read_image()
+        _, image, time_stamp = self.read_image()
         if self._contain_depth:
             _, depth_map = self.read_depth_map() 
         else:
@@ -32,7 +33,8 @@ class CameraBase(abc.ABC, metaclass=abc.ABCMeta):
         return {
             'image': image,
             'depth_map': depth_map,
-            'imu': imu_data
+            'imu': imu_data,
+            'time_stamp': time_stamp
         }
     
     @abc.abstractmethod
@@ -46,8 +48,9 @@ class CameraBase(abc.ABC, metaclass=abc.ABCMeta):
             return False, None
         self._lock.acquire()
         image = copy.deepcopy(self._image_data)
+        time_stamp = copy.deepcopy(self._time_stamp)
         self._lock.release()
-        return True, image
+        return True, image, time_stamp
     
     def read_depth_map(self):
         if not self._contain_depth:

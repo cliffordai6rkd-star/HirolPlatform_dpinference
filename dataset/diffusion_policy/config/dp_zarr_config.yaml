@@ -1,0 +1,6 @@
+fps: 10
+output_path: "/home/yuxuan/Code/hirol/converted_dataset/dp"
+action_type: "joint_position"
+data_name: "peg_in_hole"
+action_prediction_step: 2
+_contain_ee_obs: true

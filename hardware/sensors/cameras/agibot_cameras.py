@@ -72,6 +72,7 @@ class AgibotCamera(CameraBase):
             self._lock.acquire()
             self._image_data = image
             self._depth_map_data = depth if self._contain_depth else None
+            self._time_stamp = time.perf_counter()
             self._lock.release()
             
             dt = time.time() - last_read_time

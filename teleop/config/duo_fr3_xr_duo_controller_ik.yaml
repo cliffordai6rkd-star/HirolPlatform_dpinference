@@ -4,8 +4,8 @@ target_site_name: ["targetL_site", "targetR_site"]
 tcp_visualization_site: ["TCPL_site", "TCPR_site"]
 
 teleop_interface: "meta_quest3"
-interface_config: !include ../teleop/xr/config/meta_quest3_duo_fr3.yaml
-inteface_output_mode: "absolute"
+interface_config: !include teleop/XR/quest3/config/meta_quest3_duo_fr3.yaml
+inteface_output_mode: "absolute_delta"
 
 # teleoperation used parameter
 # if you are using mujoco simulation target instead of teleoperation device,

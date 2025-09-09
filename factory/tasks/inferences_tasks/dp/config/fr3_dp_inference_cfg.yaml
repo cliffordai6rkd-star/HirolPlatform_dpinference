@@ -1,0 +1,26 @@
+# gym interface configuration
+max_step_nums: 150
+num_episodes: 10
+action_type: "joint_position"
+reset_space: "joint"
+obs_contain_ee: true
+is_debug: false
+display_window_name: "dp inference"
+
+# diffusion policy model configuration，
+# /home/yuxuan/Code/hirol/new_dp/dp_hirol/data/outputs/2025.08.27/15.26.51_train_hirol_dp_fr3_peg_in_hole_abs_jp_hirol_peg_in_hole_abs_jp/checkpoints/latest.ckpt
+# checkpoint_path: "/home/yuxuan/Code/hirol/new_dp/dp_hirol/data/outputs/2025.08.26/19.11.37_train_hirol_dp_fr3_peg_in_hole_abs_jp_hirol_peg_in_hole_abs_jp/checkpoints/latest_peg_in_hole.ckpt"
+checkpoint_path: "/home/yuxuan/Code/hirol/checkpoints/dp/00.41.12_train_hirol_dp_fr3_pick_N_place_transformer_abs_jp_hirol_pick_N_place_abs_jp_pick_n_place_transformer_abs_jp/checkpoints/latest.ckpt"
+
+# inference parameters
+device: "cuda"  # "cuda" or "cpu"
+num_inference_steps: 16  # DDIM inference steps
+enable_display: true     # show camera feeds
+image_size: [84, 84]     # [height, width] for DP model input (common: [84,84] or [256,256])
+frequency: 10.0          # Control frequency in Hz
+
+# logging configuration
+log_level: "info"  # "debug", "info", "warning", "error"
+
+# robot + motion factory
+motion_config: !include factory/components/motion_configs/fr3_with_franka_hand_ik.yaml

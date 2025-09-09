@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from controller.controller_base import ControllerBase
 from motion.pin_model import RobotModel
 import numpy as np

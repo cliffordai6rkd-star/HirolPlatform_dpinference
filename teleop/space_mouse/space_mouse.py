@@ -3,9 +3,10 @@ import pyspacemouse
 from teleop.base.teleoperation_base import TeleoperationDeviceBase
 import time
 import threading
-import warnings
-import copy
 import glog as log
+from hardware.base.utils import ToolControlMode
+from teleop.base.utils import RisingEdgeDetector
+
 class SpaceMouse(TeleoperationDeviceBase):
     def __init__(self, config):
         self._frequency = config["frequency"]
@@ -13,17 +14,28 @@ class SpaceMouse(TeleoperationDeviceBase):
         self._scale = config["scale"]
         self._lower_threshold = config["low_threshold"]
         self._enable_rotation = config["enable_rotation"]
+        self._tool_control_mode = config.get("tool_mode", "binary")
+        self._tool_control_mode = ToolControlMode(self._tool_control_mode)
+        print(f'space tool control mode: {self._tool_control_mode}')
+        self._tool_incremental_step = config.get("incremental_step", 0.05)
+        self._move_time = config.get("move_time", 0.005)
+        if self._tool_control_mode == ToolControlMode.BINARY:
+            self._rising_edge_detector = RisingEdgeDetector()
+        else: self._last_change_time = time.perf_counter()
+        self._tool_control_mode = ToolControlMode(self._tool_control_mode)
+        self._last_command = 1.0 # True for open, False for close
         self._data = None
         self._device = None
         self.target_updated = False
+        
         # super init
         super().__init__(config)
-        time.sleep(0.5)
         # data update thread
         self._thread_running = True
         self.lock = threading.Lock()
         self._thread = threading.Thread(target=self.update_data)
         self._thread.start()
+        time.sleep(0.5)
         # wait for thread
         print(f"The space mouse is initialized with state {self._is_initialized}")
 
@@ -34,7 +46,7 @@ class SpaceMouse(TeleoperationDeviceBase):
         success = False
         devices = pyspacemouse.list_devices()
         if len(devices) <= 0:
-            warnings.warn("No space mouse device found!!!")
+            log.warn("No space mouse device found!!!")
             return False
         
         log.info(f'devices:', devices)
@@ -46,7 +58,7 @@ class SpaceMouse(TeleoperationDeviceBase):
     
     def print_data(self):
         if not self._is_initialized or self._data is None:
-            warnings.warn(f'The mouse object is not ready for printing data, '
+            log.warn(f'The mouse object is not ready for printing data, '
                           f'is_initialized: {self._is_initialized},' 
                           f'has_data: {not self._data is None}')
             return 
@@ -65,7 +77,7 @@ class SpaceMouse(TeleoperationDeviceBase):
         
     def read_data(self):
         if not self._is_initialized:
-            warnings.warn(f"The space mouse with id {self._device_id} "
+            log.warn(f"The space mouse with id {self._device_id} "
                           "is not initialized yet!!")
             return 
         
@@ -92,7 +104,7 @@ class SpaceMouse(TeleoperationDeviceBase):
                 sleep_time = (1.0 / self._frequency) - dt 
                 time.sleep(sleep_time)
             elif dt > 1.3 / self._frequency:
-                warnings.warn("The frequency for reading the space mouse data is slower than the" 
+                log.warn("The frequency for reading the space mouse data is slower than the" 
                               f"use specified frequency, expected: {self._frequency}, actual: {1.0 /dt}!")
             
             start_time = time.time()
@@ -101,7 +113,7 @@ class SpaceMouse(TeleoperationDeviceBase):
 
     def parse_data_2_robot_target(self, mode: str) -> np.ndarray:
         if not self._is_initialized:
-            warnings.warn(f"The space mouse with id {self._device_id} "
+            log.warn(f"The space mouse with id {self._device_id} "
                           "is not initialized yet!!")
             return False, None, None
 
@@ -128,6 +140,23 @@ class SpaceMouse(TeleoperationDeviceBase):
                 if not self._enable_rotation:
                     target[3:] = 0
             pose_target = {'single': target}
+            if self._tool_control_mode == ToolControlMode.BINARY:
+                # 上升沿检查
+                rising_edge = self._rising_edge_detector.update(buttons[0])
+                if rising_edge:
+                    self._last_command = not bool(self._last_command)
+                buttons[0] = float(self._last_command)
+            else:
+                # continous control
+                cur_time = time.perf_counter()
+                if (cur_time - self._last_change_time) > self._move_time:
+                    if buttons[0]:
+                        self._last_command += self._tool_incremental_step
+                    if buttons[1]:
+                        self._last_command -= self._tool_incremental_step
+                    self._last_command = np.clip(self._last_command, 0, 1)
+                    self._last_change_time = time.perf_counter()
+                buttons[0] = self._last_command
             tool_target = {'single': buttons}
             self.target_updated = False
             return True, pose_target, tool_target
@@ -164,17 +193,17 @@ class DuoSpaceMouse(TeleoperationDeviceBase):
         
     def parse_data_2_robot_target(self, mode):
         if not self._is_initialized:
-            warnings.warn(f'One of devices is not initialized well, '
+            log.warn(f'One of devices is not initialized well, '
                             f'left: {self.devices["left"]._is_initialized}, '
                             f'right: {self.devices["right"]._is_initialized}')
         
         success, left_data, left_other = self.devices['left'].parse_data_2_robot_target(mode)
         if not success:
-            warnings.warn('The left device did not successfully parse the data')
+            log.warn('The left device did not successfully parse the data')
             return False, None, None
         success, right_data, right_other = self.devices['right'].parse_data_2_robot_target(mode)
         if not success:
-            warnings.warn('The right device did not successfully parse the data')
+            log.warn('The right device did not successfully parse the data')
             return False, None, None
             
         pose_target = {'left': left_data['single'], 'right': right_data['single']}

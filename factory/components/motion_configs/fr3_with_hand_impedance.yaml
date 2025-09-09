@@ -1,5 +1,5 @@
 # usage platform
-use_hardware: true
+use_hardware: false
 use_simulation: true
 
 # Notice: the config file path should contain  to locate the file 

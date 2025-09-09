@@ -14,6 +14,18 @@ inteface_output_mode: "relative"
 use_simulation_target: false
 teleoperation_loop_time: 0.005
 
+# reset related
+# joint
+reset_arm_command: [-0.0016708960744338654, -0.7861180279768628, 
+                      0.0011242960248884306, -2.3515749674770583, 
+                      -0.0019059956649008665, 1.581831610375827, 
+                      0.7904221443917989]
+reset_space: "joint"   
+# pose 
+# reset_arm_command: [3.09019823e-01,  1.99873044e-04,  4.84437265e-01,  9.99989858e-01,
+#                     -2.65401198e-03, -1.43284955e-03,  3.34460145e-03]
+# reset_space: "cartesian"
+
 # data collection related
 save_path_prefix: "peg_in_hole"
 task_description: "pick up the peg on the table and put it in the hole"

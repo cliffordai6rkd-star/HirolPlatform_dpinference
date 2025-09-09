@@ -7,17 +7,30 @@ robot_config: !include hardware/config/duo_xarm7_cfg.yaml
 gripper: "duo_tool"
 gripper_config: !include hardware/config/duo_xarm_gripper_cfg.yaml
 
-# sensor_dicts:
-#   cameras:
-#     - name: "left_ee_cam"
-#       type: "ros2_camera"
-#       cfg: !include hardware/sensors/cameras/config/obec_336_config.yaml
-#     # - name: "right_ee_cam"
-#     #   type: "realsense_camera"
-#     #   cfg: !include hardware/sensors/cameras/config
-#     - name: "third_person_cam"
-#       type: "ros2_camera"
-#       cfg: !include hardware/sensors/cameras/config/obec_bolt_config.yaml
+use_smoother: true
+smoother_type: "ruckig" #critical_damped
+smoother_config: !include smoother/config/monte_smoother_cfg.yaml
+# Async control configuration
+# This creates true decoupling between low-freq planning and high-freq control
+async_control_frequency: 500.0     # Async thread sends commands at this rate (Hz)
+auto_enable_async_control: true    # Auto-enable async mode on initialization (new!)
+
+sensor_dicts:
+  cameras:
+    - name: "left_ee_cam"
+      type: "network_camera"
+      cfg: !include hardware/sensors/cameras/config/netcam_cfg_ee_left.yaml
+      # type: "ros2_camera"
+      # cfg: !include hardware/sensors/cameras/config/obec_336_config.yaml
+    - name: "right_ee_cam"
+      type: "network_camera"
+      cfg: !include hardware/sensors/cameras/config/netcam_cfg_ee_right.yaml
+
+    - name: "third_person_cam"
+      type: "network_camera"
+      # cfg: !include hardware/sensors/cameras/config/obec_bolt_config.yaml
+      cfg: !include hardware/sensors/cameras/config/netcam_cfg_third_person.yaml
+      
 
 control_frequency: 500
 controller_type: "duo_controller"

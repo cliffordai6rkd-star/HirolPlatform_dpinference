@@ -1,11 +1,23 @@
 # gym
 max_step_nums: 150
 action_type: "joint_position"
+action_orientation_type: "quat"
+obs_contain_ee: false
+num_episodes: 10
+is_debug: false
 reset_space: "joint"
-model_cfg_name: "pi0_fast_hirol_fr3_peg_in_hole"
-model_dir: "/home/yuxuan/Code/hirol/pi0/checkpoints/pi0_fast_hirol_fr3_peg_in_hole/hirol_test/29999"
-tasks:  ["pick up the peg on the table and put it in the holestep1: find the peg on the table. step2: go to the location of the peg step3: pick up the obly peg on the table. stpe4: find the only hole in the peg station. step5: go to the top of the hole. step6: place the peg into the holepick up the peg on the table and place it in the correct hole",
+execution_step: 10
+display_window_name: "pi0 inference"
+
+# @TODO: update config, "pi0_hirol_pick_N_place" "pi0_hirol_fr3_peg_in_hole" "pi0_fast_hirol_fr3_block_stacking"
+# model_cfg_name: "pi0_hirol_pick_N_place"
+model_cfg_name: "pi0_hirol_fr3_peg_in_hole"
+model_dir: "/home/yuxuan/Code/hirol/checkpoints/pi0/pi0_peg_in_hole/29999"
+# model_dir: "/home/yuxuan/Code/hirol/checkpoints/pi0/pi0_pick_N_place/29999"
+
+tasks:  ["description: pick up the peg on the table and put it in the hole stpes: step1: find the peg on the table. step2: go to the location of the peg step3: pick up the obly peg on the table. stpe4: find the only hole in the peg station. step5: go to the top of the hole. step6: place the peg into the hole goal: pick up the peg on the table and place it in the correct hole",
         ]
+# tasks: ["description: picking up the kiwi from the table to the container steps: step1: locate the container and the kiwi on the table. step2: grab the kiwi from the table. step3: go to the location of the container. step4: place the kiwi into the container. goal: successfully pick up the kiwi from the table to the container"]
 
 # robot + motion factory
 motion_config: !include factory/components/motion_configs/fr3_with_franka_hand_ik.yaml

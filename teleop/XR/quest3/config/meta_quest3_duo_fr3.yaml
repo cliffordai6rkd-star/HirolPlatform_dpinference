@@ -14,3 +14,10 @@ meta_quest3:
   init_pose:
     initial_pose_left: [0.0, 0.0, -0.9, 1, 0, 0, 0]
     initial_pose_right: [0.0, -0.0, -0.9, 1, 0, 0, 0]
+
+  tool_mode:
+    left: "binary"
+    right: "binary"
+  incremental_step:
+    left: 0.002
+    right: 0.002

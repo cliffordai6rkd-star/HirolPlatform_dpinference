@@ -22,10 +22,10 @@ class SafetyLevel(Enum):
 @dataclass
 class SafetyLimits:
     """Safety limit configuration"""
-    # Joint motion limits
-    max_joint_change: float = 0.5          # Max joint change per command (rad)
-    max_joint_velocity: float = 2.0        # Max joint velocity (rad/s)
-    max_joint_acceleration: float = 15.0    # Max joint acceleration (rad/s²)
+    # Joint motion limits  
+    max_joint_change: float = 1.5          # Max joint change per command (rad)
+    max_joint_velocity: float = 25.0       # Max joint velocity (rad/s)
+    max_joint_acceleration: float = 25.0    # Max joint acceleration (rad/s²)
     
     # Cartesian motion limits
     max_position_change: float = 0.01      # Max position change per command (m)

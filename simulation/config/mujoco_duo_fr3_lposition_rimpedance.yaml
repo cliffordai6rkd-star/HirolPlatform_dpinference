@@ -1,0 +1,25 @@
+mujoco:
+  # the file path should be related to the hirol platform folder
+  base_xml_file: "assets/franka_fr3/duo_fr3_scene.xml"
+  robot_xml: "assets/franka_fr3/dual_fr3.xml"
+  quat_sequence: "xyzw"
+  dt: 0.002
+  dof: [7, 7]
+  joint_names: ["left_fr3_joint1", "left_fr3_joint2", "left_fr3_joint3", "left_fr3_joint4", "left_fr3_joint5", "left_fr3_joint6", "left_fr3_joint7",
+                "right_fr3_joint1", "right_fr3_joint2", "right_fr3_joint3", "right_fr3_joint4", "right_fr3_joint5", "right_fr3_joint6", "right_fr3_joint7"]
+  actuator_names: ["left_fr3_actuator1", "left_fr3_actuator2", "left_fr3_actuator3", "left_fr3_actuator4", "left_fr3_actuator5", "left_fr3_actuator6", "left_fr3_actuator7",
+                  "right_fr3_actuator1", "right_fr3_actuator2", "right_fr3_actuator3", "right_fr3_actuator4", "right_fr3_actuator5", "right_fr3_actuator6", "right_fr3_actuator7"]
+  actuator_mode: ["position", "position", "position", "position", "position", "position", "position",
+                  "torque", "torque", "torque", "torque", "torque", "torque", "torque"]
+  ee_site_name: "left_fr3_ee_attachment"
+  extra_render: true
+  max_traj_len: 80
+  base_body: ["left_base", "right_base"]
+  # sensor_dict: None
+  use_custom_key_frame: true
+  sensor_dict:
+    left_ee_cam: 
+     resolution: [480, 640]
+    right_ee_cam: 
+     resolution: [480, 640]
+     

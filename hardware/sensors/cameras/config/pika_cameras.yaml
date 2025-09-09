@@ -1,0 +1,7 @@
+realsense_serial: 1234
+fisheye_index: 0
+image_shape: [480, 640]
+fps: 30
+contain_depth: True
+contain_imu: False
+  
