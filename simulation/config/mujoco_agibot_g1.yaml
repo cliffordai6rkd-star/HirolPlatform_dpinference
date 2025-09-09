@@ -4,7 +4,7 @@ mujoco:
   robot_xml: "assets/agibot_g1/g1_with_hand.xml"
   quat_sequence: "xyzw"
   dt: 0.002
-  dof: [7, 7]
+  dof: [1, 7, 7]
   # "joint_lift_body", "joint_body_pitch",
   joint_names: [
                 "joint_lift_body",

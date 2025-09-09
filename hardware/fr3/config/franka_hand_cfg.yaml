@@ -1,8 +1,8 @@
 franka_hand:
-  ip: "192.168.1.206"
+  ip: "192.168.1.208"
   grasp_speed: 0.4
   grasp_force: 20
-  epsilon_inner: 0.04
+  epsilon_inner: 0.08
   epsilon_outer: 0.08
   
   control_mode: "binary"

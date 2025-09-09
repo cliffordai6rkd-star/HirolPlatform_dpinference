@@ -43,9 +43,9 @@ class InferenceBase(abc.ABC, metaclass=abc.ABCMeta):
         # hack for tools @TODO: zyx
         joint_state_names.append(f'gripper_state')
         action_names.append(f'gripper_action')
-        self._plotter = AnimationPlotter(joint_state_names, action_names)
-        self._plotter.start_animation()
-        self._plotter.start_main_thread_updater()
+        # self._plotter = AnimationPlotter(joint_state_names, action_names)
+        # self._plotter.start_animation()
+        # self._plotter.start_main_thread_updater()
     
     @abc.abstractmethod
     def convert_from_gym_obs(self):
@@ -82,8 +82,8 @@ class InferenceBase(abc.ABC, metaclass=abc.ABCMeta):
             stop_listening()
             self._quit = True
             self._status_ok = False
-            self._plotter.clear_data()
-            self._plotter.stop_animation()
+            # self._plotter.clear_data()
+            # self._plotter.stop_animation()
             time.sleep(1.5)
             self.close()
             cv2.destroyAllWindows()

@@ -7,10 +7,13 @@ from simulation.base.sim_base import SimBase
 from dataset.lerobot.data_process import EpisodeWriter
 from hardware.base.utils import convert_homo_2_7D_pose, Buffer, negate_pose, transform_pose, object_class_check
 from hardware.base.utils import ToolState, ToolType
-from hardware.base.img_utils import combine_image
+from hardware.base.img_utils import combine_image, combine_images_2x2_grid
 from teleop.base.utils import RisingEdgeDetector
 import warnings, os
 import numpy as np
+
+# 确保teleop模式环境变量被设置
+os.environ['TELEOP_MODE'] = 'true'
 import threading, time, copy
 from datetime import datetime
 from scipy.spatial.transform import Rotation as R
@@ -115,6 +118,7 @@ class TeleoperationFactory:
         self._init_pose = {}
         self._robot_index = self._robot_motion_system.get_model_types()
         self._ee_index = ['left', 'right'] if len(self.ee_link) > 1 else ['single']
+        log.info(f'ee index in robot teleoperation: {self._ee_index}')
         
         # performance profiler
         PerformanceProfiler.clear_stats()
@@ -135,10 +139,11 @@ class TeleoperationFactory:
                 # log.info(f'tool target: {tool_target}')
                 
             # only for mujoco 
-            if self._use_simulation_target and not mocap_target_site is None and hasattr(self._robot_system, '_simulation'):
+            if self._use_simulation_target and not mocap_target_site is None and self._robot_system._use_simulation:
                 ee_target = {}
                 for i, target_site in enumerate(mocap_target_site):
                     key = self._ee_index[i]
+                    log.info(f'target site in sim: {target_site} for {key}')
                     cur_sim_target = self._robot_system._simulation.get_site_pose(target_site, 'xyzw')
                     cur_base_pose = self.base2world_pose[0] if len(self.base2world_pose) == 1 else self.base2world_pose[i]
                     cur_sim_target = transform_pose(cur_base_pose, cur_sim_target)
@@ -231,9 +236,8 @@ class TeleoperationFactory:
                                 if tool_type_dict is None or \
                                     tool_type_dict[key] == ToolType.GRIPPER or \
                                    tool_type_dict[key] == ToolType.SUCTION:
-                                    # Extract first element only if tool_command is array/list
-                                    if hasattr(tool_command, '__len__') and len(tool_command) > 0:
-                                        tool_command = tool_command[0]
+                                    # tool_command = tool_command
+                                    pass
                                 self._tool_action[key] = dict(tool=dict(
                                     position=tool_command, time_stamp=time.perf_counter()))
 
@@ -283,9 +287,7 @@ class TeleoperationFactory:
 
             # image visualization
             if len(image_list) and (self._img_visualization or self._img_shm is not None):
-                combined_imgs = image_list[0]
-                for i in range(1, len(image_list)):
-                    combined_imgs = combine_image(combined_imgs, image_list[i])
+                combined_imgs = combine_images_2x2_grid(image_list)
                 if self._img_visualization:
                     cv2.imshow('combined image', combined_imgs)
                     cv2.waitKey(1)

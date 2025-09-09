@@ -22,8 +22,59 @@ class FrankaHand(ToolBase):
         self._thread_running = True
         self._update_thread = threading.Thread(target=self.update_state)
         self._lock = threading.Lock()
-        self._update_thread.start()
-        
+
+        # 自动检测teleop模式，避免手动注释
+        is_teleop = self._is_teleop_mode()
+        log.info(f"FrankaHand ({self._ip}) 模式检测: {'teleop' if is_teleop else 'normal'}")
+
+        if not is_teleop:
+            self._update_thread.start()
+            log.info(f"夹爪状态更新线程已启动 ({self._ip})")
+        else:
+            log.info(f"检测到teleop模式，跳过夹爪状态更新线程启动 ({self._ip})")
+
+    def _is_teleop_mode(self) -> bool:
+        """
+        检测是否在teleop模式下运行
+
+        Returns:
+            bool: True表示teleop模式，False表示其他模式
+        """
+        import sys
+        import inspect
+
+        # 方法1: 检查调用栈中是否有teleop相关模块
+        for frame_info in inspect.stack():
+            filename = frame_info.filename
+            if any(keyword in filename.lower() for keyword in ['teleop', 'teleoperation']):
+                log.debug(f"调用栈检测到teleop模式: {filename}")
+                return True
+
+        # 方法2: 检查已导入的模块中是否有teleop相关
+        for module_name in sys.modules.keys():
+            if any(keyword in module_name.lower() for keyword in ['teleop', 'teleoperation']):
+                log.debug(f"模块检测到teleop模式: {module_name}")
+                return True
+
+        # 方法3: 检查命令行参数（如果可用）
+        try:
+            import sys
+            if hasattr(sys, 'argv'):
+                for arg in sys.argv:
+                    if any(keyword in arg.lower() for keyword in ['teleop', 'teleoperation']):
+                        log.debug(f"命令行参数检测到teleop模式: {arg}")
+                        return True
+        except:
+            pass
+
+        # 方法4: 检查环境变量
+        teleop_env = os.environ.get('TELEOP_MODE', '').lower()
+        if teleop_env in ['true', '1', 'yes']:
+            log.debug("环境变量检测到teleop模式: TELEOP_MODE=true")
+            return True
+
+        return False
+
     def initialize(self):
         if self._is_initialized:
             return True
@@ -50,7 +101,7 @@ class FrankaHand(ToolBase):
         
         command = np.clip(command, 0 ,1)
         target = self._max_width * command
-        # print(f'set width: {target}')
+        log.info(f'🔧 FrankaHand: command={command:.3f}, target_width={target:.4f}m, max_width={self._max_width:.4f}m')
         def grasp_task():
             self._gripper_idle = False
             
@@ -61,11 +112,14 @@ class FrankaHand(ToolBase):
             self._lock.release()
             
             if np.isclose(target, self._max_width):
+                log.info(f'🔓 Executing gripper.move to OPEN: width={self._max_width:.4f}m')
                 self._gripper.move(self._max_width, self._grasp_speed)
             else:
                 if self._control_mode == ToolControlMode.INCREMENTAL:
+                    log.info(f'📍 Executing gripper.move (INCREMENTAL): target={target:.4f}m')
                     self._gripper.move(target, self._grasp_speed)
                 else:
+                    log.info(f'✊ Executing gripper.grasp: target={target:.4f}m, force={self._grasp_force}N')
                     self._gripper.grasp(target, self._grasp_speed, self._grasp_force,
                                         self._epsilon_inner, self._epsilon_outer)
             # self._gripper.move(target, self._grasp_speed)
@@ -115,6 +169,22 @@ class FrankaHand(ToolBase):
         self._gripper.stop()
         log.info(f'Franka hand {self._ip} successfully stopped!!!!')
         
+    def _set_binary_command(self, target: float) -> bool:
+        """
+        二进制夹爪命令接口，兼容智能夹爪控制器
+        
+        Args:
+            target: 目标值 (0.0=关闭/抓取, 1.0=打开)
+            
+        Returns:
+            bool: 命令是否成功执行
+        """
+        try:
+            return self.set_hardware_command(target)
+        except Exception as e:
+            log.error(f"FrankaHand二进制命令执行失败: {e}")
+            return False
+    
     def get_tool_type_dict(self):
         tool_type_dict = {'single': self._tool_type}
         return tool_type_dict

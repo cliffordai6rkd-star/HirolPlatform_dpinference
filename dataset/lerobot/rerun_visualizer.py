@@ -314,8 +314,9 @@ if __name__ == "__main__":
     # /home/yuxuan/Code/hirol/teleoperated_trajectory/block_stacking
     # /home/yuxuan/Code/hirol/teleoperated_trajectory/pick_N_place
     # data_dir = "/home/yuxuan/Code/hirol/teleoperated_trajectory/pick_N_place"
-    data_dir = "/home/yuxuan/Code/HIROLRobotPlatform/dataset/data"
-    episode_data_number = 9
+    data_dir = "/workspace/dataset/data/peg_in_hole"
+    data_dir = "/workspace/dataset/data/block_stacking"
+    episode_data_number = 1
     fps = 40
     skip_step_nums = 1
     episode_dir = f"episode_{str(episode_data_number).zfill(4)}"

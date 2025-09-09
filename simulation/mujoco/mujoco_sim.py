@@ -406,7 +406,7 @@ if __name__ == '__main__':
     cur_path = os.path.dirname(os.path.abspath(__file__))
     # /config/mujoco_fr3_cfg.yaml,config/mujoco_duo_fr3.yaml, config/mujoco_fr3_scene.yaml
     cfg = '../config/mujoco_fr3_scene.yaml'
-    cfg = '../config/mujoco_duo_xarm7.yaml'
+    # cfg = '../config/mujoco_duo_xarm7.yaml'
     cfg_file = os.path.join(cur_path, cfg)
     print(f'cfg file name: {cfg_file}')
     with open(cfg_file, 'r') as stream:

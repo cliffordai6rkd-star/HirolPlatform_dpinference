@@ -1,16 +1,22 @@
 # ACT真机推理演示
 
-本目录包含在真实机器人上运行ACT模型的演示脚本和配置文件，支持FR3单臂和Monte01双臂机器人。
+⚠️ **重要更新**: ACT推理已迁移到统一推理任务架构！
+
+**新的推理入口**: `factory.tasks.inferences_tasks.act.act_inference.ACT_Inferencer`
+
+本目录现在包含示例代码、配置文件和相关工具，支持FR3单臂和Monte01双臂机器人。
 
 ## 文件结构
 
 ```
 learning/demo/
-├── run_act_inference.py                           # 主推理脚本（支持单臂和双臂）
-├── run_monte01_dual_arm.sh                       # Monte01双臂启动脚本
+├── example_act_inference.py                      # 新架构使用示例
+├── run_monte01_dual_arm.sh                       # Monte01双臂启动脚本（需更新）
 ├── configs/
-│   ├── fr3_inference_config.yaml                 # FR3单臂机器人配置文件
-│   └── monte01_dual_arm_inference_config.yaml    # Monte01双臂机器人配置文件
+│   ├── fr3_inference_config.yaml                 # FR3单臂机器人配置文件（参考用）
+│   └── monte01_dual_arm_inference_config.yaml    # Monte01双臂机器人配置文件（参考用）
+├── gripper_controller.py                         # 夹爪控制器工具
+├── joint_position_plotter.py                     # 关节位置绘图工具
 └── README.md                                      # 本文件
 ```
 
@@ -38,39 +44,67 @@ learning/demo/
 - 左侧夹爪：从corenetic_gripper硬件读取真实位置（0.0-0.074m）
 - 右侧夹爪：未安装，自动使用默认值0.0（闭合状态）
 
-### 2. 运行推理
+### 2. 运行推理 (新架构)
 
-#### FR3单臂机器人推理
+#### 方式1: 使用默认配置文件
 
 ```bash
 # FR3机器人推理
-python learning/demo/run_act_inference.py \
-    --robot fr3 \
-    --ckpt_dir /path/to/your/fr3_act_model \
-    --config learning/demo/configs/fr3_inference_config.yaml
+python -c "
+from factory.tasks.inferences_tasks.act.act_inference import ACT_Inferencer
+config = {
+    'robot_type': 'fr3',
+    'checkpoint_path': '/path/to/your/fr3_act_model',
+    'frequency': 20.0,
+    'max_episode_length': 12000
+}
+act_inferencer = ACT_Inferencer(config)
+act_inferencer.start_inference()
+"
 
-# 自定义控制频率和步数
-python learning/demo/run_act_inference.py \
-    --robot fr3 \
-    --ckpt_dir /path/to/your/fr3_act_model \
-    --config learning/demo/configs/fr3_inference_config.yaml \
-    --frequency 20 \
-    --max_steps 500
+```
+
+#### 方式2: 使用YAML配置文件
+
+```bash
+# 使用现有配置文件模板
+python -c "
+from factory.tasks.inferences_tasks.act.act_inference import ACT_Inferencer
+from hardware.base.utils import dynamic_load_yaml
+
+config = dynamic_load_yaml('factory/tasks/inferences_tasks/act/config/fr3_act_inference_cfg.yaml')
+config['checkpoint_path'] = '/path/to/your/fr3_act_model'
+act_inferencer = ACT_Inferencer(config)
+act_inferencer.start_inference()
+"
 ```
 
 #### Monte01双臂机器人推理
 
 ```bash
-# 方法1：使用便捷启动脚本（推荐）
-./learning/demo/run_monte01_dual_arm.sh /path/to/monte01_dual_arm_model
+# Monte01双臂机器人
+python -c "
+from factory.tasks.inferences_tasks.act.act_inference import ACT_Inferencer
+config = {
+    'robot_type': 'monte01',
+    'checkpoint_path': '/path/to/monte01_dual_arm_model',
+    'frequency': 15.0,
+    'max_episode_length': 1500
+}
+act_inferencer = ACT_Inferencer(config)
+act_inferencer.start_inference()
+"
 
-# 方法2：直接运行
-python learning/demo/run_act_inference.py \
-    --robot monte01 \
-    --ckpt_dir /path/to/monte01_dual_arm_model \
-    --config learning/demo/configs/monte01_dual_arm_inference_config.yaml \
-    --frequency 10.0 \
-    --max_steps 1500
+# 或使用配置文件
+python -c "
+from factory.tasks.inferences_tasks.act.act_inference import ACT_Inferencer
+from hardware.base.utils import dynamic_load_yaml
+
+config = dynamic_load_yaml('factory/tasks/inferences_tasks/act/config/monte01_act_inference_cfg.yaml')
+config['checkpoint_path'] = '/path/to/monte01_dual_arm_model'
+act_inferencer = ACT_Inferencer(config)
+act_inferencer.start_inference()
+"
 ```
 
 ### 3. 参数说明

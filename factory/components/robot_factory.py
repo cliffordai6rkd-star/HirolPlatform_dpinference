@@ -27,7 +27,6 @@ from controller.utils.weighted_moving_filter import WeightedMovingFilter
 import numpy as np
 from typing import Optional, Union, List, Dict, Any
 import glog as log
-from factory.components.learning_inference_factory import LearningInferenceFactory
 
 # Import smoother modules
 from smoother.smoother_base import SmootherBase
@@ -362,8 +361,8 @@ class RobotFactory:
                 sim_mode_r = [mode[1]] * dofs[1]
                 sim_mode = np.hstack((sim_mode, sim_mode_r))
                 # @TODO: handle dof other than arms @zyx
-                # total_dof = self.get_total_dofs()
-                # sim_mode = [mode[0]] * total_dof
+                total_dof = self.get_total_dofs()
+                sim_mode = [mode[0]] * total_dof
             self._simulation.set_joint_command(sim_mode, joint_command)
         if self._use_hardware and execute_hardware: 
             if len(mode) == 1:
@@ -666,161 +665,3 @@ class RobotFactory:
         
         log.info("Async command loop stopped")
     
-    # ========== 学习推理相关方法 ==========
-    
-    def _initialize_learning_components(self) -> None:
-        """初始化学习推理组件."""
-        if self._learning_config is None:
-            log.info("📚 未配置学习推理组件，跳过初始化")
-            return
-        
-        try:
-            algorithm = self._learning_config.get("algorithm", "ACT")
-            ckpt_dir = self._learning_config.get("checkpoint_dir")
-            
-            if not ckpt_dir:
-                log.warning("⚠️ 学习配置中未指定checkpoint_dir，跳过学习组件初始化")
-                return
-            
-            # 验证检查点目录
-            if not LearningInferenceFactory.validate_checkpoint_directory(ckpt_dir, algorithm):
-                log.error(f"❌ 检查点目录验证失败: {ckpt_dir}")
-                return
-            
-            # 创建学习推理流水线
-            inference_config = self._learning_config.get("inference_config", {})
-            inference_engine, data_adapter = LearningInferenceFactory.create_learning_pipeline(
-                algorithm=algorithm,
-                robot_type=self._robot_type,
-                ckpt_dir=ckpt_dir,
-                config=inference_config
-            )
-            
-            # 保存引用
-            self._learning_inference_engine = inference_engine
-            self._learning_data_adapter = data_adapter
-            
-            # 设置到机器人对象
-            if self._use_hardware and self._robot:
-                self._robot.set_learning_inference(inference_engine, data_adapter)
-            
-            log.info(f"✅ 学习推理组件初始化成功: {algorithm}")
-            
-        except Exception as e:
-            log.error(f"❌ 学习推理组件初始化失败: {str(e)}")
-            log.warning("⚠️ 继续运行，但学习功能不可用")
-    
-    def setup_learning_inference(
-        self, 
-        algorithm: str,
-        ckpt_dir: str,
-        inference_config: Dict[str, Any]
-    ) -> bool:
-        """动态设置学习推理组件.
-        
-        Args:
-            algorithm: 学习算法名称
-            ckpt_dir: 检查点目录
-            inference_config: 推理配置
-            
-        Returns:
-            bool: 设置是否成功
-        """
-        try:
-            # 创建学习推理流水线
-            inference_engine, data_adapter = LearningInferenceFactory.create_learning_pipeline(
-                algorithm=algorithm,
-                robot_type=self._robot_type,
-                ckpt_dir=ckpt_dir,
-                config=inference_config
-            )
-            
-            # 更新引用
-            self._learning_inference_engine = inference_engine
-            self._learning_data_adapter = data_adapter
-            
-            # 设置到机器人对象
-            if self._use_hardware and self._robot:
-                self._robot.set_learning_inference(inference_engine, data_adapter)
-            
-            log.info(f"✅ 学习推理组件动态设置成功: {algorithm}")
-            return True
-            
-        except Exception as e:
-            log.error(f"❌ 学习推理组件设置失败: {str(e)}")
-            return False
-    
-    def get_learning_prediction(self, camera_data: Dict[str, np.ndarray]) -> Optional[list]:
-        """获取学习策略预测.
-        
-        Args:
-            camera_data: 相机数据字典
-            
-        Returns:
-            Optional[list]: 预测的动作序列
-        """
-        if not self._use_hardware or not self._robot:
-            log.error("❌ 硬件模式下才支持学习推理")
-            return None
-        
-        if not self._robot.is_learning_enabled():
-            log.error("❌ 学习推理组件未启用")
-            return None
-        
-        return self._robot.get_learning_prediction(camera_data)
-    
-    def execute_learned_actions(
-        self, 
-        actions: list,
-        execution_mode: str = "position"
-    ) -> bool:
-        """执行学习策略输出的动作.
-        
-        Args:
-            actions: 动作序列
-            execution_mode: 执行模式
-            
-        Returns:
-            bool: 执行是否成功
-        """
-        if not self._use_hardware or not self._robot:
-            log.error("❌ 硬件模式下才支持动作执行")
-            return False
-        
-        return self._robot.execute_learned_action_sequence(actions, execution_mode=execution_mode)
-    
-    def run_learning_control_loop(
-        self, 
-        camera_data: Dict[str, np.ndarray],
-        execution_mode: str = "position"
-    ) -> bool:
-        """运行学习控制循环.
-        
-        Args:
-            camera_data: 相机数据
-            execution_mode: 执行模式
-            
-        Returns:
-            bool: 控制循环是否成功
-        """
-        if not self._use_hardware or not self._robot:
-            log.error("❌ 硬件模式下才支持学习控制循环")
-            return False
-        
-        return self._robot.run_learning_control_loop(camera_data, execution_mode)
-    
-    def is_learning_enabled(self) -> bool:
-        """检查学习推理是否已启用."""
-        if not self._use_hardware or not self._robot:
-            return False
-        return self._robot.is_learning_enabled()
-    
-    def disable_learning_inference(self) -> None:
-        """禁用学习推理功能."""
-        if self._use_hardware and self._robot:
-            self._robot.disable_learning_inference()
-        
-        self._learning_inference_engine = None
-        self._learning_data_adapter = None
-        
-        log.info("🛑 RobotFactory学习推理功能已禁用")

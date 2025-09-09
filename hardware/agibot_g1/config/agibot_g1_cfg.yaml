@@ -1,5 +1,23 @@
 agibot_g1:
-  dof: [7, 7]
-  control_head: false
-  control_waist: false
-  control_wheel: false
+  dof: [7, 7]  # Dual arm DOF configuration
+  robot_name: "AgiBot_G1"
+  
+  # Control options for different robot components
+  control_head: false      # Enable head yaw/pitch control (2 DOF)
+  control_waist: false     # Enable waist pitch/height control (2 DOF)  
+  control_wheel: false     # Enable mobile base control
+  control_gripper: false   # Enable gripper control (2 DOF)
+  control_hand: false      # Enable hand joint control (12 DOF)
+  
+  # Optional initial joint positions (radians for joints, meters for translations)
+  # init_joint_positions: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,  # Left arm
+  #                       0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]   # Right arm
+  
+  # Safety configuration
+  safety_level: "normal"
+  safety_limits:
+    max_joint_change: 0.5      # Maximum joint change per command (radians)
+    max_position_change: 0.01   # Maximum position change (meters)  
+    max_rotation_change: 0.2    # Maximum rotation change (radians)
+    max_joint_velocity: 2.0     # Maximum joint velocity (rad/s)
+    min_command_interval: 0.001 # Minimum time between commands (seconds)

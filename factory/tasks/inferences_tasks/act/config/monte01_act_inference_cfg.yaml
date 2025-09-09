@@ -1,0 +1,151 @@
+# Monte01 ACT Inference Configuration
+# Unified configuration for dual-arm ACT inference task
+
+# Gym interface configuration
+motion_config: !include factory/components/motion_configs/monte01_dual_arm_ik.yaml
+
+# Robot type configuration
+robot_type: "monte01"
+
+# Checkpoint path for ACT model
+checkpoint_path: "learning/ckpts/monte01_dual_arm_latest"
+
+# Inference frequency and control parameters
+frequency: 15.0  # Hz - slower for dual-arm complexity
+device: "cuda"
+
+# Episode configuration
+num_episodes: 1
+max_episode_length: 1500  # Longer episodes for dual-arm tasks
+
+# Action type configuration (required by InferenceBase)
+action_type: "joint_position"
+action_orientation_type: "euler"
+obs_contain_ee: false
+
+# Display configuration (required by InferenceBase)
+enable_display: true
+display_window_name: "ACT_Inference_Monte01"
+
+# Learning algorithm configuration
+learning:
+  algorithm: "ACT"
+  state_dim: 16  # Monte01: dual-arm 16 DOF (left 8 + right 8)
+  camera_names: ["left_ee_cam", "right_ee_cam", "third_person_cam"]
+
+  # ACT model parameters
+  num_queries: 100
+  hidden_dim: 512
+  dim_feedforward: 3200
+  enc_layers: 4
+  dec_layers: 7
+  nheads: 8
+  lr: 1e-5
+  kl_weight: 10
+  backbone: "resnet18"
+
+  # Data processing parameters
+  normalize_images: true
+  image_target_size: [480, 640]
+
+# ACT-specific action sequence management
+action_chunk_size: 100
+action_sampling_interval: 1
+max_failed_actions: 3  # More strict for dual-arm
+sliding_window_size: 8  # Smaller window for dual-arm
+
+# Action interpolation for smoothness
+enable_action_interpolation: true
+interpolation_steps: 5  # More interpolation for dual-arm
+
+# Camera latency compensation
+camera_latency_ms: 100.0  # Slightly higher for multiple cameras
+
+# Action aggregation configuration
+action_aggregation:
+  enabled: true
+
+  joint_smoothing_enabled: true
+  gripper_smoothing_enabled: true
+  joint_ema_alpha: 0.4  # More smoothing for dual-arm
+  gripper_ema_alpha: 0.5
+
+  window_size: 20  # Smaller window for responsiveness
+  method: 'mean'
+
+  # Discontinuity detection (stricter for dual-arm)
+  discontinuity_threshold: 0.08
+  discontinuity_smooth_factor: 0.4
+
+# Dual-arm gripper post-processing configuration
+gripper_postprocess:
+  enabled: true
+  control_mode: "incremental"  # Better for Monte01
+
+  # Left gripper configuration
+  left_gripper:
+    simple_threshold: 0.55
+    trend_window_size: 8
+    closing_trend_threshold: -0.0005
+    opening_trend_threshold: 0.0005
+    close_action_threshold: 0.030
+    open_action_threshold: 0.035
+    holding_stability_threshold: 0.003
+    min_holding_steps: 30
+    stability_threshold: 0.03
+    min_stable_steps: 5
+
+  # Right gripper configuration
+  right_gripper:
+    simple_threshold: 0.55
+    trend_window_size: 8
+    closing_trend_threshold: -0.0005
+    opening_trend_threshold: 0.0005
+    close_action_threshold: 0.030
+    open_action_threshold: 0.035
+    holding_stability_threshold: 0.003
+    min_holding_steps: 30
+    stability_threshold: 0.03
+    min_stable_steps: 5
+
+  # Shared grasp detection parameters
+  grasp_check_enabled: true
+  grasp_check_delay: 45  # Shorter for dual-arm tasks
+  max_grasp_retries: 2
+  retry_wait_time: 20
+  min_grasp_width: 0.005
+  max_grasp_width: 0.070
+
+  # Task completion detection
+  task_completion_enabled: true
+  task_completion_stable_time: 15
+  task_completion_position_threshold: 0.008
+  task_completion_max_holding: 60
+  task_completion_force_open: false
+
+# Dual-arm collision avoidance
+dual_arm_control:
+  collision_avoidance_enabled: true
+  min_arm_distance: 0.15  # Minimum distance between arms (meters)
+  collision_check_frequency: 1  # Check every N steps
+
+# Joint position visualization for dual-arm
+joint_position_visualization:
+  enabled: false
+  save_data: false
+  plot_real_time: false
+  joint_names: ["Left_joint1", "Left_joint2", "Left_joint3", "Left_joint4",
+                "Left_joint5", "Left_joint6", "Left_joint7", "Left_Gripper",
+                "Right_joint1", "Right_joint2", "Right_joint3", "Right_joint4",
+                "Right_joint5", "Right_joint6", "Right_joint7", "Right_Gripper"]
+
+# Image display configuration
+visualization:
+  enable_image_display: false
+  display_window_size: [640, 480]
+  display_refresh_rate: 10  # Lower refresh rate for multiple cameras
+
+# Debug configuration
+debug:
+  save_action_history: false
+  verbose_logging: true  # More logging for dual-arm debugging
