@@ -1,55 +1,54 @@
 # Smoother Configuration
 # This file configures the joint command smoothing functionality
 
-# Basic Critical Damped Smoother (针对Monte01双臂优化)
-# critical_damped:
-#   type: "critical_damped"
-#   omega_n: 20.0           # 降低自然频率，提供更平滑的响应 (减少卡顿)
-#                           # 15-20: 软/柔顺，较慢响应 (适合精确操作)
-#                           # 20-30: 平衡 (默认25)
-#                           # 30-40: 快速响应，更硬
-#   zeta: 1.0              # 阻尼比 (1.0 = 临界阻尼，无超调)
-#   control_frequency: 800  # 内部控制循环频率 (Hz) - 匹配异步控制
+# Basic Critical Damped Smoother (recommended for general use)
+critical_damped:
+  type: "critical_damped"
+  omega_n: 25.0           # Natural frequency (rad/s) - Controls response speed
+                          # 15-20: Soft/compliant, slower response
+                          # 20-30: Balanced (default 25)
+                          # 30-40: Fast response, stiffer
+  zeta: 1.0              # Damping ratio (1.0 = critical damping, no overshoot)
+  control_frequency: 800  # Internal control loop frequency (Hz)
 
-# # Adaptive Critical Damped Smoother (adjusts response based on error)
-# adaptive_critical_damped:
-#   type: "adaptive_critical_damped"
+# Adaptive Critical Damped Smoother (adjusts response based on error)
+adaptive_critical_damped:
+  type: "adaptive_critical_damped"
   
-#   # Base parameters
-#   omega_n: 25.0           # Default natural frequency
-#   zeta: 1.0              # Critical damping
-#   control_frequency: 400  # Internal frequency (Hz)
+  # Base parameters
+  omega_n: 25.0           # Default natural frequency
+  zeta: 1.0              # Critical damping
+  control_frequency: 800  # Internal frequency (Hz)
   
-#   # Adaptive parameters
-#   omega_n_min: 15.0      # Minimum omega_n (soft mode for small errors)
-#   omega_n_max: 40.0      # Maximum omega_n (fast mode for large errors)
+  # Adaptive parameters
+  omega_n_min: 15.0      # Minimum omega_n (soft mode for small errors)
+  omega_n_max: 40.0      # Maximum omega_n (fast mode for large errors)
   
-#   error_thresholds:
-#     low: 0.01            # Error below this = soft mode (rad, ~0.57°)
-#     high: 0.1            # Error above this = fast mode (rad, ~5.7°)
+  error_thresholds:
+    low: 0.01            # Error below this = soft mode (rad, ~0.57°)
+    high: 0.1            # Error above this = fast mode (rad, ~5.7°)
   
-#   transition: "sigmoid"   # Transition type: "linear" or "sigmoid"
-#   omega_change_limit: 5.0 # Max omega_n change per update (rad/s)
+  transition: "sigmoid"   # Transition type: "linear" or "sigmoid"
+  omega_change_limit: 5.0 # Max omega_n change per update (rad/s)
 
-# Ruckig Smoother (S-curve with jerk limiting) - 针对xArm7优化
+# Ruckig Smoother (S-curve with jerk limiting)
 ruckig:
   type: "ruckig"
-  control_frequency: 100  # 匹配异步控制频率，提高平滑度
-  
-  # xArm7关节工作范围 (根据官方规格)
-  min_position: [-6.2832, -2.0595, -6.2832, -0.1920, -6.2832, -1.6930, -6.2832]  # rad
-  max_position: [ 6.2832,  2.0944,  6.2832,  3.9270,  6.2832,  3.1416,  6.2832]  # rad
-  
-  # xArm7性能参数 (根据官方规格，适当保守设置)
-  max_velocity: [2.5, 2.5, 2.5, 2.5, 2.5, 2.5, 2.5]           # rad/s (约143°/s，低于180°/s上限)
-  max_acceleration: [15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0] # rad/s² (保守设置，低于20.0)
-  max_jerk: [300.0, 300.0, 300.0, 300.0, 300.0, 300.0, 300.0] # rad/s³ (保守设置，减少卡顿)
-  
-  synchronization: true   # 启用同步，确保协调运动
-  sync_mode: "phase"     # 使用phase同步模式，提供最平滑的协调运动
-                          # - "phase": 同步速度曲线 (最平滑的协调运动)
-                          # - "time": 所有关节同时完成 (可能导致突然启动/停止)
-                          # - "none": 每个关节独立优化 (最快但可能不协调)
+  control_frequency: 800  # Internal control loop frequency (Hz)
+  min_position: [-2.7437, -1.7837, -2.9007, -3.0421, -2.8065,  0.5445, -3.0159] # rad
+  max_position: [ 2.7437,  1.7837,  2.9007, -0.1518,  2.8065,  4.5169,  3.0159]
+  # max_velocity:  [2.62, 2.62, 2.62, 2.62, 5.26, 4.18, 5.26]      # rad/s per joint
+  # max_acceleration: [10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0]  # rad/s² per joint
+  # max_jerk: [5000.0, 5000.0, 5000.0, 5000.0, 5000.0, 5000.0, 5000.0]    # rad/s³ per joint
+  # 降低速度/加速度/跃度， 使得运动更平滑， 减少振动
+  max_velocity: [2.096, 2.096, 2.096, 2.096, 4.208, 3.344, 4.208]  # rad/s
+  max_acceleration: [8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0]                # rad/s²
+  max_jerk: [4000.0, 4000.0, 4000.0, 4000.0, 4000.0, 4000.0, 4000.0]  # rad/s³
+  synchronization: true   # Enable synchronization
+  sync_mode: "time"      # Sync mode: "phase", "time", or "none"
+                          # - "phase": Synchronize velocity profiles (smooth coordinated motion)
+                          # - "time": All joints finish at same time (may cause sudden starts/stops)
+                          # - "none": Each joint optimizes independently (fastest per-joint)
 
 # Usage Examples in motion_config.yaml:
 # 
