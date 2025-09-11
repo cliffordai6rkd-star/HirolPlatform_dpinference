@@ -1,0 +1,58 @@
+# 全身触觉传感器服务器配置示例
+# 展示如何配置多个身体部位的触觉传感器
+
+communication_type: "serial"
+taxel_nums: 120
+update_frequency: 100
+
+ip: "*"
+port: 5556
+topic: "PAXINI_TACTILE_STREAM"
+
+# 多控制盒配置 - 全身传感器
+control_boxes:
+  # 左手
+  - name: "left_hand"
+    port: "/dev/ttyACM0"
+    baudrate: 460800
+    timeout: 1.0
+    control_mode: 5
+    sensors:
+      - model: "GEN2-IP-L5325"
+        connect_ids: [5, 6]
+  
+  # 右手  
+  - name: "right_hand"
+    port: "/dev/ttyACM1"
+    baudrate: 460800
+    timeout: 1.0
+    control_mode: 5
+    sensors:
+      - model: "GEN2-IP-L5325"
+        connect_ids: [5, 6]
+        
+  # 躯干
+  - name: "torso"
+    port: "/dev/ttyACM2"
+    baudrate: 460800
+    timeout: 1.0
+    control_mode: 5
+    sensors:
+      - model: "GEN2-IP-L5325"
+        connect_ids: [1, 2, 3, 4]  # 4个躯干传感器
+        
+  # 左腿 (可选)
+  # - name: "left_leg"
+  #   port: "/dev/ttyACM3" 
+  #   baudrate: 460800
+  #   timeout: 1.0
+  #   control_mode: 5
+  #   sensors:
+  #     - model: "GEN2-IP-L5325"
+  #       connect_ids: [5, 6]
+
+# 生成的sensor_id:
+# PAXINI_LEFT_HAND_02_MODULES
+# PAXINI_RIGHT_HAND_02_MODULES  
+# PAXINI_TORSO_04_MODULES
+# PAXINI_LEFT_LEG_02_MODULES (如果启用)

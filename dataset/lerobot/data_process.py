@@ -130,6 +130,7 @@ class EpisodeWriter():
         os.makedirs(self.episode_dir, exist_ok=True)
         os.makedirs(self.color_dir, exist_ok=True)
         os.makedirs(self.depth_dir, exist_ok=True)
+        os.makedirs(self.tactile_dir, exist_ok=True)
         os.makedirs(self.audio_dir, exist_ok=True)
         if self.rerun_log:
             self.online_logger = RerunLogger(prefix="online/", IdxRangeBoundary = 60, memory_limit="300MB")
@@ -196,8 +197,7 @@ class EpisodeWriter():
                 
         # save tactiles
         if tactiles:
-            if self._dict_contain_images(tactiles):
-                self._add_images_to_item_data(idx, tactiles, item_data, self.tactile_dir, 'tactiles')
+            self._add_tactile_to_item_data(idx, tactiles, item_data)
 
         # Save audios
         if audios:
@@ -258,8 +258,29 @@ class EpisodeWriter():
                 path = os.path.join(image_desc, image_name),
                 time_stamp = image_value["time_stamp"]
             )
-        
-    def _dict_contain_images(dict_data: dict):
+    
+    def _add_tactile_to_item_data(self, idx: int, tactiles: dict, item_data: dict):
+        """Save tactile sensor data as numpy arrays"""
+        for sensor_name, sensor_data in tactiles.items():
+            # Extract tactile data array
+            tactile_array = sensor_data['data']
+            timestamp = sensor_data.get('timestamp', 0)
+            
+            # Save tactile data as .npy file
+            tactile_filename = f'tactile_{str(idx).zfill(6)}_{sensor_name}.npy'
+            tactile_path = os.path.join(self.tactile_dir, tactile_filename)
+            np.save(tactile_path, tactile_array.astype(np.int32))
+            
+            # Store reference in episode data
+            if 'tactiles' not in item_data:
+                item_data['tactiles'] = {}
+            item_data['tactiles'][sensor_name] = {
+                'path': os.path.join('tactiles', tactile_filename),
+                'timestamp': timestamp,
+                'shape': tactile_array.shape
+            }
+
+    def _dict_contain_images(self, dict_data: dict):
         for key, value in dict_data.items():
             if value.dtype == np.uint8 or value.dtype == np.uint16:
                 return True

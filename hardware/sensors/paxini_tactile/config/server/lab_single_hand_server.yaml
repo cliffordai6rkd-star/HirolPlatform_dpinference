@@ -1,0 +1,22 @@
+# 实验室双手服务器配置
+# 支持FR3左右手同时广播
+
+communication_type: "serial"
+taxel_nums: 120
+update_frequency: 1000
+
+ip: "*"
+port: 5556
+topic: "PAXINI_TACTILE_STREAM"
+
+# 单控制盒配置
+control_boxes:
+  - name: "left_hand"  # 控制盒名称，用于生成sensor_id
+    port: "/dev/ttyACM1"
+    baudrate: 460800
+    timeout: 1.0
+    control_mode: 5
+    sensors:
+      - model: "GEN2-IP-L5325"
+        connect_ids: [5,6]  # 双指传感器 -> 2个模块,也会决定sensor id 的命名,客户端接收需要注意!
+  

@@ -1,0 +1,29 @@
+# 单控制盒触觉传感器配置 (适用于左手或右手)
+# 专用于Factory模式单传感器配置
+# 
+# 使用方式:
+# sensor_dicts:
+#   tactile:
+#     - name: "left_hand_tactile"   # 可改为 "right_hand_tactile"
+#       type: "paxini_serial_sensor"  
+#       cfg: !include hardware/sensors/paxini_tactile/config/factory/paxini_single_hand.yaml
+#
+# 单手配置说明:
+# - 左手: 使用 /dev/ttyACM0, connect_ids: [5, 6] 
+# - 右手: 改为 /dev/ttyACM1, connect_ids: [5, 6] (根据实际硬件连接)
+
+paxini_serial_sensor:  # ← 顶级标题，工厂自动提取
+  communication_type: "serial"
+  taxel_nums: 120
+  update_frequency: 800  # 与FR3控制频率匹配
+  type: "paxini_tactile"
+  
+  # 单控制盒配置 - 适用于左手或右手
+  control_box:
+    port: "/dev/ttyACM0"      # 左手: /dev/ttyACM0, 右手: /dev/ttyACM1
+    baudrate: 460800
+    timeout: 1.0
+    control_mode: 5  # GEN2系列
+    sensors:
+      - model: "GEN2-IP-L5325"
+        connect_ids: [5, 6]   # 左手: [5,6], 右手: [7,8] (根据实际连接)

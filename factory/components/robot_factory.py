@@ -17,6 +17,9 @@ from hardware.sensors.cameras.agibot_cameras import AgibotCamera
 from hardware.sensors.cameras.ros2_camera import Ros2Camera
 from hardware.sensors.ft_sensor.ati_ft import AtiFt
 from hardware.sensors.cameras.network_camera import NetworkCamera
+from hardware.base.tactile_base import TactileBase
+from hardware.sensors.paxini_tactile.paxini_serial_sensor import PaxiniSerialSensor
+from hardware.sensors.paxini_tactile.paxini_network_sensor import PaxiniNetworkSensor
 import threading
 import time, copy
 from hardware.base.utils import object_class_check
@@ -96,6 +99,11 @@ class RobotFactory:
             'network_camera': NetworkCamera,
         }
         
+        self._tactile_classes = {
+            'paxini_serial_sensor': PaxiniSerialSensor,
+            'paxini_network_sensor': PaxiniNetworkSensor,
+        }
+        
         self._simulation_classes = {
             'mujoco': MujocoSim
         }
@@ -142,7 +150,31 @@ class RobotFactory:
                         num_camera += 1
                     if num_camera:
                         self._sensors['camera'] = cameras_objects  
-                # tactile 
+                        
+                # tactile sensors
+                if 'tactile' in self._sensor_dicts:
+                    tactile_info = self._sensor_dicts["tactile"]
+                    log.info(f"Tactile sensors config: {tactile_info}")
+                    tactile_objects = []
+                    num_tactile = 0
+                    for tactile_info_item in tactile_info:
+                        if not object_class_check(self._tactile_classes, tactile_info_item['type']):
+                            log.error(f"Unknown tactile sensor type: {tactile_info_item['type']}")
+                            raise ValueError(f"Unknown tactile sensor type: {tactile_info_item['type']}")
+                        tactile_type = tactile_info_item['type']
+                        log.info(f"Tactile sensor type: {tactile_type}")
+                        log.info(f"Tactile config: {tactile_info_item['cfg']}")
+                        
+                        # Extract configuration based on sensor type
+                        config_key = 'paxini_serial_sensor' if 'serial' in tactile_type else 'paxini_network_sensor'
+                        tactile_config = tactile_info_item['cfg'][config_key]
+                        
+                        tactile_sensor = self._tactile_classes[tactile_type](tactile_config)
+                        tactile_objects.append({'name': tactile_info_item['name'], 'object': tactile_sensor})
+                        log.info(f"Added tactile sensor: {tactile_info_item['name']}")
+                        num_tactile += 1
+                    if num_tactile:
+                        self._sensors['tactile'] = tactile_objects
                 
                 # FT
             
@@ -445,6 +477,25 @@ class RobotFactory:
             if len(hw_camera_data):
                 cameras_data = hw_camera_data
         return cameras_data
+    
+    def get_tactile_data(self):
+        """Get tactile sensor data from all tactile sensors"""
+        tactile_data = {}
+        if 'tactile' in self._sensors and self._use_hardware:
+            tactile_sensors = self._sensors['tactile']
+            for tactile in tactile_sensors:
+                sensor_name = tactile['name']
+                sensor_object: TactileBase = tactile['object']
+                success, data, timestamp = sensor_object.read_tactile_data()
+                if success and data is not None:
+                    tactile_data[sensor_name] = {
+                        'data': data,
+                        'timestamp': timestamp,
+                        'shape': data.shape
+                    }
+                else:
+                    log.warning(f"Failed to read data from tactile sensor: {sensor_name}")
+        return tactile_data
             
     def move_to_start(self, joint_commands = None, mode = None):
         """

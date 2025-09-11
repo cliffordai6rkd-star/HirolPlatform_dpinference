@@ -1,5 +1,6 @@
 # usage platform
-motion_config: !include factory/components/motion_configs/fr3_with_franka_hand_ik.yaml
+motion_config: !include factory/components/motion_configs/fr3_with_franka_hand_ik_tactile.yaml
+# motion_config: !include factory/components/motion_configs/fr3_with_franka_hand_ik.yaml
 
 target_site_name: ["target_site"]
 tcp_visualization_site: ["TCP_site"]

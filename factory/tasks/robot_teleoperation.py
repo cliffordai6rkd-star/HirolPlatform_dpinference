@@ -225,7 +225,9 @@ class TeleoperationFactory:
                                 if tool_type_dict is None or \
                                     tool_type_dict[key] == ToolType.GRIPPER or \
                                    tool_type_dict[key] == ToolType.SUCTION:
-                                    tool_command = tool_command[0]
+                                    # Extract first element only if tool_command is array/list
+                                    if hasattr(tool_command, '__len__') and len(tool_command) > 0:
+                                        tool_command = tool_command[0]
                                 self._tool_action[key] = dict(tool=dict(
                                     position=tool_command, time_stamp=time.perf_counter()))
 
@@ -329,8 +331,8 @@ class TeleoperationFactory:
                 if len(cur_imus):
                     imus = cur_imus
                 
-                # @TODO: get tactile data
-                tactiles = None
+                # get tactile data
+                tactiles = self._robot_system.get_tactile_data()
                 
                 # get actions
                 motion_action = self._robot_motion_system.get_latest_action()

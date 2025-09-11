@@ -1,0 +1,18 @@
+# 右臂触觉传感器配置
+# 单控制盒配置，用于右手触觉传感
+
+paxini_serial_sensor:
+  communication_type: "serial"
+  taxel_nums: 120
+  update_frequency: 1000  # 单控制盒可使用更高频率
+  type: "paxini_tactile"
+  
+  control_box:
+    port: "/dev/ttyACM4"
+    baudrate: 460800
+    timeout: 1.0
+    control_mode: 5
+    sensors:
+      - model: "GEN2-IP-L5325"
+        # connect_ids: [5]  # 1指 用于测试
+        connect_ids: [5,6]  # 2指完整版本

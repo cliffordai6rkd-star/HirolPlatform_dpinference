@@ -1,0 +1,25 @@
+# 测试客户端配置
+# 连接到lab_dual_hand_server服务器
+
+communication_type: "network"
+taxel_nums: 120
+update_frequency: 100
+type: "paxini_tactile"
+
+# 网络配置 - 匹配lab_dual_hand_server.yaml
+ip: "localhost"
+port: 5556
+topic: "PAXINI_TACTILE_STREAM"
+timeout: 10.0
+
+# 传感器ID - 匹配服务器的2个模块
+sensor_id: "PAXINI_02_MODULES"
+
+# 模拟control_boxes结构(客户端用于计算总模块数)
+control_boxes:
+  - sensors:
+      - model: "GEN2-IP-L5325"
+        connect_ids: [5]  # 左手
+  - sensors:
+      - model: "GEN2-IP-L5325"
+        connect_ids: [5]  # 右手

@@ -1,0 +1,33 @@
+# 测试RobotFactory与tactile传感器集成的配置文件
+# 基于HIROLRobotPlatform的配置格式
+
+use_hardware: true
+use_simulation: false
+
+robot: "duo_arm"
+robot_config: !include hardware/duo_arm/config/duo_arm_cfg.yaml
+
+sensor_dicts:
+  tactile:
+    - name: "dual_arm_tactile"
+      type: "paxini_serial_sensor"
+      cfg: !include hardware/sensors/paxini_tactile/config/factory/paxini_dual_arm.yaml
+
+control_frequency: 800
+controller_type: "impedance"
+controller_config: !include controller/config/impedance_fr3_cfg.yaml
+
+model_type: "duo_model"
+model_config: 
+  name: "duo_fr3_franka_hand"
+  cfg: !include motion/config/robot_model_duo_fr3_cfg.yaml
+
+use_trajectory_planner: false
+buffer_type: "buffer"
+trajectory_planner_type: "cart_polynomial"
+plan_type: "cartesian"
+trajectory_config: !include trajectory/config/cartesian_polynomial_traj_cfg.yaml
+traj_frequency: 450
+
+simulation: "mujoco"
+simulation_config: !include simulation/config/mujoco_duo_fr3_scene.yaml

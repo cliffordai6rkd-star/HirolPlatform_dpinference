@@ -1,0 +1,24 @@
+# 网络左臂触觉传感器配置
+# 用于接收左手远程传感器数据
+
+paxini_network_sensor:
+  communication_type: "network"
+  taxel_nums: 120
+  update_frequency: 100  # 网络频率通常低于串口
+  type: "paxini_tactile"
+  
+  # 网络连接配置
+  ip: "localhost"  # 根据实际服务器IP修改
+  port: 5556
+  topic: "PAXINI_TACTILE_STREAM"
+  sensor_id: "PAXINI_LEFT_HAND_02_MODULES"  # 左手2个模块 01 02 表示几个模块的意思
+  timeout: 5.0
+  reconnect_interval: 1.0
+  
+  # 逻辑配置（与服务器保持一致）
+  control_box:
+    name: "left_hand"
+    sensors:
+      - model: "GEN2-IP-L5325"
+        # connect_ids: [5]  # 1指测试版本
+        connect_ids: [5, 6]  # 2指完整版本

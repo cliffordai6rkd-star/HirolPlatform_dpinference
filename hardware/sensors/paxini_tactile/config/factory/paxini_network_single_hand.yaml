@@ -1,0 +1,34 @@
+# 网络单手触觉传感器配置 (适用于左手或右手)
+# 用于接收远程传感器数据
+#
+# 使用方式:
+# sensor_dicts:
+#   tactile:
+#     - name: "left_hand_tactile"   # 可改为 "right_hand_tactile"
+#       type: "paxini_network_sensor"  
+#       cfg: !include hardware/sensors/paxini_tactile/config/factory/paxini_network_single_hand.yaml
+#
+# 配置说明:
+# - 左手: name: "left_hand", sensor_id: "PAXINI_LEFT_HAND_01_MODULES"
+# - 右手: name: "right_hand", sensor_id: "PAXINI_RIGHT_HAND_02_MODULES", ip可能不同
+
+paxini_network_sensor:  # ← 网络传感器类型
+  communication_type: "network"
+  taxel_nums: 120
+  update_frequency: 100
+  type: "paxini_tactile"
+  
+  # 网络连接配置
+  ip: "localhost"  # 左手: localhost, 右手: 可能是远程IP如192.168.1.100
+  port: 5556
+  topic: "PAXINI_TACTILE_STREAM"
+  sensor_id: "PAXINI_LEFT_HAND_01_MODULES"  # 左手: LEFT_HAND_01, 右手: RIGHT_HAND_02
+  timeout: 5.0
+  reconnect_interval: 1.0
+  
+  # 逻辑配置（与服务器保持一致）
+  control_box:
+    name: "left_hand"  # 左手: "left_hand", 右手: "right_hand" 
+    sensors:
+      - model: "GEN2-IP-L5325"
+        connect_ids: [5]  # 左手: [5], 右手: [5, 6] (根据模块数量)

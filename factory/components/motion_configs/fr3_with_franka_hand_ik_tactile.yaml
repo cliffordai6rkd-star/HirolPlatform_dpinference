@@ -1,0 +1,68 @@
+# usage platform
+use_hardware: true
+use_simulation: true
+
+robot: "fr3"
+robot_config: !include hardware/fr3/config/fr3_cfg.yaml
+gripper: "franka_hand"
+gripper_config: !include hardware/fr3/config/franka_hand_cfg.yaml
+
+use_smoother: true
+smoother_type: "ruckig" #critical_damped
+smoother_config: !include smoother/config/smoother_config_fr3_.yaml
+# Async control configuration
+# This creates true decoupling between low-freq planning and high-freq control
+async_control_frequency: 1000.0     # Async thread sends commands at this rate (Hz)
+auto_enable_async_control: true    # Auto-enable async mode on initialization (new!)
+
+# sensor infos
+sensor_dicts:
+  # tactile sensors - dual arm configuration (two independent sensors)
+  tactile:
+    - name: "left_arm_tactile"
+      type: "paxini_network_sensor"
+      cfg: !include hardware/sensors/paxini_tactile/config/factory/paxini_network_left_arm.yaml
+    # - name: "right_arm_tactile"
+    #   type: "paxini_network_sensor"
+    #   cfg: !include hardware/sensors/paxini_tactile/config/factory/paxini_network_right_arm.yaml
+
+  # tactile:
+  #   - name: "left_arm_tactile"
+  #     type: "paxini_serial_sensor"
+  #     cfg: !include hardware/sensors/paxini_tactile/config/factory/paxini_left_arm.yaml
+    # - name: "right_arm_tactile"
+    #   type: "paxini_serial_sensor"
+    #   cfg: !include hardware/sensors/paxini_tactile/config/factory/paxini_right_arm.yaml
+  
+  # cameras (optional - uncomment if needed)
+  # cameras:
+  #   - name: "ee_cam"
+  #     type: "network_camera"
+  #     cfg: !include hardware/sensors/cameras/config/netcam_cfg_ee_right_fr3.yaml
+  #   - name: "third_person_cam"
+  #     type: "network_camera"
+  #     cfg: !include hardware/sensors/cameras/config/netcam_cfg_third_person_right_fr3.yaml
+  #   - name: "side_cam"
+  #     type: "network_camera"
+  #     cfg: !include hardware/sensors/cameras/config/netcam_cfg_side_right_fr3.yaml
+  
+control_frequency: 800
+controller_type: "ik"
+controller_config: !include controller/config/ik_fr3_cfg.yaml
+
+model_type: "model"
+model_config:
+  name: "fr3_franka_hand"
+  cfg: !include motion/config/robot_model_fr3_cfg.yaml
+
+use_trajectory_planner: false
+buffer_type: "buffer"
+trajectory_planner_type: "cart_polynomial"
+plan_type: "cartesian"
+trajectory_config: !include trajectory/config/cartesian_polynomial_traj_cfg.yaml
+traj_frequency: 450
+
+simulation: "mujoco"
+simulation_config: !include simulation/config/mujoco_fr3_cfg.yaml
+target_site_name: ["target_site"]
+tcp_visualization_site: ["TCP_site"]

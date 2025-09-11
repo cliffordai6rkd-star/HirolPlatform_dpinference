@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Union, Optional, Tuple
+from typing import Union, Optional, Tuple, List
 from scipy.spatial.transform import Rotation as R
 import pinocchio as pin
 import yaml
@@ -57,6 +57,15 @@ class ToolState:
     _is_grasped: bool = False
     _tool_type: ToolType = ToolType.GRIPPER
     _time_stamp: float = 0.0
+
+class PaxiniState:
+    def __init__(self):
+        self._tactile_data: np.ndarray = np.zeros((0, 120, 3))  # Shape: (n_modules, n_taxels, 3)
+        self._module_ids: List[int] = []  # Active sensor module connection IDs
+        self._n_modules: int = 0  # Number of connected modules
+        self._n_taxels: int = 120  # Taxels per module (fixed)
+        self._time_stamp: float = time.perf_counter()
+        self._is_connected: bool = False
     
 class TrajectoryState:
     # size: [num_state, dim_traj]
