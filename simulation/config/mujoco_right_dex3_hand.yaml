@@ -5,18 +5,21 @@ mujoco:
   quat_sequence: "xyzw"
   dt: 0.002
   dof: [7]
+  # align to all the things,
+  # align to hardware
   # joint_names: ["right_hand_thumb_0_joint", "right_hand_thumb_1_joint", "right_hand_thumb_2_joint",
-  #               "right_hand_middle_0_joint", "right_hand_middle_1_joint", "right_hand_index_0_joint",
-  #               "right_hand_index_1_joint"]
+  #               "right_hand_middle_0_joint", "right_hand_middle_1_joint",
+  #               "right_hand_index_0_joint", "right_hand_index_1_joint",]
   # actuator_names: ["right_hand_thumb_0_motor", "right_hand_thumb_1_motor", "right_hand_thumb_2_motor",
-  #               "right_hand_middle_0_motor", "right_hand_middle_1_motor", "right_hand_index_0_motor",
-  #               "right_hand_index_1_motor"]
+  #                   "right_hand_middle_0_motor", "right_hand_middle_1_motor",
+  #                   "right_hand_index_0_motor", "right_hand_index_1_motor",]
+  # align to urdf,  @fix: make hardware align to urdf
   joint_names: ["right_hand_index_0_joint", "right_hand_index_1_joint", "right_hand_middle_0_joint", "right_hand_middle_1_joint",
                    "right_hand_thumb_0_joint", "right_hand_thumb_1_joint", "right_hand_thumb_2_joint",
                 ]
-  actuator_names: ["right_hand_index_0_motor",
-                "right_hand_index_1_motor", "right_hand_middle_0_motor", "right_hand_middle_1_motor", 
-                   "right_hand_thumb_0_motor", "right_hand_thumb_1_motor", "right_hand_thumb_2_motor",]
+  actuator_names: ["right_hand_index_0_motor", "right_hand_index_1_motor", 
+                    "right_hand_middle_0_motor", "right_hand_middle_1_motor", 
+                    "right_hand_thumb_0_motor", "right_hand_thumb_1_motor", "right_hand_thumb_2_motor",]
   actuator_mode: ["position", "position", "position", "position", "position", "position", "position",]
   ee_site_name: "right_hand_site"
   base_body: ["hand_base"]

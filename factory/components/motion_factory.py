@@ -300,7 +300,7 @@ class MotionFactory:
         target_dim = 7 if len(self._ee_links) == 1 else 14
         if len(pose_target) != target_dim:
             log.warn(f'The high level command has wrong len, expected: {target_dim}, but get: {len(pose_target)}')
-            return
+            raise ValueError(f'set target pose dimension is wrong')
         self._high_level_command = copy.deepcopy(pose_target)
         self._high_level_updated = True
     
@@ -359,7 +359,7 @@ class MotionFactory:
     def set_tool_command(self, tool_command: list[np.ndarray] | Dict):
         tool_type_dict = self._robot_system.get_tool_dict_state()
         if tool_type_dict is None:
-            log.warn(f'There is no tool for the robot config!!!')
+            log.debug(f'There is no tool for the robot config!!!')
             return False
         
         # log.info(f'motion tool: {tool_command}')
@@ -381,7 +381,7 @@ class MotionFactory:
 
     def reset_robot_system(self, arm_command: list[float] | None = None, 
                            space: Robot_Space = Robot_Space.JOINT_SPACE,
-                           tool_command: Dict[str, np.ndarray] = None):
+                           tool_command: list[np.ndarray] | Dict[str, np.ndarray] = None):
         mode = ["position"] * len(self._ee_links)
         if space == Robot_Space.CARTESIAN_SPACE:
             if arm_command is not None:

@@ -8,21 +8,21 @@
   <link name="fr3_ati_link">
     <inertial>
       <origin
-        xyz="0.0 0.0 0.015"
+        xyz="0.0 0.0 0.0"
         rpy="0 0 0" />
       <mass
-        value="0.0353" />
+        value="0.0555" />
       <inertia
-        ixx="2.117e-05"
+        ixx="6.117e-05"
         ixy="0.0"
         ixz="0.0"
-        iyy="2.117e-05"
+        iyy="6.117e-05"
         iyz="0.0"
-        izz="2.824e-05" />
+        izz="1e-04" />
     </inertial>
     <visual>
       <origin
-        xyz="-0.078 0.04 -0.035"
+        xyz="-0.0698 0.04 -0.035"
         rpy="0 0 -1.5707963" />
       <geometry>
         <mesh
@@ -36,7 +36,7 @@
     </visual>
     <collision>
       <origin
-        xyz="-0.078 0.04 -0.035"
+        xyz="-0.0698 0.04 -0.035"
         rpy="0 0 -1.5707963" />
       <geometry>
         <mesh
@@ -56,21 +56,21 @@
   <link name="ft_ati_m8_link">
     <inertial>
       <origin
-        xyz="0.0 0.0 0.01"
+        xyz="0.0 0.0 0.0"
         rpy="0 0 0" />
       <mass
         value="0.2784" />
       <inertia
-        ixx="0.0001671"
+        ixx="0.0004"
         ixy="0.0"
         ixz="0.0"
-        iyy="0.0001671"
+        iyy="0.0004"
         iyz="0.0"
-        izz="0.0002227" />
+        izz="0.0007827" />
     </inertial>
     <visual>
       <origin
-        xyz="-0.0185 0.04 0.072"
+        xyz="-0.0102 0.04 0.072"
         rpy="3.14 0 -1.5707963" />
       <geometry>
         <mesh
@@ -84,7 +84,7 @@
     </visual>
     <collision>
       <origin
-        xyz="-0.0185 0.04 0.072"
+        xyz="-0.0102 0.04 0.072"
         rpy="3.14 0 -1.5707963" />
       <geometry>
         <mesh
@@ -104,25 +104,25 @@
   <link name="ati_pika_link">
     <inertial>
       <origin
-        xyz="0.0 0.0 0.015"
+        xyz="0.0 0.0 0.0"
         rpy="0 0 0" />
       <mass
-        value="0.0345" />
+        value="0.0325" />
       <inertia
-        ixx="2.069e-05"
+        ixx="3e-05"
         ixy="0.0"
         ixz="0.0"
-        iyy="2.069e-05"
+        iyy="3e-05"
         iyz="0.0"
-        izz="2.76e-05" />
+        izz="6.86e-05" />
     </inertial>
     <visual>
       <origin
-        xyz="0.005 0 0.045"
-        rpy="0 0 -1.5707963" />
+        xyz="0.01 -0.076 -0.045"
+        rpy="0 0 1.5707963" />
       <geometry>
         <mesh
-          filename="./mesh/ati_pika.STL" scale="0.001 0.001 0.001"/>
+          filename="./mesh/ati_pika_new.STL" scale="0.001 0.001 0.001"/>
       </geometry>
       <material
         name="">
@@ -132,11 +132,11 @@
     </visual>
     <collision>
       <origin
-        xyz="0.005 0 0.045"
-        rpy="0 0 -1.5707963" />
+        xyz="0.01 -0.076 -0.045"
+        rpy="0 0 1.5707963" />
       <geometry>
         <mesh
-          filename="./mesh/ati_pika.STL" scale="0.001 0.001 0.001"/>
+          filename="./mesh/ati_pika_new.STL" scale="0.001 0.001 0.001"/>
       </geometry>
     </collision>
   </link>

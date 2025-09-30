@@ -1,0 +1,14 @@
+fr3_pika_ati: 
+  urdf_path: "assets/franka_fr3/fr3_pika_gripper_ati.urdf"
+  mesh_offset: "assets/franka_fr3"
+  frames: ["base", "fr3_link0", "fr3_link1", "fr3_link2", "fr3_link3", "fr3_link4", 
+          "fr3_link5", "fr3_link6", "fr3_link7", "fr3_link8", "pika_gripper_ee", "gripper_base_link",
+          "gripper_left_link", "gripper_right_link"]
+  base_link: "base"
+  ee_link: "pika_gripper_ee"
+  fixed_base: true
+  lock_joints:
+    - base: "gripper_base_link"
+      end: "gripper_left_link"
+    - base: "gripper_base_link"
+      end: "gripper_right_link"

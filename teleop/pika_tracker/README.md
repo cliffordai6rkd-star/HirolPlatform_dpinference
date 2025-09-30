@@ -5,10 +5,14 @@
 ## 配置
 1. 如果是第一次使用pika sense， 请先下载pika_ros， 通过 `git clone https://github.com/agilexrobotics/pika_ros.git`
 2. 在终端里运行
-    ‵‵‵bash
+    ```bash
         cd pika_ros
         git submodule update --init --recursive
         sudo apt-get update && sudo apt install libjsoncpp-dev ros-noetic-ddynamic-reconfigure libpcap-dev  ros-noetic-serial ros-noetic-ros-numpy ros-noetic-librealsense2 python3-pcl libqt5serialport5-dev build-essential zlib1g-dev libx11-dev libusb-1.0-0-dev freeglut3-dev liblapacke-dev libopenblas-dev libatlas-base-dev cmake  git libssl-dev  pkg-config libgtk-3-dev libglfw3-dev libgl1-mesa-dev libglu1-mesa-dev g++  python3-pip  libopenvr-dev
+        sudo apt install libopenvr-dev
+        <!-- 配置规则 -->
+        sudo cp scripts/81-vive.rules /etc/udev/rules.d/
+        sudo udevadm control --reload-rules && sudo udevadm trigger
     ```
 3. 解压校准文件安装包， 去到pika ros的文件夹下运行以下指令
     ```bash

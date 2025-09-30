@@ -231,7 +231,7 @@ class TeleoperationFactory:
                     
                     # log.info(f'tool target: {tool_target}')
                     # tool_target = dict(single=np.array([0,0]))
-                    self._robot_system.set_tool_command(tool_target)
+                    self._robot_motion_system.set_tool_command(tool_target)
                     tool_type_dict = self._robot_system.get_tool_type_dict()
                     if self._enable_recording and tool_type_dict is not None:
                         with self._tool_action_lock:
@@ -407,6 +407,7 @@ class TeleoperationFactory:
         # move to start
         self._update_high_level_state = False
         log.info(f"{'='*20}, Blocking the Motion process to reset the robot to init state{'='*20}")
+        log.info(f'reset space: {self._reset_space}, command: {self._reset_arm_command}')
         self._robot_motion_system.reset_robot_system(self._reset_arm_command, self._reset_space,
                                                         self._reset_tool_command)
         self._init_pose = {}

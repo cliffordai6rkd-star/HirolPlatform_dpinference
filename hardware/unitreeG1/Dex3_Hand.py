@@ -11,6 +11,10 @@ minLimits_left = [ -1.05 , -0.724 ,   0  , -1.57 , -1.75 , -1.57  ,-1.75]
 maxLimits_right = [  1.05 , 0.742  ,   0  ,  1.57 , 1.75  , 1.57  , 1.75]
 minLimits_right = [ -1.05 , -1.05  , -1.75,    0  ,  0    ,   0   ,0    ]
 
+JOINT_ID_MAPPING = {
+    0: 5, 1: 6, 2: 3, 3: 4, 4: 0, 5: 1, 6: 2
+}
+
 class Dex3Hand(ToolBase):
     _tool_type: ToolType = ToolType.HAND
     _MOTOR_MAX: int = 7
@@ -64,15 +68,17 @@ class Dex3Hand(ToolBase):
             command = posi
             
         for i in range(self._MOTOR_MAX):
-            ris_mode = self._RIS_Mode(id=i, status=0x01, timeout=0)
+            cur_motor_id = JOINT_ID_MAPPING[i]
+            ris_mode = self._RIS_Mode(id=cur_motor_id, status=0x01, timeout=0)
             mode = ris_mode._mode_to_uint8()
             
-            hand_cmd_msg.motor_cmd[i].mode = mode
-            hand_cmd_msg.motor_cmd[i].tau = 0
-            hand_cmd_msg.motor_cmd[i].q = command[i]
-            hand_cmd_msg.motor_cmd[i].dq = 0
-            hand_cmd_msg.motor_cmd[i].kp = 1.5
-            hand_cmd_msg.motor_cmd[i].kd = 0.2
+            hand_cmd_msg.motor_cmd[cur_motor_id].mode = mode
+            hand_cmd_msg.motor_cmd[cur_motor_id].tau = 0
+            cur_command = np.clip(command[i], self._min_values[i], self._max_values[i])
+            hand_cmd_msg.motor_cmd[cur_motor_id].q = cur_command
+            hand_cmd_msg.motor_cmd[cur_motor_id].dq = 0
+            hand_cmd_msg.motor_cmd[cur_motor_id].kp = 1.5
+            hand_cmd_msg.motor_cmd[cur_motor_id].kd = 0.2
         
         log.info(f'dds write hand: {hand_cmd_msg}')
         self._hand_cmd_publisher.Write(hand_cmd_msg)
@@ -89,8 +95,8 @@ class Dex3Hand(ToolBase):
     def _hand_state_handler(self, msg: HandState_):
         with self._state_lock:
             for i in range(self._MOTOR_MAX):
-                self._state._position[i] = msg.motor_state[i].q
-                self._state._force[i] = msg.motor_state[i].tau_est
+                self._state._position[i] = msg.motor_state[JOINT_ID_MAPPING[i]].q
+                self._state._force[i] = msg.motor_state[JOINT_ID_MAPPING[i]].tau_est
             self._state._time_stamp = time.perf_counter()
         log.info(f'dds read hand: {self._state._position}')
     

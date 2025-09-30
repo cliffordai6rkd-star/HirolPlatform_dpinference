@@ -1,9 +1,10 @@
 pika_tracker:
   serial_ports: 
-    left: "/dev/ttyUSB1"
+    left: "/dev/ttyUSB0"
     right: null
   target_device: 
-    left: "WM0" 
+    # LHR-0DFD738C
+    left: "LHR-5EC33B35" 
     right: null
   output_left: true
   output_right: false

@@ -3,7 +3,7 @@ space_mouse:
   # please check your device id by the check_device_id.py
   device_id: 0
   # scale for each action dimension, 0.0008
-  scale: [0.0006, 0.0006, 0.0006, 0.001, 0.0, 0.0]
+  scale: [0.0006, 0.0006, 0.0006, 0.001, 0.001, 0.001]
   low_threshold: [0.02, 0.02, 0.02, 0.04, 0.04, 0.04]
   enable_rotation: true
   # "incremental" "binary"

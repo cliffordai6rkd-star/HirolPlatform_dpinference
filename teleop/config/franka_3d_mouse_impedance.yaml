@@ -10,7 +10,7 @@ tcp_visualization_site: ["TCP_site"]
 # teleoperation used parameter
 # if you are using mujoco simulation target instead of teleoperation device,
 # set use_simulation_target as true
-use_simulation_target: true
+use_simulation_target: false
 teleoperation_loop_time: 0.005
 
 reset_arm_command: [3.69019823e-01,  1.99873044e-04,  3.64437265e-01,  9.99989858e-01,

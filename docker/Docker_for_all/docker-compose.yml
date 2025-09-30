@@ -1,0 +1,58 @@
+
+services:
+  hirol_platform:
+    build:
+      context: .  # Assuming the Dockerfile is in the current directory
+      dockerfile: Dockerfile
+    volumes:
+      - ../../:/workspace
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - /sys/bus/usb:/sys/bus/usb:ro
+      - /sys/class/input:/sys/class/input:ro
+      # 设备目录
+      - /dev:/dev
+      - /dev/bus/usb:/dev/bus/usb
+      - /dev/input:/dev/input
+      # 蓝牙socket（如果使用蓝牙）
+      - /var/run/dbus:/var/run/dbus
+      - /run/dbus:/run/dbus
+    environment:
+      - ROS_DOMAIN_ID=13
+      - DISPLAY=$DISPLAY
+      - http_proxy=
+      - https_proxy=
+      - no_proxy=
+      - SDL_VIDEODRIVER=x11
+      - SDL_AUDIODRIVER=pulse
+      # 设备权限相关
+      - UDEV=1
+      # - http_proxy=http://127.0.0.1:7897
+      # - https_proxy=http://127.0.0.1:7897
+      # - no_proxy=localhost,127.0.0.1
+    devices:
+      - /dev/bus/usb:/dev/bus/usb  # Mount USB devices
+      - /dev/input:/dev/input
+      # 蓝牙支持（如果需要）
+      - /var/run/dbus:/var/run/dbus
+      - /run/dbus:/run/dbus
+    privileged: true
+    user: teleophost
+    network_mode: host
+    stdin_open: true
+    group_add:
+      - "plugdev"  # 添加用户组
+      - "input"      # 添加input组，用于访问输入设备
+      - "dialout"    # 串口设备访问（有些手柄可能需要）
+    tty: true
+    command: ["tail", "-f", "/dev/null"]
+    deploy:
+      resources:
+        limits:
+          memory: 32G
+          cpus: '16.0'
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu, graphics, display, utility, video, compute]
+

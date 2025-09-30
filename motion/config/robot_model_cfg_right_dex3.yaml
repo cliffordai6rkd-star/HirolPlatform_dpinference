@@ -1,7 +1,7 @@
 urdf_path: "assets/unitree_g1/right_dex3_hand.urdf"
 mesh_offset: "assets/unitree_g1"
-frames: ["world", "rh_tcp", "rm_tcp", "ri_tcp"]
+frames: ["world", "rt_tcp", "rm_tcp", "ri_tcp"]
 # maybe we need to lock the hand related joint
 base_link: "world"
-ee_link: ["rh_tcp", "rm_tcp", "ri_tcp"]
+ee_link: ["rt_tcp", "rm_tcp", "ri_tcp"]
 fixed_base: true

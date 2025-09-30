@@ -1,6 +1,6 @@
 whole_body_ik:
   tracking_frames:
-  - name: "rh_tcp"
+  - name: "rt_tcp"
     dim: [4, 4]
     require_trans: true
     trans_scalar: 1.0

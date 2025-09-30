@@ -1,6 +1,6 @@
 # usage platform
 use_hardware: true
-use_simulation: false
+use_simulation: true
 
 robot: "fr3"
 robot_config: !include hardware/fr3/config/fr3_cfg.yaml
@@ -27,7 +27,7 @@ sensor_dicts:
     - name: "side_cam"
       type: "realsense_camera"
       cfg: !include hardware/sensors/cameras/config/rs_cfg_sidecam.yaml
-
+  
 control_frequency: 800
 controller_type: "ik"
 controller_config: !include controller/config/ik_fr3_cfg.yaml

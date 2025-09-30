@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pinocchio as pin
 import os
+import glog as log
 import numpy as np
 import casadi
 import pinocchio.casadi as cpin
@@ -23,7 +24,7 @@ def get_joint_ids_between_frames(model: pin.Model, base_frame_id: str,
     end_joint = model.frames[base_frame_id].parentJoint
     while True:
         joint_ids.append(curr_joint)
-        print(f'joint name: {model.names[curr_joint]}')
+        log.info(f'joint name: {model.names[curr_joint]}')
         curr_joint = model.parents[curr_joint]
         if model.parents[end_joint] == model.parents[curr_joint] or curr_joint < 0:
             break
@@ -65,14 +66,14 @@ class RobotModel(ModelBase):
             # self.model = pin.buildModelFromUrdf(self.urdf_path, 
                                                 # root_joint = pin.JointModelFreeFlyer(),
                                                 # package_dirs=mesh_dir)
-        print(f'full model, nq:{self.model.nq}, nv: {self.model.nv}')
+        log.info(f'full model, nq:{self.model.nq}, nv: {self.model.nv}')
         # update frames info:
         for frame_name in self.frame_names:
             if not self.model.existFrame(frame_name):
                 raise ValueError(f"The pin model could not find frame {frame_name}")
             else:
                 frame_id = self.model.getFrameId(frame_name)
-                print(f'get frame id: {frame_id} for {frame_name}')
+                log.info(f'get frame id: {frame_id} for {frame_name}')
                 self.frames_name2id[frame_name] = frame_id
                 if frame_name == self.base_link:
                     self.base_id = frame_id
@@ -94,7 +95,11 @@ class RobotModel(ModelBase):
         self.data = self.model.createData()
         self.nq = self.model.nq
         self.nv = self.model.nv
-        print(f'nq:{self.nq}, nv: {self.nv}')
+        log.info(f'nq:{self.nq}, nv: {self.nv}')
+        
+        # check jont id and name 
+        for jid, jName in enumerate(self.model.names):
+            log.info(f'joint id: {jid}, name: {jName}')
                     
         # init ik casadi optimization
         if self.tracking_frames is not None:
@@ -352,7 +357,7 @@ class RobotModel(ModelBase):
             q_target = self.opti.value(self.var_q)
             return True, q_target, "position"
         except Exception as e:
-            print(f"ERROR in convergence{e}")
+            log.error(f"ERROR in convergence{e}")
             return False, None, "position"
             
     def id(self, joint_positions, joint_velocity, joint_accleration, model_type = "single"):
@@ -370,7 +375,7 @@ if __name__ == '__main__':
     config = None
     cur_path = os.path.dirname(os.path.abspath(__file__))
     cfg_file = os.path.join(cur_path, 'config/robot_model_cfg_template.yaml')
-    print(f'cfg file name: {cfg_file}')
+    log.info(f'cfg file name: {cfg_file}')
     with open(cfg_file, 'r') as stream:
         config = yaml.safe_load(stream)
     robot_model = RobotModel(config)
@@ -379,7 +384,7 @@ if __name__ == '__main__':
     mujoco_config = os.path.join(cur_path, "..", mujoco_config)
     with open(mujoco_config, 'r') as stream:
         config = yaml.safe_load(stream)
-    print(f'mujoco: {config}')
+    log.info(f'mujoco: {config}')
     mujoco = MujocoSim(config["mujoco"])
     
     mocap_names = ["lh", "rh", "lf", "rf"]
@@ -391,14 +396,14 @@ if __name__ == '__main__':
             pose_7d = mujoco.get_site_pose(mocap + "_site", quat_seq="xyzw")
             pose_7d[:3] -= pevis_pose[:3]
             target[name] = pose_7d 
-        print(f'target: {target}')
+        log.info(f'target: {target}')
         joint_states = mujoco.get_joint_states()
         start = time.time()
         pose_cur = robot_model.get_frame_pose("left_hand_palm_link", joint_states._positions,
                                                  need_update=True)
-        print(f'pose_cur: {pose_cur}')
+        log.info(f'pose_cur: {pose_cur}')
         success, command, mode = robot_model.ik(target, joint_states)
-        print(f'used time for ik: {time.time() - start}')
+        log.info(f'used time for ik: {time.time() - start}')
         if success:
             mujoco.set_joint_command([mode]*robot_model.nv, command)
         time.sleep(0.006)

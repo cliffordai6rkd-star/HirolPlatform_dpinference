@@ -1,7 +1,6 @@
 import numpy as np
 from typing import Union, Optional, Tuple, List
 from scipy.spatial.transform import Rotation as R
-import pinocchio as pin
 import yaml
 import warnings
 from collections import deque
@@ -40,9 +39,9 @@ def combine_two_joint_states(joint_state1: RobotJointState, joint_state2: RobotJ
     return new_state
 
 class ToolType(Enum):
-    GRIPPER = 0
-    SUCTION = 1
-    HAND = 2
+    GRIPPER = "gripper"
+    SUCTION = "suction"
+    HAND = "hand"
 
 class ToolControlMode(Enum):
     BINARY = "binary"
@@ -208,16 +207,17 @@ def convert_quat_to_rot_matrix(quat):
     rot = R.from_quat(quat).as_matrix()
     return rot
 
-def convert_se3_2_7D_pose(se3: pin.SE3):
-    """
-        @brief: convert a pinocchio SE3 to a 6D pose
-        @params:
-            se3: the pinocchio SE3 object
-        @return: the 6D pose in [x, y, z, qx, qy, qz, qw] format
-    """
-    position = se3.translation
-    rotation = convert_rot_matrix_to_quat(se3.rotation)
-    return np.concatenate((position, rotation))  # [x, y, z, qx, qy, qz, qw]
+# import pinocchio as pin
+# def convert_se3_2_7D_pose(se3: pin.SE3):
+#     """
+#         @brief: convert a pinocchio SE3 to a 6D pose
+#         @params:
+#             se3: the pinocchio SE3 object
+#         @return: the 6D pose in [x, y, z, qx, qy, qz, qw] format
+#     """
+#     position = se3.translation
+#     rotation = convert_rot_matrix_to_quat(se3.rotation)
+#     return np.concatenate((position, rotation))  # [x, y, z, qx, qy, qz, qw]
 
 def convert_homo_2_7D_pose(homo):
     pose_7d = np.zeros(7)

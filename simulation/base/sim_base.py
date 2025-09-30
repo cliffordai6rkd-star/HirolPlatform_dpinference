@@ -1,5 +1,5 @@
-import abc
-from hardware.base.utils import RobotJointState
+import abc, copy, threading
+from hardware.base.utils import RobotJointState, ToolState
 import numpy as np
 from typing import Optional, List, Dict
 from collections import deque
@@ -13,26 +13,47 @@ class SimBase(abc.ABC, metaclass=abc.ABCMeta):
         self.base_body_name = config.get("base_body", [])
         self._joint_names = config['joint_names']
         self._dof = config['dof']
+        self.lock = threading.Lock()
         # states
         self._joint_states = RobotJointState()
+        self._tool_states = None
+        self._tool_type = None
         
     @abc.abstractmethod
     def sim_thread(self):
         raise NotImplementedError
     
-    @abc.abstractmethod
     def get_joint_states(self) -> RobotJointState:
         """Get the current joint states from the simulation."""
-        raise NotImplementedError
+        self.lock.acquire()
+        cur_joint_states = copy.deepcopy(self._joint_states)
+        self.lock.release()
+        return cur_joint_states
     
     @abc.abstractmethod
     def get_tcp_pose(self) -> np.ndarray:
         """Get the current tcp poses from the simulation."""
         raise NotImplementedError
     
+    def get_tool_type_dict(self)-> Dict:
+        """Get the tool type dict for all tools in the simulation."""
+        return self._tool_type
+    
+    def get_tool_state(self)-> ToolState:
+        """Get the current tool states from the simulation."""
+        self.lock.acquire()
+        cur_tool_states = copy.deepcopy(self._tool_states)
+        self.lock.release()
+        return cur_tool_states
+    
     @abc.abstractmethod
-    def set_joint_command(self, mode: list[str],  actuator_action:np.ndarray) -> np.ndarray:
+    def set_joint_command(self, mode: list[str],  actuator_action:np.ndarray):
         """set the joint commands for the simulation."""
+        raise NotImplementedError
+    
+    @abc.abstractmethod
+    def set_tool_command(self, tool_action:dict[str, np.ndarray]):
+        """set the tool commands for the simulation."""
         raise NotImplementedError
     
     @abc.abstractmethod

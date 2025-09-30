@@ -9,6 +9,7 @@ from hardware.base.utils import dynamic_load_yaml
 import numpy as np
 from hardware.base.utils import negate_pose, transform_pose, convert_homo_2_7D_pose, convert_7D_2_homo, transform_quat, pose_diff
 import time, copy
+import glog as log
 
 def get_sim_base_world_transform(sim: MujocoSim):
     world2base_pose = [np.array([0, 0, 0, 0, 0, 0, 1])]
@@ -27,7 +28,7 @@ def main0():
     mujoco_cfg = "simulation/config/mujoco_right_dex3_hand.yaml"
     mujoco_cfg = get_cfg(mujoco_cfg)["mujoco"]
     mujoco = MujocoSim(mujoco_cfg)
-    target_mocap = ["rh", "rm", "ri"]
+    target_mocap = ["rt", "rm", "ri"]
     tcp_mocaps = ["TCPL", "TCPR"]
     world2base_pose, base2world_pose = get_sim_base_world_transform(mujoco)
     print(f'base2world: {base2world_pose}')
@@ -49,27 +50,30 @@ def main0():
             # pose_7d[2] -= (1.0 - 0.6485) 
             cur_target = {name:pose_7d}
             target.append(cur_target)
-        print(f'target: {target}')
+        # print(f'target: {target}')
         joint_states = mujoco.get_joint_states()
-        print(f'joint state: {joint_states._positions}')
-        # model.update_kinematics(joint_states._positions)
-        # for i, tcp_mocap in enumerate(target_mocap):
-        #     # cur pose
-        #     name = wbik.tracking_frames[i]["name"]
-        #     print(f'{i}th name: {name}')
-        #     pose_cur = model.get_frame_pose(name, joint_states._positions,
-        #                                             need_update=False)
-        #     pose_cur = convert_homo_2_7D_pose(pose_cur)
-        #     pose_cur = transform_pose(world2base_pose[0], pose_cur)
-        #     mujoco.set_target_mocap_pose(tcp_mocap, pose_cur)
-        #     print(f'pose_cur for {name}: {pose_cur}')
+        # print(f'joint state: {joint_states._positions}')
+        
+        # check forward kinematics
+        model.update_kinematics(joint_states._positions)
+        for i, tcp_mocap in enumerate(target_mocap):
+            # cur pose
+            name = wbik.tracking_frames[i]["name"]
+            # print(f'{i}th name: {name}')
+            pose_cur = model.get_frame_pose(name, joint_states._positions,
+                                                    need_update=False)
+            pose_cur = convert_homo_2_7D_pose(pose_cur)
+            pose_cur[2] += 0.3
+            # pose_cur = transform_pose(world2base_pose[0], pose_cur)
+            mujoco.set_target_mocap_pose(tcp_mocap, pose_cur)
+            # print(f'pose_cur for {name}: {pose_cur}')
 
-        start = time.time()
-        success, command, mode = wbik.compute_controller(target, joint_states)
-        print(f'used time for ik: {time.time() - start}')
-        print(f'joint command: {command}, mode: {mode}')
-        if success:
-            mujoco.set_joint_command([mode]*model.nv, command)
+        # start = time.time()
+        # success, command, mode = wbik.compute_controller(target, joint_states)
+        # print(f'used time for ik: {time.time() - start}')
+        # print(f'joint command: {command}, mode: {mode}')
+        # if success:
+        #     mujoco.set_joint_command([mode]*model.nv, command)
         # else:
         #     raise ValueError
         time.sleep(0.01)
@@ -99,27 +103,27 @@ def hardware_testing():
     dex3.set_hardware_command(minLimits_right)
     time.sleep(2)
     
-    test_dof = 0 
+    test_dof = 0
     if test_dof < 0: test_dof = 0
     if test_dof > dex3._MOTOR_MAX: test_dof = dex3._MOTOR_MAX - 1
     print(f'test dof: {test_dof}')
-    value = 1.0
     posi = copy.deepcopy(minLimits_right)
+    # posi[1:2] = [maxLimits_right[1], maxLimits_right[2]]
     counter = 0
     while True:
-        if counter % 100 == 0:
+        if counter % 1000 == 0:
             if np.isclose(posi[test_dof], minLimits_right[test_dof]):
-                posi[test_dof] += value 
+                posi[test_dof] = maxLimits_right[test_dof]
             else: 
                 posi[test_dof] = minLimits_right[test_dof]
             time.sleep(0.005)
             print(f'posi: {posi[test_dof]}, min: {minLimits_right[test_dof]}')
-            dex3.set_hardware_command(posi)
-            
+            # dex3.set_hardware_command(posi)
+        log.info(f'posi: {posi[test_dof]}, min: {minLimits_right[test_dof]}')
         # mujoco sync
         hand_state = dex3.get_tool_state()._position
         nv = len(hand_state)
-        # mujoco.set_joint_command(['position']*nv, hand_state)
+        mujoco.set_joint_command(['position']*nv, hand_state)
         
         counter += 1
         time.sleep(0.001)

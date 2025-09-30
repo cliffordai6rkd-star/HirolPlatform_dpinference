@@ -121,12 +121,12 @@
   </link>
 
   <!-- thumb tcp -->
-  <joint name="rh_tcp_joint" type="fixed">
+  <joint name="rt_tcp_joint" type="fixed">
     <origin xyz="0 0.072 0" rpy="0 0 0"/>
     <parent link="right_hand_thumb_2_link"/>
-    <child link="rh_tcp"/>
+    <child link="rt_tcp"/>
   </joint>
-  <link name="rh_tcp"/>
+  <link name="rt_tcp"/>
 
   <joint name="right_hand_middle_0_joint" type="revolute">
     <origin xyz="0.0777 -0.0016 -0.0285" rpy="0 0 0"/>
@@ -187,13 +187,22 @@
     </collision>
   </link>
 
-  <!-- middle tcp -->
+  <!-- middle tcp, @TODO: check frame -->
+  <link name="rm_tcp">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.136 0.01 0.01"/>
+      </geometry>
+    </visual>
+  </link>
   <joint name="rm_tcp_joint" type="fixed">
-    <origin xyz="0.072 0 0" rpy="0 0 0"/>
+    <origin xyz="0.068 0 0" rpy="0 0 0"/>
     <parent link="right_hand_middle_1_link"/>
     <child link="rm_tcp"/>
+    <!-- <axis xyz="0.0 0.0 1.0"/>
+    <limit effort="1.4" velocity="12" lower="0" upper="1.74532925"/> -->
   </joint>
-  <link name="rm_tcp"/>
 
   <joint name="right_hand_index_0_joint" type="revolute">
     <origin xyz="0.0777 -0.0016 0.0285" rpy="0 0 0"/>

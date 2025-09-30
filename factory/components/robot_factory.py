@@ -10,6 +10,7 @@ from hardware.monte01.monte01 import Monte01
 from hardware.fr3.franka_hand import FrankaHand
 from hardware.unitreeG1.unitree_g1 import UnitreeG1
 from hardware.unitreeG1.Dex3_Hand import Dex3Hand
+from hardware.tools.grippers.pika_gripper import PikaGripper
 from hardware.duo_tool import DuoTool
 from simulation.mujoco.mujoco_sim import MujocoSim
 from hardware.base.camera import CameraBase
@@ -85,13 +86,14 @@ class RobotFactory:
             'agibot_g1': AgibotG1,
             'monte01': Monte01,
             'duo_arm': DuoArm,
-            'unitree_g1': UnitreeG1
+            'unitree_g1': UnitreeG1,
         }
        
         self._gripper_classes = {
             'franka_hand': FrankaHand,
             'duo_tool': DuoTool,
-            'dex3_hand': Dex3Hand
+            'dex3_hand': Dex3Hand,
+            'pika_gripper': PikaGripper,
         }
         
         self._camera_classes = {
@@ -105,6 +107,10 @@ class RobotFactory:
         self._tactile_classes = {
             'paxini_serial_sensor': PaxiniSerialSensor,
             'paxini_network_sensor': PaxiniNetworkSensor,
+        }
+        
+        self._ft_classes = {
+            'ati_ft': AtiFt,
         }
         
         self._simulation_classes = {
@@ -125,7 +131,6 @@ class RobotFactory:
             self._robot = self._robot_classes[self._robot_type](self._config["robot_config"][self._robot_type])
             
             # Initialize tool system - support both legacy _tool and modern _grippers
-            # @TODO: get tool
             if self._gripper_type is not None:
                 if object_class_check(self._gripper_classes, self._gripper_type):
                     self._tool = self._gripper_classes[self._gripper_type](self._config["gripper_config"][self._gripper_type])
@@ -179,7 +184,7 @@ class RobotFactory:
                     if num_tactile:
                         self._sensors['tactile'] = tactile_objects
                 
-                # FT
+                # @TODO: FT
             
         if self._use_simulation:
             if not object_class_check(self._simulation_classes, self._simulation_type):
@@ -223,10 +228,6 @@ class RobotFactory:
             self._use_smoother = False
             self._smoother = None
     
-        # Initialize learning inference components if configured
-        # 注意：ACT推理运行器有独立的学习组件初始化逻辑，此处可跳过
-        # self._initialize_learning_components()
-        
     def _initialize(self):
         if self._use_hardware:
             if not self._robot.initialize():
@@ -287,13 +288,17 @@ class RobotFactory:
         return joint_states
     
     def get_tool_dict_state(self):
-        if self._tool is None:
-            return None
+        sim_tool_state = None
+        if self._use_simulation:
+            sim_tool_state = self._simulation.get_tool_state()
         
-        cur_tool_state = self._tool.get_tool_state()
-        if not isinstance(cur_tool_state, dict):
-            tool_state = {"single": cur_tool_state}
-        else: tool_state = cur_tool_state
+        if self._use_hardware and self._tool is not None:
+            hw_tool_state = self._tool.get_tool_state()
+            if not isinstance(hw_tool_state, dict):
+                hw_tool_state = {"single": hw_tool_state}
+        else: hw_tool_state = None
+        # take hw state if possible
+        tool_state = hw_tool_state if hw_tool_state is not None else sim_tool_state
         return tool_state
         
     def get_robot_dofs(self):
@@ -354,6 +359,7 @@ class RobotFactory:
             return self._robot.check_and_clear_recovery_flag()
         return False
     
+    # Not used for external call, only for class internal use for hardware control
     def set_robot_joint_command(self, joint_command, mode, execute_hardware:bool = True,
                                 update_action = False):
         # log.info(f'mode: {mode}')
@@ -416,29 +422,43 @@ class RobotFactory:
             return mode in ['position', 'velocity']
             
     def set_tool_command(self, tool_command: dict[str, np.ndarray]):
-        if self._tool is None:
-            log.debug(f'Tool is not connected')
-            return False
-        
         cur_tool_command = copy.deepcopy(tool_command)
-        tool_type_dict = self._tool.get_tool_type_dict()
+        tool_type_dict = self.get_tool_type_dict()
         for key, tool_type in tool_type_dict.items():
             if tool_type == ToolType.GRIPPER or tool_type == ToolType.SUCTION:
                 cur_tool_command[key] = np.array(cur_tool_command[key])
-                if cur_tool_command[key].ndim != 0: 
-                    cur_tool_command[key] = cur_tool_command[key][0]
+                if cur_tool_command[key].ndim == 0: 
+                    cur_tool_command[key] = np.array([cur_tool_command[key]])
+                cur_tool_command[key] = cur_tool_command[key][0]
             else:
+                # @TODO: should not have this logic @zyx: need to fix
                 cur_tool_command[key] = np.array(cur_tool_command[key][::-1])
-                
-        if 'single' in cur_tool_command:
-            cur_tool_command = cur_tool_command["single"]
-        return self._tool.set_tool_command(cur_tool_command)
+        
+        # for simulation 
+        sim_res = False
+        if self._use_simulation:
+            sim_res = self._simulation.set_tool_command(cur_tool_command)
+        
+        # for hardware
+        hw_res = False
+        if self._tool and self._use_hardware:
+            if 'single' in cur_tool_command:
+                cur_tool_command = cur_tool_command["single"]
+            hw_res = self._tool.set_tool_command(cur_tool_command)
+        
+        res = sim_res if not self._tool else hw_res
+        return res
     
     def get_tool_type_dict(self):
-        if self._tool is None:
-            return None
+        sim_tool_type_dict = None
+        if self._use_simulation:
+           sim_tool_type_dict = self._simulation.get_tool_type_dict()
         
-        tool_type_dict = self._tool.get_tool_type_dict()
+        hw_tool_type_dict = None
+        if self._use_hardware and self._tool:
+            hw_tool_type_dict = self._tool.get_tool_type_dict()
+            
+        tool_type_dict = hw_tool_type_dict if hw_tool_type_dict is not None else sim_tool_type_dict
         return tool_type_dict
 
     def close(self):
@@ -524,14 +544,11 @@ class RobotFactory:
                            If None, use robot's default move_to_start (immediate)
         """
         if joint_commands is not None and self._use_smoother and self._smoother is not None:
-            # Update smoother target
-            self._smoother.update_target(joint_commands, immediate=False)
-            
-            # Create temporary control loop to actually move the robot
             if mode is None:
                 raise ValueError("Mode must be specified when using smoother for move_to_start")
             log.info(f"Move to start mode: {mode}, command: {joint_commands} with smoother")
             self.set_joint_commands(joint_commands, mode, execute_hardware=self._enable_hardware)
+            # @TODO: use detection method to ensure the time is enough for robot to reach the start configuration
             time.sleep(1.5)
             
         else:
@@ -544,8 +561,8 @@ class RobotFactory:
                 self._simulation.move_to_start(None)
             if self._use_hardware:
                 self._robot.move_to_start()
-            # Resume smoother and sync to current position
             time.sleep(0.002)
+            # Resume smoother and sync to current position
             self.resume_smoother()
     
     def pause_smoother(self) -> None:

@@ -7,7 +7,7 @@ import mujoco.viewer
 import numpy as np
 import threading
 import time
-from hardware.base.utils import RobotJointState, transform_pose, negate_pose
+from hardware.base.utils import RobotJointState, transform_pose, negate_pose, ToolType, ToolState
 import copy
 from simulation.base.sim_base import SimBase
 from simulation.mujoco.mujoco_env_creator import MujocoEnvCreator
@@ -24,11 +24,22 @@ class MujocoSim(SimBase):
         self._actuator_names = config["actuator_names"]
         self._actuator_mode = config['actuator_mode']
         self.end_effector_site_name = config.get('ee_site_name', None)
+        self._tool_infos = config.get('tool_infos', None)
+        self._tool_actuator_names = None
+        if self._tool_infos:
+            self._tool_joint_names = dict()
+            self._tool_actuator_names = dict()
+            self._tool_type = dict()
+            for key, tool in self._tool_infos.items():
+                self._tool_type[key] = ToolType(tool["type"])
+                self._tool_joint_names[key] = tool["joint_names"]
+                self._tool_actuator_names[key] = tool["actuator_names"]
+            log.info(f'tool type: {self._tool_type}')
         #  key: sensor name, value: sensor data dim
         self._sensor_dict = config.get('sensor_dict', None)
         self._cam_infos = []
         self._cam_render: dict[str, mujoco.Renderer] = {}
-        # self._render_lock = threading.Lock()
+        self._render_lock = threading.Lock()
         self._extra_render = config["extra_render"]
         self.use_custom_key_frame = config.get("use_custom_key_frame", False)
         
@@ -42,11 +53,10 @@ class MujocoSim(SimBase):
         
         # start mujoco thread
         self._theread_running = True
-        self.lock = threading.Lock()
         self._thread = threading.Thread(target=self.sim_thread)
         self._thread.start()
         # @TODO: decide sleep time
-        time.sleep(0.4)
+        time.sleep(0.5)
     
     def sim_thread(self):
         if self._model is None or self._data is None:
@@ -68,15 +78,18 @@ class MujocoSim(SimBase):
             viewer.sync()
             while viewer.is_running() and self._theread_running:
                 step_start = time.time()
-                mujoco.mj_step(self._model, self._data)
-                if self._extra_render:
-                    self.render(viewer)
-                viewer.sync()                
-               
-                # print('update simulation state!!!')
-                self.lock.acquire()
-                self.update_simulation_states()
-                self.lock.release()
+
+                # Step 1: Physics step with render_lock (avoid concurrent camera access to _data)
+                with self._render_lock:
+                    mujoco.mj_step(self._model, self._data)
+                    if self._extra_render:
+                        self.render(viewer)
+
+                viewer.sync()
+
+                # Step 2: State update with lock (separate from render_lock to avoid deadlock)
+                with self.lock:
+                    self.update_simulation_states()
 
                 used_time = time.time() - step_start
                 time_until_next_step = self._dt - used_time
@@ -107,6 +120,7 @@ class MujocoSim(SimBase):
             actuator_id = self._model.actuator(self._actuator_names[i]).id
             self._joint_states._torques[i] = self._data.qfrc_actuator[actuator_id]
         # print(f'joint position: {self._joint_states._positions}')
+        
         # ee pose update
         # if self.end_effector_site_name is not None:
         #     ee_site_pose = self.get_site_pose(self.end_effector_site_name, self._quat_sequence)
@@ -116,13 +130,21 @@ class MujocoSim(SimBase):
         #     ee_site_pose = transform_pose(base2world_pose, ee_site_pose)
         #     if not ee_site_pose is None:
         #         self._ee_site_pose = ee_site_pose
-
-    def get_joint_states(self) -> RobotJointState:
-        self.lock.acquire()
-        cur_joint_states = copy.deepcopy(self._joint_states)
-        self.lock.release()
-        return cur_joint_states
-    
+        
+        # get tool state
+        if not self._tool_infos: return
+        
+        for key, joint_names in self._tool_joint_names.items():
+            for i, joint_name in enumerate(joint_names):
+                joint_id = mujoco.mj_name2id(self._model, mujoco.mjtObj.mjOBJ_JOINT, joint_name)
+                if joint_id < 0:
+                    raise ValueError(f"Joint '{joint_name}' for {key} not found in the Mujoco model for tools,"
+                                    "please check your mujoco config & xml file.")
+                qpos_adr = self._model.jnt_qposadr[joint_id]
+                self._tool_states[key]._position[i] = self._data.qpos[qpos_adr]
+                if self._tool_type == ToolType.GRIPPER:
+                    self._tool_states[key]._position[i] = 2 * self._tool_states[key]._position[i]
+            
     def get_tcp_pose(self) -> np.ndarray | None:
         if self._ee_site_pose is None:
             return None
@@ -154,8 +176,10 @@ class MujocoSim(SimBase):
             
             # command execution
             if mode[i] == 'position':
-                qpos_adr = self._model.jnt_qposadr[joint_id]
-                self._data.qpos[qpos_adr] = target
+                actuator_id = self._model.actuator(self._actuator_names[i]).id
+                self._data.ctrl[actuator_id] = target
+                # qpos_adr = self._model.jnt_qposadr[joint_id]
+                # self._data.qpos[qpos_adr] = target
             elif mode[i] == "velocity":
                 qvel_adr = self._model.jnt_dofadr[joint_id]
                 self._data.qvel[qvel_adr] = target
@@ -165,6 +189,32 @@ class MujocoSim(SimBase):
             else:
                 raise ValueError(f"Unsupported mode for {i}th actuator '{mode[i]}'. Supported modes are 'position', 'velocity', and 'torque'.")
     
+    def set_tool_command(self, tool_action):
+        if not self._tool_actuator_names:
+            log.warn("The tool actuator names are not correctly configured in the mujoco config")
+            return False
+        
+        if len(tool_action) != len(self._tool_actuator_names):
+            raise ValueError(f"The tool action contains {len(tool_action)} but simulation has {len(self._tool_actuator_names)}.")
+        
+        for key, action in tool_action.items():
+            # compatable with gripper single value
+            if self._tool_type[key] == ToolType.GRIPPER:
+                if action.ndim == 0:
+                    action = np.array([action])
+            
+            # checking
+            if len(action) != len(self._tool_actuator_names[key]):
+                raise ValueError(f"The action {action} length {len(action)} for {key} does not match the number of tool actuators {len(self._tool_actuator_names[key])}.")
+            
+            for i, target in enumerate(action):
+                actuator_name = self._tool_actuator_names[key][i]
+                actuator_id = self._model.actuator(actuator_name).id
+                if actuator_id < 0:
+                    raise ValueError(f"Actuator '{actuator_name}' not found in the Mujoco model.")
+                self._data.ctrl[actuator_id] = target
+        return True
+        
     def close(self):
         self._theread_running = False
         self._thread.join()
@@ -239,27 +289,27 @@ class MujocoSim(SimBase):
         img = None
         for cam_info in self._cam_infos:
             if camera_name == cam_info['name']:
-                self._cam_render[camera_name].update_scene(self._data, camera=cam_info['id'])
-                img = self._cam_render[camera_name].render()
+                with self._render_lock:
+                    self._cam_render[camera_name].update_scene(self._data, camera=cam_info['id'])
+                    img = self._cam_render[camera_name].render()
                 return img[:,:,::-1]
         raise ValueError(f'Could not extract image for {camera_name}')
     
     def get_all_camera_images(self) -> list[dict] | None:
-        images = None
-        nums_image = 0
+        if not self._cam_infos:
+            return None
+
         collected_img = []
-        # @TODO: add depth reading
-        for cam_info in self._cam_infos:
-            name = cam_info['name']
-            self._cam_render[name].update_scene(self._data, camera=cam_info['id'])
-            img = self._cam_render[name].render()[:,:,::-1]
-            time_stamp = time.perf_counter()
-            collected_img.append({'name': name+'_color', 'img': img, 
-                'resolution': cam_info['resolution'], 'time_stamp': time_stamp})
-            nums_image += 1
-        if nums_image:
-            images = collected_img
-        return images
+        with self._render_lock:
+            for cam_info in self._cam_infos:
+                name = cam_info['name']
+                self._cam_render[name].update_scene(self._data, camera=cam_info['id'])
+                img = self._cam_render[name].render()[:,:,::-1]
+                time_stamp = time.perf_counter()
+                collected_img.append({'name': name+'_color', 'img': img,
+                    'resolution': cam_info['resolution'], 'time_stamp': time_stamp})
+
+        return collected_img if collected_img else None
              
     def parse_relative_path(self, relative_path):
         cur_path = os.path.dirname(os.path.abspath(__file__))
@@ -270,7 +320,7 @@ class MujocoSim(SimBase):
         """parse config to get the Mujoco model and data."""
         # @TODO: Require modification to achieve dynamic loading 
         model_path = self.parse_relative_path(self._config['base_xml_file'])
-        print(f'model path: {model_path}')
+        log.info(f'model path: {model_path}')
         self._model = mujoco.MjModel.from_xml_path(model_path)
         self._data = mujoco.MjData(self._model)
         
@@ -279,7 +329,16 @@ class MujocoSim(SimBase):
             robot_xml_path = self.parse_relative_path(self._config['robot_xml'])
             self._init_pose = self.extract_custom_params(robot_xml_path, 'init_pos')
             log.info(f'init pose: {self._init_pose}')
-            self.set_joint_position(self._init_pose)
+            arm_posi = self._init_pose[:len(self._joint_names)]
+            # self.set_joint_command(["position"]*len(arm_posi), arm_posi)
+            self.set_joint_position(arm_posi)
+            if self._tool_infos:
+                self._init_tool_action = {}; start = len(self._joint_names)
+                for key, tool_actuators in self._tool_actuator_names.items():
+                    self._init_tool_action[key] = np.array(self._init_pose[start:start+len(tool_actuators)])
+                    start += len(tool_actuators)
+                log.info(f'init tool action: {self._init_tool_action}')
+                self.set_tool_command(self._init_tool_action)
         
         # model creation based on mujoco env config
         # env_cfg = self._config["env_config"]
@@ -294,7 +353,16 @@ class MujocoSim(SimBase):
         self._joint_states._velocities  = np.zeros(nv)
         self._joint_states._accelerations  = np.zeros(nv)
         self._joint_states._torques  = np.zeros(nv)
-        
+        if self._tool_infos:
+            self._tool_states = dict()
+            for key, joint_names in self._tool_joint_names.items():
+                nv = len(joint_names)
+                self._tool_states[key] = ToolState()
+                self._tool_states[key]._position = np.zeros(nv)
+                self._tool_states[key]._force = np.zeros(nv)
+                self._tool_states[key]._is_grasped = False
+                self._tool_states[key]._tool_type = self._tool_type
+            
         # sensor
         # cameras
         self.add_cameras()
@@ -302,6 +370,7 @@ class MujocoSim(SimBase):
         
         return True
 
+    # @Notice: ignore physics by directly set the joint position
     def set_joint_position(self, values):
         if len(values) != len(self._joint_names):
             log.warn("The target position dim does not match with defined joint names")
@@ -315,6 +384,7 @@ class MujocoSim(SimBase):
                 raise ValueError(f"Joint '{joint_name}' not found in the Mujoco model.")
             
             qpos_adr = self._model.jnt_qposadr[joint_id]
+            log.info(f'joint name: {joint_name}, id: {joint_id}, qpos adr: {qpos_adr}')
             self._data.qpos[qpos_adr] = target
 
     def extract_custom_params(self, xml_path, param_name):
@@ -345,7 +415,7 @@ class MujocoSim(SimBase):
         if not data:
             raise ValueError(f"Could not find data element of the {param_name} with {name}")
         else:
-            print(f"data: {data} for {param_name}'s {name}")
+            log.info(f"init joint data: {data} for {param_name}'s {name}")
         return data
     
     def render(self, viewer):
@@ -395,9 +465,16 @@ class MujocoSim(SimBase):
         
     def move_to_start(self, joint_commands=None):
         if joint_commands is None:
-            commands = self._init_pose
+            commands = self._init_pose[:len(self._joint_names)]
         else: commands = joint_commands
-        self.set_joint_command(["position"] * len(self._actuator_mode), commands)
+        # self.set_joint_command(["position"] * len(self._actuator_mode), commands)
+        self.set_joint_position(commands)
+        
+        # tool_actions = tool_commands
+        # if self._tool_infos and tool_commands is None:
+        #     tool_actions = self._init_tool_action
+        # if tool_actions:
+        #     self.set_tool_command(tool_actions)
     
 if __name__ == '__main__':
     import yaml
@@ -405,8 +482,10 @@ if __name__ == '__main__':
     config = None
     cur_path = os.path.dirname(os.path.abspath(__file__))
     # /config/mujoco_fr3_cfg.yaml,config/mujoco_duo_fr3.yaml, config/mujoco_fr3_scene.yaml
-    cfg = '../config/mujoco_fr3_scene.yaml'
+    # cfg = '../config/mujoco_fr3_scene.yaml'
     # cfg = '../config/mujoco_duo_xarm7.yaml'
+    cfg = '../config/mujoco_fr3_pika_ati_posi.yaml'
+    # cfg = '../config/mujoco_duo_fr3.yaml'
     cfg_file = os.path.join(cur_path, cfg)
     print(f'cfg file name: {cfg_file}')
     with open(cfg_file, 'r') as stream:

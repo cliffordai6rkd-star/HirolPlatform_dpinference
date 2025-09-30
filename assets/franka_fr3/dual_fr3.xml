@@ -232,21 +232,21 @@
 
   <actuator>
     <!-- left -->
-    <motor class="fr3" name="left_fr3_actuator1" joint="left_fr3_joint1" ctrlrange="-75 75"/>
-    <motor class="fr3" name="left_fr3_actuator2" joint="left_fr3_joint2" ctrlrange="-75 75"/>
-    <motor class="fr3" name="left_fr3_actuator3" joint="left_fr3_joint3" ctrlrange="-75 75"/>
-    <motor class="fr3" name="left_fr3_actuator4" joint="left_fr3_joint4" ctrlrange="-75 75"/>
-    <motor class="fr3" name="left_fr3_actuator5" joint="left_fr3_joint5" ctrlrange="-10 10"/>
-    <motor class="fr3" name="left_fr3_actuator6" joint="left_fr3_joint6" ctrlrange="-10 10"/>
-    <motor class="fr3" name="left_fr3_actuator7" joint="left_fr3_joint7" ctrlrange="-10 10"/>
+    <position class="fr3" name="left_fr3_actuator1" joint="left_fr3_joint1"  kp="500" dampratio="1"/>
+    <position class="fr3" name="left_fr3_actuator2" joint="left_fr3_joint2"  kp="500" dampratio="1"/>
+    <position class="fr3" name="left_fr3_actuator3" joint="left_fr3_joint3"  kp="500" dampratio="1"/>
+    <position class="fr3" name="left_fr3_actuator4" joint="left_fr3_joint4"  kp="500" dampratio="1"/>
+    <position class="fr3" name="left_fr3_actuator5" joint="left_fr3_joint5"  kp="500" dampratio="1"/>
+    <position class="fr3" name="left_fr3_actuator6" joint="left_fr3_joint6"  kp="500" dampratio="1"/>
+    <position class="fr3" name="left_fr3_actuator7" joint="left_fr3_joint7"  kp="500" dampratio="1"/>
     <!-- right -->
-    <motor class="fr3" name="right_fr3_actuator1" joint="right_fr3_joint1" ctrlrange="-75 75"/>
-    <motor class="fr3" name="right_fr3_actuator2" joint="right_fr3_joint2" ctrlrange="-75 75"/>
-    <motor class="fr3" name="right_fr3_actuator3" joint="right_fr3_joint3" ctrlrange="-75 75"/>
-    <motor class="fr3" name="right_fr3_actuator4" joint="right_fr3_joint4" ctrlrange="-75 75"/>
-    <motor class="fr3" name="right_fr3_actuator5" joint="right_fr3_joint5" ctrlrange="-10 10"/>
-    <motor class="fr3" name="right_fr3_actuator6" joint="right_fr3_joint6" ctrlrange="-10 10"/>
-    <motor class="fr3" name="right_fr3_actuator7" joint="right_fr3_joint7" ctrlrange="-10 10"/>
+    <position class="fr3" name="right_fr3_actuator1" joint="right_fr3_joint1"  kp="500" dampratio="1"/>
+    <position class="fr3" name="right_fr3_actuator2" joint="right_fr3_joint2"  kp="500" dampratio="1"/>
+    <position class="fr3" name="right_fr3_actuator3" joint="right_fr3_joint3"  kp="500" dampratio="1"/>
+    <position class="fr3" name="right_fr3_actuator4" joint="right_fr3_joint4"  kp="500" dampratio="1"/>
+    <position class="fr3" name="right_fr3_actuator5" joint="right_fr3_joint5"  kp="500" dampratio="1"/>
+    <position class="fr3" name="right_fr3_actuator6" joint="right_fr3_joint6"  kp="500" dampratio="1"/>
+    <position class="fr3" name="right_fr3_actuator7" joint="right_fr3_joint7"  kp="500" dampratio="1"/>
   </actuator>
 
   <!-- init position definition -->

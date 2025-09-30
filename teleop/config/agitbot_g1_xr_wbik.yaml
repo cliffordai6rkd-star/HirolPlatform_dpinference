@@ -2,7 +2,7 @@ motion_config: !include factory/components/motion_configs/agibot_g1_wbik.yaml
 
 teleop_interface: "meta_quest3"
 interface_config: !include teleop/xr/meta_quest3_cfg.yaml
-inteface_output_mode: "relative"
+inteface_output_mode: "absolute_delta"
 
 target_site_name: ["targetL_site", "targetL_site"]
 tcp_visualization_site: ["TCPL_site", "TCPR_site"]
@@ -11,7 +11,3 @@ tcp_visualization_site: ["TCPL_site", "TCPR_site"]
 # set use_simulation_target as true
 use_simulation_target: true
 teleoperation_loop_time: 0.005
-
-teleop_interface: "duo_space_mouse"
-interface_config: !include teleop/space_mouse/duo_space_mouse_cfg.yaml
-inteface_output_mode: "relative"

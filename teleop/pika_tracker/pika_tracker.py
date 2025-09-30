@@ -94,7 +94,8 @@ class PikaTracker(TeleoperationDeviceBase):
                     tracker.set_vive_tracker_config(
                         config_path=self._vive_config_path,
                         lh_config=self._vive_lh_config,
-                        args=self._vive_args
+                        args=self._vive_args,
+                        pose_offset=True, use_uid=True
                     )
                 
                 for j in range(self._tracker_detection_attempts):
