@@ -1,6 +1,6 @@
 fr3:
   dof: 7
-  ip: "192.168.1.206"
+  ip: "192.168.1.208"
   # damping: [20, 20, 20, 20, 20, 20, 20]
   # if impedance set damping [0]*7
   # damping: [0, 0, 0, 0, 0, 0, 0]

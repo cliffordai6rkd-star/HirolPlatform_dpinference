@@ -46,6 +46,9 @@ services:
     command: ["tail", "-f", "/dev/null"]
     deploy:
       resources:
+        limits:
+          memory: 32G
+          cpus: '16.0'
         reservations:
           devices:
             - driver: nvidia

@@ -199,11 +199,11 @@ class DuoSpaceMouse(TeleoperationDeviceBase):
         
         success, left_data, left_other = self.devices['left'].parse_data_2_robot_target(mode)
         if not success:
-            log.warn('The left device did not successfully parse the data')
+            log.debug('The left device did not successfully parse the data')
             return False, None, None
         success, right_data, right_other = self.devices['right'].parse_data_2_robot_target(mode)
         if not success:
-            log.warn('The right device did not successfully parse the data')
+            log.debug('The right device did not successfully parse the data')
             return False, None, None
             
         pose_target = {'left': left_data['single'], 'right': right_data['single']}

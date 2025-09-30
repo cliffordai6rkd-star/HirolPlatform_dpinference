@@ -1,6 +1,7 @@
 # usage platform
 use_hardware: true
-use_simulation: true
+use_simulation: false
+is_debug: false
 
 robot: "fr3"
 robot_config: !include hardware/fr3/config/fr3_cfg.yaml
@@ -16,14 +17,17 @@ async_control_frequency: 800.0     # Async thread sends commands at this rate (H
 auto_enable_async_control: true    # Auto-enable async mode on initialization (new!)
 
 # sensor infos
-# sensor_dicts:
-#   cameras:
-#     - name: "ee_cam"
-#       type: "network_camera"
-#       cfg: !include hardware/sensors/cameras/config/netcam_cfg_ee.yaml
-#     - name: "third_person_cam"
-#       type: "network_camera"
-#       cfg: !include hardware/sensors/cameras/config/netcam_cfg_third_person.yaml
+sensor_dicts:
+  cameras:
+    - name: "ee_cam"
+      type: "network_camera"
+      cfg: !include hardware/sensors/cameras/config/netcam_cfg_ee.yaml
+    - name: "third_person_cam"
+      type: "network_camera"
+      cfg: !include hardware/sensors/cameras/config/netcam_cfg_third_person.yaml
+    - name: "side_cam"
+      type: "network_camera"
+      cfg: !include hardware/sensors/cameras/config/netcam_cfg_side.yaml
 
 control_frequency: 800
 controller_type: "ik"

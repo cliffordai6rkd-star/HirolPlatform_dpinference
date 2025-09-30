@@ -173,3 +173,4 @@ gymnasium
 # @TODO: solve this problem, we need pysurvive only support python3.10
 # agx-pypika==0.1.0
 lz4
+h5py

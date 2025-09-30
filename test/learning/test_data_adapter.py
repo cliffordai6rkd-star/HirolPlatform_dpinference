@@ -6,7 +6,7 @@ import numpy as np
 from unittest.mock import Mock
 
 from hardware.base.utils import RobotJointState
-from learning.inference.data_adapter import (
+from dependencies.act.data_adapter import (
     RobotDataAdapter, 
     FR3DataAdapter, 
     Monte01DataAdapter,

@@ -58,14 +58,29 @@ read -p "确认以上信息无误，按回车键继续，或Ctrl+C取消..."
 echo ""
 echo "🏃 启动Monte01双臂ACT推理..."
 
-# 使用现有的run_act_inference.py，指定monte01机器人类型
-python learning/demo/run_act_inference.py \
-    --robot monte01 \
-    --ckpt_dir "$CKPT_DIR" \
-    --config "$CONFIG_FILE" \
-    --frequency 5.0 \
-    --max_steps 1500 \
-    --log_level INFO
+# 使用新的统一推理任务架构
+python -c "
+import sys
+sys.path.insert(0, '$(dirname $(dirname $(pwd)))')
+
+from factory.tasks.inferences_tasks.act.act_inference import ACT_Inferencer
+from hardware.base.utils import dynamic_load_yaml
+
+# 加载配置
+if '$CONFIG_FILE':
+    config = dynamic_load_yaml('$CONFIG_FILE')
+else:
+    config = dynamic_load_yaml('factory/tasks/inferences_tasks/act/config/monte01_act_inference_cfg.yaml')
+
+# 覆盖检查点路径
+config['checkpoint_path'] = '$CKPT_DIR'
+config['frequency'] = 5.0
+config['max_episode_length'] = 1500
+
+# 创建并启动推理器
+act_inferencer = ACT_Inferencer(config)
+act_inferencer.start_inference()
+"
 
 RESULT=$?
 

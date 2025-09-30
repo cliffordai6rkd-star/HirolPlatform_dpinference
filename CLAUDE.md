@@ -125,3 +125,5 @@ When implementing robot control:
 - **Smoothing**: Critical damping smoother reduces jerk by ~70%
 - **IK Solving**: Levenberg-Marquardt solver optimal for most cases
 - **Multi-camera**: Use threading for parallel camera capture
+
+重申一遍，禁止使用try-except和fallback，它们是万恶之源！！！

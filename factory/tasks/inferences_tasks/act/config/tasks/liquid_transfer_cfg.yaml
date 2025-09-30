@@ -1,0 +1,30 @@
+# 倒水任务特定配置
+task_type: "liquid_transfer"
+max_step_nums: 550
+gripper_lock_duration: 0.0  # 倒水任务需要更长的夹爪锁定时间
+
+# 倒水任务的checkpoint路径模式
+checkpoint_patterns:
+  - "fr3_liquid_transfer*"
+  - "*liquid*transfer*"
+  - "*pour*"
+  - "*water*"
+
+# 夹爪控制策略配置
+gripper_postprocess:
+  enabled: true
+  control_mode: "task_aware"  # 使用任务感知控制
+
+  # 倒水任务特定参数
+  close_value_threshold: 0.02
+  required_close_duration: 0.0  # 倒水需要更长确认时间(1s)
+
+  # 倒水任务禁用的功能
+  grasp_check_enabled: false  # 禁用抓取检测 - 紧握是正常的
+  grasp_check_delay: 60
+  max_grasp_retries: 3
+  retry_wait_time: 23
+
+  # 安全参数 - 倒水任务允许更紧的抓取
+  min_grasp_width: 0.0001  # 设置很小允许紧抓
+  max_grasp_width: 0.070

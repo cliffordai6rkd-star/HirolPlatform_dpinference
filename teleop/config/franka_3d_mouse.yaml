@@ -27,64 +27,9 @@ reset_space: "joint"
 #                     -2.65401198e-03, -1.43284955e-03,  3.34460145e-03]
 # reset_space: "cartesian"
 
-# data collection related
-save_path_prefix: "peg_in_hole"
-task_description: "pick up the peg on the table and put it in the hole"
-task_description_goal: "pick up the peg on the table and place it in the correct hole"
-task_description_step:
-  "step1: find the peg on the table. step2: go to the location of the peg
-  step3: pick up the only peg on the table. step4: find the only hole in the peg station. step5:
-  go to the top of the hole. step6: place the peg into the hole"
-# save_path_prefix: "block_stacking"
-# task_description: "stack colored blocks in the order: red -> green -> blue -> yellow"
-# task_description_goal: "build a tower by stacking blocks in the correct color sequence"
-# task_description_step: "
-#   step1: locate the red block on the table.
-#   step5: locate the blue block on the table.
-#   step6: pick up the blue block and place it on top of the red block.
-#   step7: locate the yellow block on the table.
-#   step8: pick up the yellow block and place it on top of the blue block.
-#   step9: verify the tower is stable with the order: red -> blue -> yellow."
-
-# save_path_prefix: "solid_transfer"
-# task_description: "transfer rice from the box into the bowl"
-# task_description_goal: "move all rice grains from the source box to the target bowl without spilling"
-# task_description_step: |
-#   step1: locate the box containing rice on the table.
-#   step2: position the tool (e.g., scoop or gripper) above the rice pile.
-#   step3: collect a portion of rice from the box.
-#   step4: lift the tool while ensuring no rice falls.
-#   step5: locate the target bowl on the table.
-#   step6: move the tool to a position above the bowl's center.
-#   step7: pour/deposit the rice into the bowl.
-
-# save_path_prefix: "liquid_transfer"
-# task_description: "pour water from the left cup to the right cup"
-# task_description_goal: "transfer all liquid between cups without spilling"
-# task_description_step: |
-#   step1: locate the left cup containing water on the table.
-#   step2: calculate safe tilt angle and trajectory for pouring.
-#   step3: grasp the left cup firmly.
-#   step4: lift the left cup to pouring height above the right cup.
-#   step5: tilt the left cup gradually to initiate flow.
-#   step6: monitor liquid flow rate during pouring.
-#   step7: stop tilting when left cup is empty or right cup is full.
-#   step8: return left cup to upright position.
-#   step9: verify no residual liquid in left cup and right cup reached target volume.
-
-# TBD ...
-# save_path_prefix: "solid_weighing"
-# task_description: "measure solid material to reach target weight"
-# task_description_goal: "get ≥9.5g material in container"
-# task_description_step: |
-#   step1: place empty container on scale and tare.
-#   step2: add material until scale shows ≥9.5g.
-
-# save_path_prefix: "powder_weighing"
-# task_description: "dispense powder to reach target weight"
-# task_description_goal: "measure powder until scale shows ≥9.5g"
-# task_description_step: |
-#   step1: place empty container on scale and tare.
-#   step2: open powder valve for 1 second (~8g initial flow).
-#   step3: if weight <9.5g:
-#     - pulse valve (0.2s bursts) until ≥9.5g.
+# Task configuration (will be populated dynamically by task selection)
+# The following fields will be set by the program:
+# - save_path_prefix
+# - task_description
+# - task_description_goal
+# - task_description_step
