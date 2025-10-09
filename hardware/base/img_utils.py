@@ -1,16 +1,42 @@
 import cv2
 import numpy as np
 
-def combine_image(img1:cv2.Mat, img2:cv2.Mat):
-    # 找到两张图像中较小的尺寸
-    min_height = min(img1.shape[0], img2.shape[0])
-    min_width = min(img1.shape[1], img2.shape[1])
-    
-    # 将两张图像都resize到较小的尺寸
-    img1_resized = cv2.resize(img1, (min_width, min_height))
-    img2_resized = cv2.resize(img2, (min_width, min_height))
+def combine_image(img1: cv2.Mat, img2: cv2.Mat):
+    """
+    Combine two images horizontally while preserving aspect ratio.
 
-    # 将两张图像水平拼接
+    Strategy: Resize both images to have the same height (minimum of the two),
+    then concatenate horizontally. Width is adjusted proportionally to maintain aspect ratio.
+
+    Args:
+        img1: First image (can be already combined from previous calls)
+        img2: Second image to append
+
+    Returns:
+        Horizontally concatenated image
+    """
+    # Get target height (minimum of the two images)
+    target_height = min(img1.shape[0], img2.shape[0])
+
+    # Resize img1 to target height, preserving aspect ratio
+    h1, w1 = img1.shape[:2]
+    if h1 != target_height:
+        scale1 = target_height / h1
+        new_w1 = int(w1 * scale1)
+        img1_resized = cv2.resize(img1, (new_w1, target_height))
+    else:
+        img1_resized = img1
+
+    # Resize img2 to target height, preserving aspect ratio
+    h2, w2 = img2.shape[:2]
+    if h2 != target_height:
+        scale2 = target_height / h2
+        new_w2 = int(w2 * scale2)
+        img2_resized = cv2.resize(img2, (new_w2, target_height))
+    else:
+        img2_resized = img2
+
+    # Horizontal concatenation
     concatenated_image = cv2.hconcat([img1_resized, img2_resized])
     return concatenated_image
 

@@ -1,0 +1,60 @@
+# Hand-Eye Calibration Configuration
+# Type: Eye-to-Hand (camera fixed in world, robot moves board)
+# Board: ChArUco
+# Robot: Franka FR3
+
+# RobotMotion configuration file path
+# NOTE: This should be a path string, not !include (RobotMotion loads it internally)
+robot_motion_config: "factory/tasks/config/robot_motion_fr3_cfg.yaml"
+
+calibration:
+  # Calibration type: 'eye_in_hand' or 'eye_to_hand'
+  type: "eye_to_hand"
+
+  # Calibration board configuration
+  board:
+    type: "charuco"  # 'charuco' or 'aruco'
+
+    # ChArUco board parameters (CharuCO-300 standard)
+    square_length: 0.020  # Square side length in meters (20mm)
+    marker_length: 0.015  # ArUco marker side length in meters (15mm)
+    board_size: [14, 9]   # Number of squares [columns, rows]
+    aruco_dict: "DICT_5X5_250"  # ArUco dictionary type
+
+  # Camera configuration
+  camera:
+    # Camera name (must match camera name in RobotMotion config)
+    # For eye-to-hand, camera is typically external/fixed
+    name: "external_camera_color"
+
+    # Detection parameters
+    min_corner_count: 8  # Minimum ChArUco corners for pose estimation
+    max_reprojection_error: 2.0  # Maximum reprojection error in pixels
+
+  # Workspace configuration (for automatic grid collection)
+  # Note: For eye-to-hand, robot moves board through camera's field of view
+  workspace:
+    # Grid center in robot base frame [x, y, z] (meters)
+    # Adjust this to be visible to the fixed camera
+    center: [0.4, 0.0, 0.2]
+
+    # Grid size [nx, ny, nz]
+    grid_size: [4, 4, 3]
+
+    # Grid spacing [dx, dy, dz] (meters)
+    spacing: [0.06, 0.06, 0.06]
+
+    # Random orientation range (degrees)
+    # Important: Keep board roughly facing camera
+    orientation_randomness: 25
+
+  # Calibration solver configuration
+  solver:
+    # Solver method: 'Tsai', 'Park', 'Horaud', 'Andreff', 'Daniilidis'
+    method: "Tsai"
+
+    # Minimum number of samples required
+    min_samples: 12  # Eye-to-hand typically needs more samples
+
+  # Data save path (relative to calibration directory)
+  data_save_path: "calibration_data/eye_to_hand_fr3_charuco"
