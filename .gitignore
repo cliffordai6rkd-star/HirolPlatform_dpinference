@@ -28,6 +28,7 @@ dataset/data
 dependencies/corenetic_ros2_ws
 hardware/base/__pycache__/arm.cpython-310.pyc
 learning/ckpts
+calibration_data/
 factory/tasks/inferences_tasks/act/ckpts
 /logs
 CLAUDE.md

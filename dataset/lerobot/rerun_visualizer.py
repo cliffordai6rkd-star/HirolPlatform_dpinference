@@ -13,6 +13,9 @@ from dataset.lerobot.reader import RerunEpisodeReader, ActionType
 from datetime import datetime
 import logging_mp
 os.environ["RUST_LOG"] = "error"
+import logging_mp
+logger_mp = logging_mp.get_logger(__name__, level=logging_mp.INFO)
+
 
 # Initialize logger for the module
 logger_mp = logging_mp.get_logger(__name__, level=logging_mp.INFO)
@@ -214,7 +217,7 @@ class RerunLogger:
                rr.Points3D(positions=positions, colors=[100, 255, 100], radii=[0.003]))  # Light green points
 
     def log_item_data(self, item_data: dict):
-        rr.set_time("idx", sequence=item_data.get('idx', 0))
+        rr.set_time_sequence("idx", sequence=item_data.get('idx', 0))
 
         # Log states
         states = item_data.get('joint_states', {}) or {}
@@ -222,7 +225,7 @@ class RerunLogger:
             positions = joint_state["position"]
             # logger_mp.info(f'{key} joint_state: {positions}')
             for idx, val in enumerate(positions):
-                rr.log(f"{self.prefix}{key}/joint_states/qpos/{idx}", rr.Scalars([val]))
+                rr.log(f"{self.prefix}{key}/joint_states/qpos/{idx}", rr.Scalar(val))
 
         # Log actions
         actions = item_data.get('actions', {}) or {}
@@ -231,7 +234,7 @@ class RerunLogger:
             if action_val is not None:
                 logger_mp.info(f'Logging action {action_key} with shape: {action_val.shape if hasattr(action_val, "shape") else type(action_val)}')
                 for idx, val in enumerate(action_val):
-                    rr.log(f"{self.prefix}{action_key}/actions/qpos/{idx}", rr.Scalars([val]))
+                    rr.log(f"{self.prefix}{action_key}/actions/qpos/{idx}", rr.Scalar(val))
             else:
                 logger_mp.warning(f'Could not find {action_key} for action_key')
                 
@@ -417,15 +420,15 @@ class RerunLogger:
             self.log_item_data(item_data)
 
 if __name__ == "__main__":
-    import logging_mp
-    from dataset.lerobot.reader import ActionType
-    logger_mp = logging_mp.get_logger(__name__, level=logging_mp.INFO)
+
 
     # # TEST DATA OF data_dir
-    # data_dir = "/home/yuxuan/Code/hirol/teleoperated_trajectory/fr3/0910/picking_up_kiwi_0910_fr3_50ep_side"
-    data_dir = "/home/yuxuan/Code/HIROLRobotPlatform/dataset/data/solid_transfer"
-    episode_data_number = 3
-    fps = 40
+    # /home/yuxuan/Code/hirol/teleoperated_trajectory/block_stacking
+    # /home/yuxuan/Code/hirol/teleoperated_trajectory/pick_N_place
+    # data_dir = "/home/yuxuan/Code/hirol/teleoperated_trajectory/pick_N_place"
+    data_dir = "/home/hanyu/code/HIROLRobotPlatform/dataset/data/robot_motion_test"
+    episode_data_number = 11
+    fps = 30
     skip_step_nums = 1
     episode_dir = f"episode_{str(episode_data_number).zfill(4)}"
     if os.path.exists(os.path.join(data_dir, episode_dir)):

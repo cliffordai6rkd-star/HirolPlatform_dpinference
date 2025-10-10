@@ -1,0 +1,91 @@
+# Hand-Eye Calibration Configuration
+# Type: Eye-in-Hand (camera mounted on robot end-effector)
+# Board: ChArUco
+# Robot: Franka FR3
+
+# RobotMotion configuration file path
+# NOTE: This should be a path string, not !include (RobotMotion loads it internally)
+robot_motion_config: "factory/tasks/config/robot_motion_fr3_cfg.yaml"
+
+calibration:
+  # Calibration type: 'eye_in_hand' or 'eye_to_hand'
+  type: "eye_in_hand"
+
+  # Calibration board configuration
+  board:
+    type: "charuco"  # 'charuco' or 'aruco'
+
+    # ChArUco board parameters (ChArUco-400: 5×5 board, 30mm squares, 22.5mm markers)
+    square_length: 0.030  # Square side length in meters (30mm)
+    marker_length: 0.0225 # ArUco marker side length in meters (22.5mm)
+    board_size: [12, 9]    # Number of squares [columns, rows]
+    aruco_dict: "DICT_5X5_250"  # ArUco dictionary type (5×5 markers)
+
+  # Camera configuration
+  camera:
+    # Camera name - must EXACTLY match a camera name in RobotMotion config
+    # This is the "name" field in motion_config's sensor_dicts.cameras[]
+    #
+    # Example motion_config (factory/components/motion_configs/fr3_with_franka_hand_ik.yaml):
+    #   sensor_dicts:
+    #     cameras:
+    #       - name: "ee_cam"           # ← Use this name
+    #         type: "realsense"
+    #         cfg: !include hardware/sensors/cameras/config/d435i_ee_1.yaml
+    #       - name: "external_cam"      # ← Or this name
+    #         type: "realsense"
+    #         cfg: !include hardware/sensors/cameras/config/d435i_external.yaml
+    #
+    # To see available cameras, run calibration once and check logs for:
+    #   "Available cameras in RobotMotion: [...]"
+    #
+    # Note: Currently supports single camera calibration only.
+    #       Multi-camera parallel calibration is a planned feature.
+    name: "ee_cam_1"
+
+    # Detection parameters
+    min_corner_count: 8  # Minimum ChArUco corners for pose estimation (was 4 in old code, increased for robustness)
+    max_reprojection_error: 2.0  # Maximum reprojection error in pixels
+
+    # Camera intrinsic calibration
+    # If enabled, will perform camera calibration using the same ChArUco detections
+    # and save calibrated intrinsics for use in hand-eye calibration
+    calibrate_intrinsics: false  # Enable camera intrinsic calibration
+
+    # Calibration flags (bitwise OR, see cv2.CALIB_* constants)
+    # 0 = calibrate all parameters (fx, fy, cx, cy, k1-k3, p1-p2)
+    # cv2.CALIB_FIX_ASPECT_RATIO = fix fx/fy ratio
+    # cv2.CALIB_FIX_PRINCIPAL_POINT = fix cx, cy at image center
+    # cv2.CALIB_ZERO_TANGENT_DIST = set p1=p2=0
+    # cv2.CALIB_FIX_K3 = set k3=0
+    calibration_flags: 0  # Calibrate all parameters
+
+  # Workspace configuration (for automatic grid collection)
+  workspace:
+    # Grid center in robot base frame [x, y, z] (meters)
+    center: [0.3, 0.0, 0.5]
+
+    # Grid size [nx, ny, nz]
+    # Increase grid size for more diverse poses (3×3×3 = 27 poses)
+    grid_size: [3, 3, 3]
+
+    # Grid spacing [dx, dy, dz] (meters)
+    # Increase spacing for larger translation variation
+    spacing: [0.06, 0.06, 0.04]
+
+    # Random orientation range (degrees)
+    # CRITICAL: Tsai algorithm requires large rotations (20-30° recommended)
+    # Each pose gets random rotation within ±this range on each axis
+    orientation_randomness: 15
+
+  # Calibration solver configuration
+  solver:
+    # Solver method: 'Tsai', 'Park', 'Horaud', 'Andreff', 'Daniilidis'
+    # Tsai is most robust for general cases
+    method: "Tsai"
+
+    # Minimum number of samples required
+    min_samples: 10
+
+  # Data save path (relative to calibration directory)
+  data_save_path: "calibration_data/eye_in_hand_fr3_charuco"

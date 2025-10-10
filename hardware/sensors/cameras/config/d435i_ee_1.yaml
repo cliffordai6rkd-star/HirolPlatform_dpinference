@@ -1,0 +1,8 @@
+realsense_camera:
+  image_shape: [480, 640]
+  fps: 15
+  serial_number: "405622073844"
+  contain_depth: false
+  contain_imu: false
+
+#正前方手腕相机

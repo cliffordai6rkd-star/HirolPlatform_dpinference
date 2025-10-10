@@ -45,7 +45,7 @@ class EpisodeWriter():
         self.rerun_log = rerun_log
         if self.rerun_log:
             log.info("==> RerunLogger initializing...\n")
-            self.rerun_logger = RerunLogger(prefix="online/", IdxRangeBoundary = 60, memory_limit = "300MB")
+            self.rerun_logger = RerunLogger(self.task_dir, prefix="online/", IdxRangeBoundary = 60, memory_limit = "300MB")
             log.info("==> RerunLogger initializing ok.\n")
         
         self.data = {}
@@ -133,7 +133,7 @@ class EpisodeWriter():
         os.makedirs(self.tactile_dir, exist_ok=True)
         os.makedirs(self.audio_dir, exist_ok=True)
         if self.rerun_log:
-            self.online_logger = RerunLogger(prefix="online/", IdxRangeBoundary = 60, memory_limit="300MB")
+            self.online_logger = RerunLogger(self.episode_dir, prefix="online/", IdxRangeBoundary = 60, memory_limit="300MB")
 
         self.is_available = False  # After the episode is created, the class is marked as unavailable until the episode is successfully saved
         log.info(f"==> New episode created: {self.episode_dir}")
