@@ -315,6 +315,12 @@ class MotionFactory:
     def clear_high_level_command(self):
         self._high_level_command = None    
     
+    def release_blocking_motion(self):
+        """
+        Allow controller thread to resume after streaming joint commands.
+        """
+        self._blocking_motion = False
+    
     def set_joint_positions(self, joint_commands, is_continous_joint_command = True):
         self._blocking_motion = True
         position_mode = ["position"]

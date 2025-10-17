@@ -1,6 +1,6 @@
 # usage platform
-use_hardware: true
-use_simulation: false
+use_hardware: false
+use_simulation: true
 
 robot: "fr3"
 robot_config: !include hardware/fr3/config/fr3_cfg.yaml
@@ -16,20 +16,20 @@ async_control_frequency: 800.0     # Async thread sends commands at this rate (H
 auto_enable_async_control: true    # Auto-enable async mode on initialization (new!)
 
 # sensor infos
-sensor_dicts:
-  cameras:
-    - name: "ee_cam_1"
-      type: "realsense_camera"
-      cfg: !include hardware/sensors/cameras/config/d435i_ee_1.yaml
-    - name: "ee_cam_2"
-      type: "realsense_camera"
-      cfg: !include hardware/sensors/cameras/config/d435i_ee_2.yaml
-    - name: "front_cam"
-      type: "realsense_camera"
-      cfg: !include hardware/sensors/cameras/config/d435i_front.yaml
-    - name: "side_cam"
-      type: "realsense_camera"
-      cfg: !include hardware/sensors/cameras/config/d435i_side.yaml
+# sensor_dicts:
+#   cameras:
+#     - name: "ee_cam_1"
+#       type: "realsense_camera"
+#       cfg: !include hardware/sensors/cameras/config/d435i_ee_1.yaml
+#     - name: "ee_cam_2"
+#       type: "realsense_camera"
+#       cfg: !include hardware/sensors/cameras/config/d435i_ee_2.yaml
+#     - name: "front_cam"
+#       type: "realsense_camera"
+#       cfg: !include hardware/sensors/cameras/config/d435i_front.yaml
+#     - name: "side_cam"
+#       type: "realsense_camera"
+#       cfg: !include hardware/sensors/cameras/config/d435i_side.yaml
 
 control_frequency: 800
 controller_type: "ik"
@@ -48,6 +48,6 @@ trajectory_config: !include trajectory/config/cartesian_polynomial_traj_cfg.yaml
 traj_frequency: 450
 
 simulation: "mujoco"
-simulation_config: !include simulation/config/mujoco_fr3_cfg.yaml
+simulation_config: !include simulation/config/mujoco_fr3_pika_ati_posi.yaml
 target_site_name: ["target_site"]
 tcp_visualization_site: ["TCP_site"]
