@@ -49,6 +49,7 @@ trajectory_config: !include trajectory/config/cartesian_polynomial_traj_cfg.yaml
 traj_frequency: 450
 
 simulation: "mujoco"
-simulation_config: !include simulation/config/mujoco_fr3_pika_ati_posi.yaml
+# Use the new block stacking scene configuration
+simulation_config: !include simulation/config/mujoco_fr3_block_stacking.yaml
 target_site_name: ["target_site"]
 tcp_visualization_site: ["TCP_site"]

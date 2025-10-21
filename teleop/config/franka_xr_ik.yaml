@@ -4,7 +4,7 @@ target_site_name: ["target_site"]
 tcp_visualization_site: ["TCP_site"]
 
 teleop_interface: "meta_quest3"
-interface_config: !include ../teleop/xr/config/meta_quest3_fr3_right.yaml
+interface_config: !include teleop/XR/quest3/config/meta_quest3_fr3_right.yaml
 inteface_output_mode: "relative"
 
 # teleoperation used parameter

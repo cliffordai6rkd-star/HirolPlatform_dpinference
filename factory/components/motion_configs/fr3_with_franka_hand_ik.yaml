@@ -1,5 +1,5 @@
 # usage platform
-use_hardware: true
+use_hardware: false
 use_simulation: true
 
 robot: "fr3"
@@ -45,6 +45,6 @@ trajectory_config: !include trajectory/config/cartesian_polynomial_traj_cfg.yaml
 traj_frequency: 450
 
 simulation: "mujoco"
-simulation_config: !include simulation/config/mujoco_fr3_cfg.yaml
+simulation_config: !include simulation/config/mujoco_fr3_block_stacking.yaml
 target_site_name: ["target_site"]
 tcp_visualization_site: ["TCP_site"]

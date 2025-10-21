@@ -1,0 +1,6 @@
+<mujoco>
+  <!-- Mocap object for teleoperation target visualization -->
+  <!-- The parent body will inherit mocap="true" attribute -->
+  <geom type="box" size="0.04 0.04 0.04" contype="0" conaffinity="0" rgba="0.6 0.3 0.3 0.4" />
+  <site type="sphere" name="target_site" size="0.005" rgba="0 0 1 1" group="1" />
+</mujoco>

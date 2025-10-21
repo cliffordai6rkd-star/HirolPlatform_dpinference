@@ -336,17 +336,21 @@ class MujocoSim(SimBase):
         
     def parse_config(self) -> bool:
         """parse config to get the Mujoco model and data."""
-        # @TODO: Require modification to achieve dynamic loading
-        model_path = self.parse_relative_path(self._config['base_xml_file'])
-        log.info(f'model path: {model_path}')
-        self._model = mujoco.MjModel.from_xml_path(model_path)
-        self._data = mujoco.MjData(self._model)
+        # Check if scene_config_file is provided for dynamic scene generation
+        scene_config_path = self.parse_relative_path(self._config['scene_config_file'])
+        log.info(f'Using dynamic scene generation from: {scene_config_path}')
+
+        # Create MujocoEnvCreator with the scene config
+        env_creator = MujocoEnvCreator(config_path=scene_config_path)
+        self._model, self._data = env_creator.create_model()
+        log.info(f'Successfully created dynamic scene with {self._model.nq} DoFs')
 
         # Create render data copy for thread-safe camera access
         self._render_data = mujoco.MjData(self._model)
         log.info("Created render data copy for thread-safe camera access")
         
         # Check if keyframe exists
+        log.info(f'init key: {self._model.nkey }')
         if self._model.nkey > 0:
             # Use keyframe initialization (more elegant)
             keyframe_id = mujoco.mj_name2id(self._model, mujoco.mjtObj.mjOBJ_KEY, 'home')
@@ -498,8 +502,11 @@ class MujocoSim(SimBase):
         self.set_target_mocap_position(mocap_name, pose[:3])
         
     def move_to_start(self, joint_commands=None):
+        
+        commands = [0, -0.785, 0, -2.355, 0, 1.57079, 0.785]
         if joint_commands is None:
             # Try to use keyframe first, then fallback to init_pose
+            log.info(f'model n key: {self._model.nkey}')
             if self._model.nkey > 0:
                 keyframe_id = mujoco.mj_name2id(self._model, mujoco.mjtObj.mjOBJ_KEY, 'home')
                 if keyframe_id >= 0:
@@ -508,15 +515,8 @@ class MujocoSim(SimBase):
                     return
         else:
             commands = joint_commands
+            self.set_joint_position(commands)
         
-        # self.set_joint_command(["position"] * len(self._actuator_mode), commands)
-        self.set_joint_position(commands)
-        
-        # tool_actions = tool_commands
-        # if self._tool_infos and tool_commands is None:
-        #     tool_actions = self._init_tool_action
-        # if tool_actions:
-        #     self.set_tool_command(tool_actions)
     
 if __name__ == '__main__':
     import yaml

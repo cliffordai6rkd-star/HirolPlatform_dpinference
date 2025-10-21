@@ -28,13 +28,14 @@ from factory.tasks.inferences_tasks.utils.state_processor import StateProcessor
 from factory.tasks.inferences_tasks.utils.gripper_controller import (
     create_gripper_controller, GripperStateLogger
 )
-from factory.tasks.inferences_tasks.utils.action_aggregator import ActionAggregator
 
 # 导入任务类型系统 - direct import, no try-except
 from factory.tasks.inferences_tasks.utils.task_types import TaskType, TaskTypeFactory
 
 # Time statistics
 from tools.performance_profiler import timer, PerformanceProfiler
+
+GRIPPER_OPEN_WIDTH = 90
 
 class ACT_Inferencer(InferenceBase):
     """
@@ -93,8 +94,8 @@ class ACT_Inferencer(InferenceBase):
         self.last_executed_action = None
         self.interpolation_steps = config.get("interpolation_steps", 3)
 
-        # Initialize action aggregator
-        self._init_action_aggregator(config)
+        # Initialize temporal aggregation (replaces action aggregator)
+        self._init_temporal_aggregation(config)
 
         # Initialize gripper controllers
         self._init_gripper_controllers(config)
@@ -205,16 +206,32 @@ class ACT_Inferencer(InferenceBase):
         log.info(f"   - Cameras: {camera_names}")
         log.info(f"   - Checkpoint: {self._ckpt_dir}")
 
-    def _init_action_aggregator(self, config: Dict[str, Any]) -> None:
-        """Initialize action aggregator if enabled"""
-        action_agg_config = config.get("action_aggregation", {})
-        self.action_aggregator = None
+    def _init_temporal_aggregation(self, config: Dict[str, Any]) -> None:
+        """Initialize temporal aggregation system (replaces action aggregator)"""
+        temporal_agg_config = config.get("action_aggregation", {})
+        self.temporal_agg_enabled = temporal_agg_config.get("enabled", False)
 
-        if action_agg_config.get("enabled", False):
-            self.action_aggregator = ActionAggregator(action_agg_config)
-            log.info("✅ Action aggregator enabled")
+        if self.temporal_agg_enabled:
+            # Temporal aggregation parameters
+            self.temporal_agg_k = temporal_agg_config.get("k", 0.01)  # decay factor
+            self.max_timesteps = config.get("max_step_nums", config.get("max_episode_length", 1000))
+            self.num_queries = self.action_chunk_size
+
+            # Initialize all_time_actions tensor
+            state_dim = config.get("learning", {}).get("state_dim", 8)  # FR3: 7 joints + 1 gripper
+
+            # Store actions for all timesteps: [max_timesteps, max_timesteps+num_queries, state_dim]
+            self.all_time_actions = torch.zeros([self.max_timesteps, self.max_timesteps + self.num_queries, state_dim]).cuda()
+            self.current_timestep = 0
+
+            log.info("✅ Temporal aggregation enabled")
+            log.info(f"   - Decay factor k: {self.temporal_agg_k}")
+            log.info(f"   - Max timesteps: {self.max_timesteps}")
+            log.info(f"   - State dimension: {state_dim}")
         else:
-            log.info("ℹ️ Action aggregator disabled")
+            self.all_time_actions = None
+            self.current_timestep = 0
+            log.info("ℹ️ Temporal aggregation disabled")
 
     def _init_gripper_controllers(self, config: Dict[str, Any]) -> None:
         """Initialize gripper controllers"""
@@ -279,6 +296,12 @@ class ACT_Inferencer(InferenceBase):
             self._reset_action_sequence()
             self._status_ok = True
 
+            # Reset temporal aggregation for new episode
+            if self.temporal_agg_enabled:
+                self.all_time_actions.zero_()
+                self.current_timestep = 0
+                log.info("🔄 Temporal aggregation reset for new episode")
+
             # Store current episode number for comparison
             self.current_episode_num = episode_num
 
@@ -328,6 +351,10 @@ class ACT_Inferencer(InferenceBase):
                     self.step_count += 1  # 🆕 更新全局步数计数器
                     self.steps_since_last_prediction += 1
 
+                    # Update temporal aggregation timestep
+                    if self.temporal_agg_enabled:
+                        self.current_timestep += 1
+
                     if step_count % 100 == 0:
                         log.info(f"📊 Executed {step_count} steps (max: {self._max_step_nums})")
 
@@ -376,9 +403,9 @@ class ACT_Inferencer(InferenceBase):
                 # 确保是数组格式，处理标量输入
                 act_action = np.atleast_1d(np.asarray(act_action)).flatten()
 
-                # Apply action aggregation if enabled
-                if self.action_aggregator is not None:
-                    act_action = self.action_aggregator.process_action(act_action)
+                # Apply temporal aggregation if enabled
+                if self.temporal_agg_enabled and self.all_time_actions is not None:
+                    act_action = self._apply_temporal_aggregation(act_action)
 
                 # Apply action interpolation for smoothness
                 if self.enable_action_interpolation and self.last_executed_action is not None:
@@ -420,16 +447,7 @@ class ACT_Inferencer(InferenceBase):
             joint_action = act_action[:7] if len(act_action) >= 7 else act_action
             gripper_action = act_action[7] if len(act_action) > 7 else 1.0
 
-            # 先检查原始值范围并记录 TODO: check action range
-            # original_gripper_action = gripper_action
-            # if gripper_action > 0.08:
-            #     log.warning(f"⚠️ Gym Action转换时检测到异常值: {gripper_action:.4f} > 0.08m，已clip到0.08")
-            #     gripper_action = 0.08
-            # elif gripper_action < 0:
-            #     log.warning(f"⚠️ Gym Action转换时检测到异常值: {gripper_action:.4f} < 0，已clip到0.0")
-            #     gripper_action = 0.0
-
-            gripper_action = np.clip(gripper_action / 0.08, 0.0, 1.0)
+            gripper_action = np.clip(gripper_action / GRIPPER_OPEN_WIDTH, 0.0, 1.0)
             return {
                 'arm': joint_action.astype(np.float32),
                 'tool': np.array([gripper_action]).astype(np.float32)
@@ -440,53 +458,54 @@ class ACT_Inferencer(InferenceBase):
         if self.gripper_controller is not None and 'tool' in gym_action:
             with timer("gripper_control_processing", "act_inference"):
                 gripper_val = gym_action['tool'][0] if len(gym_action['tool']) > 0 else 1.0
-
+                gym_action['tool'] = np.array([gripper_val])
+                log.info(f"gym_action['tool'] => {gym_action['tool']}")
                 # Log gripper action details (every 20 steps to avoid spam)
-                if hasattr(self, '_gripper_log_counter'):
-                    self._gripper_log_counter += 1
-                else:
-                    self._gripper_log_counter = 1
+                # if hasattr(self, '_gripper_log_counter'):
+                #     self._gripper_log_counter += 1
+                # else:
+                #     self._gripper_log_counter = 1
 
-                current_obs = self._gym_robot.get_observation()
+                # current_obs = self._gym_robot.get_observation()
 
-                # 检查当前夹爪宽度，如果小于5mm则强制打开
-                current_gripper_width = None
-                safety_failed = False
-                # 获取当前夹爪状态
-                tools_dict = current_obs.get("tools", {})
-                if tools_dict:
-                    # 获取第一个工具（通常是夹爪）
-                    tool_key = list(tools_dict.keys())[0]  # 'single', 'left', 'right'等
-                    tool_data = tools_dict[tool_key]
-                    if isinstance(tool_data, dict) and "position" in tool_data:
-                        current_gripper_width = float(tool_data["position"])
+                # # 检查当前夹爪宽度，如果小于5mm则强制打开
+                # current_gripper_width = None
+                # safety_failed = False
+                # # 获取当前夹爪状态
+                # tools_dict = current_obs.get("tools", {})
+                # if tools_dict:
+                #     # 获取第一个工具（通常是夹爪）
+                #     tool_key = list(tools_dict.keys())[0]  # 'single', 'left', 'right'等
+                #     tool_data = tools_dict[tool_key]
+                #     if isinstance(tool_data, dict) and "position" in tool_data:
+                #         current_gripper_width = float(tool_data["position"])
 
-                        # 安全检查：使用配置的最小抓取宽度进行检查
-                        min_safe_width = self.gripper_controller.min_grasp_width
-                        if current_gripper_width < min_safe_width and self.gripper_controller.grasp_check_enabled:
-                            safety_failed = True
-                            log.warning(f"⚠️ 检测到夹爪过紧！当前宽度={current_gripper_width:.4f}m < {min_safe_width:.4f}m，需要打开")
+                #         # 安全检查：使用配置的最小抓取宽度进行检查
+                #         min_safe_width = self.gripper_controller.min_grasp_width
+                #         if current_gripper_width < min_safe_width and self.gripper_controller.grasp_check_enabled:
+                #             safety_failed = True
+                #             log.warning(f"⚠️ 检测到夹爪过紧！当前宽度={current_gripper_width:.4f}m < {min_safe_width:.4f}m，需要打开")
 
-                        # 定期记录夹爪宽度（每50步）
-                        if self._gripper_log_counter % 50 == 1:
-                            log.info(f"📏 当前夹爪宽度: {current_gripper_width:.4f}m")
+                #         # 定期记录夹爪宽度（每50步）
+                #         if self._gripper_log_counter % 50 == 1:
+                #             log.info(f"📏 当前夹爪宽度: {current_gripper_width:.4f}m")
 
-                execute_command, command_value, force_repredict = self.gripper_controller.process(
-                    gripper_val,
-                    safety_failed=safety_failed,
-                    end_effector_pose=None
-                )
+                # execute_command, command_value, force_repredict = self.gripper_controller.process(
+                #     gripper_val,
+                #     safety_failed=safety_failed,
+                #     end_effector_pose=None
+                # )
 
-                if force_repredict:
-                    self.force_repredict = True
+                # if force_repredict:
+                #     self.force_repredict = True
 
-                if execute_command and command_value is not None:
-                    # 使用gripper controller返回的命令值
-                    log.info(f"🔧 夹爪控制: 输出={command_value:.4f} (控制器修改)")
-                    gym_action['tool'] = np.array([command_value])
-                    self.gripper_action_previous = gym_action['tool'][0]
-                else:
-                    gym_action['tool'] = np.array([self.gripper_action_previous])
+                # if execute_command and command_value is not None:
+                #     # 使用gripper controller返回的命令值
+                #     log.info(f"🔧 夹爪控制: 输出={command_value:.4f} (控制器修改)")
+                #     gym_action['tool'] = np.array([command_value])
+                #     self.gripper_action_previous = gym_action['tool'][0]
+                # else:
+                #     gym_action['tool'] = np.array([self.gripper_action_previous])
 
         with timer("robot_step_execution", "act_inference"):
             self._gym_robot.step(gym_action)
@@ -546,19 +565,21 @@ class ACT_Inferencer(InferenceBase):
 
                 # 检查并修正异常的夹爪动作值
                 original_gripper_action = gripper_action
-                if gripper_action > 0.08:
-                    log.warning(f"⚠️ ACT输出夹爪动作异常: {gripper_action:.4f} > 0.08m，已clip到0.08")
-                    gripper_action = 0.08
+                if gripper_action > GRIPPER_OPEN_WIDTH:
+                    log.warning(f"⚠️ ACT输出夹爪动作异常: {gripper_action:.4f} > GRIPPER_OPEN_WIDTHm，已clip到GRIPPER_OPEN_WIDTH")
+                    gripper_action = GRIPPER_OPEN_WIDTH
                     predicted_actions[0, -1] = gripper_action  # 修正原始数组
                 elif gripper_action < 0:
                     log.warning(f"⚠️ ACT输出夹爪动作异常: {gripper_action:.4f} < 0，已clip到0.0")
                     gripper_action = 0.0
                     predicted_actions[0, -1] = gripper_action  # 修正原始数组
-                # else:
-                #     log.info(f"   - ACT输出夹爪动作在正常范围内")
 
                 if original_gripper_action != gripper_action:
                     log.info(f"   - 修正后夹爪动作: {gripper_action:.4f}")
+
+            # Store actions in temporal aggregation if enabled
+            if self.temporal_agg_enabled and self.all_time_actions is not None:
+                self._store_predicted_actions(predicted_actions)
 
         log.info(f"🔍 ACT output: shape={predicted_actions.shape}, type={type(predicted_actions)}")
 
@@ -612,8 +633,9 @@ class ACT_Inferencer(InferenceBase):
         self.action_index = 0
         self.failed_actions_count = 0
 
-        if self.action_aggregator is not None:
-            self.action_aggregator.reset()
+        if self.temporal_agg_enabled and self.all_time_actions is not None:
+            self.all_time_actions.zero_()
+            self.current_timestep = 0
 
         if self.gripper_controller is not None:
             self.gripper_controller.reset()
@@ -663,9 +685,9 @@ class ACT_Inferencer(InferenceBase):
         if hasattr(self, 'joint_plotter') and self.joint_plotter is not None:
             self.joint_plotter.stop_plotting()
 
-        # Clean up action aggregator
-        if hasattr(self, 'action_aggregator') and self.action_aggregator is not None:
-            self.action_aggregator.reset()
+        # Clean up temporal aggregation
+        if hasattr(self, 'all_time_actions') and self.all_time_actions is not None:
+            self.all_time_actions = None
 
         # Clean up modular components
         if hasattr(self, 'keyboard_handler') and self.keyboard_handler is not None:
@@ -676,6 +698,58 @@ class ACT_Inferencer(InferenceBase):
             del self.act_engine
 
         super().close()
+
+    def _store_predicted_actions(self, predicted_actions: torch.Tensor) -> None:
+        """Store predicted actions in temporal aggregation buffer"""
+        if not self.temporal_agg_enabled or self.all_time_actions is None:
+            return
+
+        # Convert to tensor if needed
+        if isinstance(predicted_actions, np.ndarray):
+            predicted_actions = torch.from_numpy(predicted_actions).cuda()
+
+        # Store actions: all_time_actions[current_t, current_t:current_t+num_queries] = predicted_actions
+        t = self.current_timestep
+        if t < self.max_timesteps and predicted_actions.shape[0] > 0:
+            end_t = min(t + self.num_queries, self.max_timesteps + self.num_queries)
+            actual_queries = end_t - t
+            self.all_time_actions[t, t:end_t] = predicted_actions[:actual_queries]
+            log.info(f"📦 Stored {actual_queries} actions for timestep {t}")
+
+    def _apply_temporal_aggregation(self, current_action: np.ndarray) -> np.ndarray:
+        """Apply temporal aggregation to get smoothed action"""
+        if not self.temporal_agg_enabled or self.all_time_actions is None:
+            return current_action
+
+        t = self.current_timestep
+        if t >= self.max_timesteps:
+            return current_action
+
+        # Get all actions for current timestep
+        actions_for_curr_step = self.all_time_actions[:, t]
+
+        # Find which timesteps have valid (non-zero) actions for current step
+        actions_populated = torch.all(actions_for_curr_step != 0, dim=1)
+        valid_actions = actions_for_curr_step[actions_populated]
+
+        if len(valid_actions) == 0:
+            log.warning(f"⚠️ No valid actions found for timestep {t}, using current action")
+            return current_action
+
+        # Calculate exponential weights
+        k = self.temporal_agg_k
+        exp_weights = np.exp(-k * np.arange(len(valid_actions)))
+        exp_weights = exp_weights / exp_weights.sum()
+        exp_weights = torch.from_numpy(exp_weights).cuda().unsqueeze(dim=1)
+
+        # Compute weighted average
+        aggregated_action = (valid_actions * exp_weights).sum(dim=0, keepdim=True)
+
+        # Convert back to numpy
+        result = aggregated_action.squeeze(0).cpu().numpy()
+
+        log.info(f"🔄 Temporal aggregation: {len(valid_actions)} actions → timestep {t}")
+        return result
 
 
 def main():

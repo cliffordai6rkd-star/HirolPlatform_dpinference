@@ -2,7 +2,7 @@
   <worldbody>
     <body name="table_body">
       <inertial pos="0 0 0.025" mass="10" diaginertia="0.6 0.5 0.1"/>
-      <geom type="box" size="0.425 0.375 0.05" rgba="0.8 0.6 0.4 1"/>
+      <geom type="box" size="0.425 0.375 0.05" rgba="0.2 0.4 0.2 1"/>
     </body>
   </worldbody>
 </mujoco>

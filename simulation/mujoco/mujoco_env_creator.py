@@ -132,12 +132,16 @@ class MujocoEnvCreator:
         template_section = self.template_config.find(section_name)
         if template_section is not None:
             new_section = ET.SubElement(root, section_name)
-            
+
             # Handle special cases for paths
             if section_name == "compiler":
                 for attr_name, attr_value in template_section.attrib.items():
                     if attr_name in ['meshdir', 'texturedir']:
-                        new_section.set(attr_name, os.path.join(self.root_path, attr_value))
+                        # Use absolute path for mesh/texture directories
+                        full_path = os.path.join(self.root_path, attr_value)
+                        # Use the franka_fr3 assets directory since that's where the meshes are
+                        # This will be overridden by robot-specific compiler settings if needed
+                        new_section.set(attr_name, full_path)
                     else:
                         new_section.set(attr_name, attr_value)
             else:
@@ -162,6 +166,9 @@ class MujocoEnvCreator:
         # Parse robot XML and merge into main XML
         robot_xml = ET.parse(full_robot_path).getroot()
         
+        # Merge robot compiler settings (especially meshdir)
+        self._merge_compiler_settings(root, robot_xml, robot_path)
+
         # Merge robot assets and defaults into main XML
         self._merge_assets(root, robot_xml)
         self._merge_defaults(root, robot_xml)
@@ -209,24 +216,25 @@ class MujocoEnvCreator:
                     # For fixed robots, copy normally
                     self._copy_element_tree(robot_worldbody, robot_body)
         
-        # Merge robot actuators
+        # Merge other robot components
         self._merge_actuators(root, robot_xml)
-        
+        self._merge_tendons(root, robot_xml)
+        self._merge_equality(root, robot_xml)
+        self._merge_contact(root, robot_xml)
+
         # Add gripper attachments using attach mechanism
         self._add_gripper_attachments(root, robot_config)
-        
+
         log.info(f"Added robot {robot_config.get('name', 'robot')} with XML merging from {robot_path}")
-    
-    
     
     def _add_scene_objects_to_worldbody(self, worldbody: ET.Element) -> None:
         """Add scene objects to worldbody using unified rigid body approach."""
         scene_objects = self.config.get("scene_objects", [])
-        
+
         for obj_config in scene_objects:
             obj_name = obj_config.get("name", "object")
             obj_type = obj_config.get("type", "unknown")
-            
+
             try:
                 self._add_rigid_body_object(worldbody, obj_config)
                 fix_base = obj_config.get("fix_base", True)
@@ -234,6 +242,40 @@ class MujocoEnvCreator:
                 log.info(f"Added {obj_type} object: {obj_name} with {base_type} base")
             except Exception as e:
                 log.error(f"Failed to add object {obj_name}: {e}")
+
+    def _add_cameras_to_worldbody(self, worldbody: ET.Element) -> None:
+        """Add camera configurations to worldbody."""
+        cameras = self.config.get("cameras", [])
+
+        if not cameras:
+            log.info("No cameras configured in scene config")
+            return
+
+        for cam_config in cameras:
+            cam_name = cam_config.get("name", "camera")
+            cam_pos = cam_config.get("position", [0.0, 0.0, 1.0])
+            cam_euler = cam_config.get("euler", None)
+            cam_quat = cam_config.get("quat", None)
+            cam_xyaxes = cam_config.get("xyaxes", None)
+            cam_fovy = cam_config.get("fovy", 45)
+
+            try:
+                camera = ET.SubElement(worldbody, "camera")
+                camera.set("name", cam_name)
+                camera.set("pos", " ".join(map(str, cam_pos)))
+
+                # Set orientation (priority: xyaxes > quat > euler)
+                if cam_xyaxes is not None:
+                    camera.set("xyaxes", " ".join(map(str, cam_xyaxes)))
+                elif cam_quat is not None:
+                    camera.set("quat", " ".join(map(str, cam_quat)))
+                elif cam_euler is not None:
+                    camera.set("euler", " ".join(map(str, cam_euler)))
+
+                camera.set("fovy", str(cam_fovy))
+                log.info(f"Added camera: {cam_name} at position {cam_pos}")
+            except Exception as e:
+                log.error(f"Failed to add camera {cam_name}: {e}")
     
     def _add_rigid_body_object(self, worldbody: ET.Element, obj_config: Dict) -> None:
         """Add a rigid body object (table, box, etc.) to the worldbody."""
@@ -241,20 +283,25 @@ class MujocoEnvCreator:
         initial_pos = obj_config.get("initial_position", [0.0, 0.0, 0.0])
         initial_quat = obj_config.get("initial_orientation", [0.0, 0.0, 0.0, 1.0])
         fix_base = obj_config.get("fix_base", True)
-        
+        is_mocap = obj_config.get("mocap", False)
+
         # Create body
         body = ET.SubElement(worldbody, "body")
         body.set("name", obj_name)
         body.set("pos", " ".join(map(str, initial_pos)))
         body.set("quat", " ".join(map(str, initial_quat)))
-        
-        # Add free joint for floating objects
-        if not fix_base:
+
+        # Add mocap attribute if this is a mocap object
+        if is_mocap:
+            body.set("mocap", "true")
+
+        # Add free joint for floating objects (but not for mocap objects)
+        if not fix_base and not is_mocap:
             joint = ET.SubElement(body, "joint")
             joint.set("name", f"{obj_name}_joint")
             joint.set("type", "free")
             joint.set("damping", "0.001")
-        
+
         # Add geometry based on type
         self._add_geometry(body, obj_config)
     
@@ -262,7 +309,8 @@ class MujocoEnvCreator:
         """Add geometry to body based on object configuration."""
         obj_name = obj_config.get("name", "object")
         model_path = obj_config.get("model_path", "")
-        
+        is_mocap = obj_config.get("mocap", False)
+
         if "" == model_path:
             log.error(f"Model path not specified for object {obj_name}")
 
@@ -270,7 +318,7 @@ class MujocoEnvCreator:
         full_path = self._get_full_path(model_path)
         if os.path.exists(full_path):
             if full_path.endswith('.xml'):
-                self._inline_xml_content(body, full_path, obj_name)
+                self._inline_xml_content(body, full_path, obj_name, preserve_names=is_mocap)
             else:
                 # For non-XML files, create an include with a prefixed doclass
                 include = ET.SubElement(body, "include")
@@ -281,42 +329,70 @@ class MujocoEnvCreator:
         else:
             raise FileNotFoundError(f"Model file not found: {full_path}")
     
-    def _inline_xml_content(self, parent_body: ET.Element, xml_path: str, obj_name: str) -> None:
-        """Inline XML content directly into the parent body."""
+    def _inline_xml_content(self, parent_body: ET.Element, xml_path: str, obj_name: str, preserve_names: bool = False) -> None:
+        """Inline XML content directly into the parent body.
+
+        Args:
+            parent_body: The parent body element to add content to
+            xml_path: Path to the XML file to inline
+            obj_name: Name of the object (used for prefixing if preserve_names is False)
+            preserve_names: If True, preserve original names (useful for mocap objects)
+        """
         try:
             with open(xml_path, 'r') as f:
                 xml_content = f.read()
-            
+
             temp_xml = f"<temp>{xml_content}</temp>"
             temp_root = ET.fromstring(temp_xml)
-            
+
             for child in temp_root:
                 if child.tag == "mujoco":
                     for element in child:
-                        if element.tag in ["inertial", "geom", "joint", "body"]:
+                        if element.tag in ["inertial", "geom", "joint", "site"]:
                             new_element = ET.SubElement(parent_body, element.tag)
                             for attr_name, attr_value in element.attrib.items():
-                                if attr_name == "name":
+                                if attr_name == "name" and not preserve_names:
                                     new_element.set(attr_name, f"{obj_name}_{attr_value}")
                                 else:
                                     new_element.set(attr_name, attr_value)
                             if element.text and element.text.strip():
                                 new_element.text = element.text
-                        
+
+                        elif element.tag == "body":
+                            # Handle direct body elements (not in worldbody)
+                            new_element = ET.SubElement(parent_body, element.tag)
+                            for attr_name, attr_value in element.attrib.items():
+                                if attr_name == "name" and not preserve_names:
+                                    new_element.set(attr_name, f"{obj_name}_{attr_value}")
+                                else:
+                                    new_element.set(attr_name, attr_value)
+                            if element.text and element.text.strip():
+                                new_element.text = element.text
+
                         elif element.tag == "worldbody":
                             for body_element in element:
                                 if body_element.tag == "body":
+                                    # Copy body attributes (including mocap) to parent_body
+                                    for attr_name, attr_value in body_element.attrib.items():
+                                        if attr_name == "name":
+                                            # Don't override the parent body name
+                                            pass
+                                        else:
+                                            # Copy mocap and other attributes
+                                            parent_body.set(attr_name, attr_value)
+
+                                    # Copy child elements of the body
                                     for sub_element in body_element:
                                         new_element = ET.SubElement(parent_body, sub_element.tag)
                                         for attr_name, attr_value in sub_element.attrib.items():
-                                            if attr_name == "name":
+                                            if attr_name == "name" and not preserve_names:
                                                 new_element.set(attr_name, f"{obj_name}_{attr_value}")
                                             else:
                                                 new_element.set(attr_name, attr_value)
                                         if sub_element.text and sub_element.text.strip():
                                             new_element.text = sub_element.text
                     break
-                    
+
         except Exception as e:
             log.error(f"Error inlining XML content: {e}")
             raise RuntimeError(f"Failed to parse XML content for object {obj_name}: {e}")
@@ -346,88 +422,6 @@ class MujocoEnvCreator:
             
             log.info(f"Added keyframe: {keyframe_config.get('name', 'unnamed')}")
     
-    def _merge_keyframes_dynamically(self, root: ET.Element) -> None:
-        """Dynamically merge keyframes from robot and gripper XML files."""
-        # Find or create keyframe section
-        keyframe_element = root.find("keyframe")
-        if keyframe_element is None:
-            keyframe_element = ET.SubElement(root, "keyframe")
-        
-        # Merge robot keyframes
-        self._merge_robot_keyframes(keyframe_element)
-        
-        # Merge gripper keyframes
-        self._merge_gripper_keyframes(keyframe_element)
-        
-        log.info("Dynamically merged keyframes from robot and grippers")
-    
-    def _merge_robot_keyframes(self, keyframe_element: ET.Element) -> None:
-        """Merge keyframes from robot XML file."""
-        robot_config = self.config.get("robot", {})
-        robot_path = robot_config.get("model_path", "")
-        
-        if not robot_path:
-            return
-        
-        full_robot_path = self._get_full_path(robot_path)
-        if not os.path.exists(full_robot_path):
-            return
-        
-        try:
-            robot_xml = ET.parse(full_robot_path).getroot()
-            robot_keyframes = robot_xml.find("keyframe")
-            
-            if robot_keyframes is not None:
-                for key in robot_keyframes.findall("key"):
-                    # Create new key element
-                    new_key = ET.SubElement(keyframe_element, "key")
-                    # Copy all attributes
-                    for attr_name, attr_value in key.attrib.items():
-                        new_key.set(attr_name, attr_value)
-                    
-                    log.info(f"Merged robot keyframe: {key.get('name', 'unnamed')}")
-        except Exception as e:
-            log.error(f"Failed to merge robot keyframes: {e}")
-    
-    def _merge_gripper_keyframes(self, keyframe_element: ET.Element) -> None:
-        """Merge keyframes from gripper XML files with proper joint prefixing."""
-        robot_config = self.config.get("robot", {})
-        grippers = robot_config.get("grippers", {})
-        
-        if not grippers:
-            return
-        
-        for gripper_name, gripper_config in grippers.items():
-            gripper_path = gripper_config.get("model_path", "")
-            
-            if not gripper_path:
-                continue
-            
-            full_gripper_path = self._get_full_path(gripper_path)
-            if not os.path.exists(full_gripper_path):
-                continue
-            
-            try:
-                gripper_xml = ET.parse(full_gripper_path).getroot()
-                gripper_keyframes = gripper_xml.find("keyframe")
-                
-                if gripper_keyframes is not None:
-                    for key in gripper_keyframes.findall("key"):
-                        # Create new key element with prefixed name
-                        new_key = ET.SubElement(keyframe_element, "key")
-                        
-                        # Copy and modify attributes
-                        for attr_name, attr_value in key.attrib.items():
-                            if attr_name == "name":
-                                # Use gripper_name instead of name_prefix for uniqueness
-                                new_key.set(attr_name, f"{gripper_name}_{attr_value}")
-                            else:
-                                new_key.set(attr_name, attr_value)
-                        
-                        log.info(f"Merged gripper keyframe: {gripper_name}_{key.get('name', 'unnamed')}")
-            except Exception as e:
-                log.error(f"Failed to merge gripper keyframes from {gripper_name}: {e}")
-    
     def generate_xml(self) -> str:
         """Generate the complete XML string for the MuJoCo scene."""
         root = ET.Element("mujoco")
@@ -443,15 +437,45 @@ class MujocoEnvCreator:
             worldbody = ET.SubElement(root, "worldbody")
         
         # Add robot and scene objects using include mechanism
-        # using multiple robots 
-        for robot in  self.config.get("robots", []):
+        # Support both single robot and multiple robots configuration
+        robot_config = self.config.get("robot", None)
+        if robot_config:
+            # Single robot configuration (legacy format)
+            self._add_robot_assets_and_worldbody(robot_config, root, worldbody)
+
+        # Also support multiple robots (new format)
+        for robot in self.config.get("robots", []):
             self._add_robot_assets_and_worldbody(robot, root, worldbody)
+
         self._add_scene_objects_to_worldbody(worldbody)
-        
+
+        # Add cameras to worldbody
+        self._add_cameras_to_worldbody(worldbody)
+
         # Note: No longer adding keyframes to XML, will apply them dynamically to mj_data instead
-        
+
         return ET.tostring(root, encoding='unicode')
     
+    def _merge_compiler_settings(self, root: ET.Element, source_xml: ET.Element, robot_path: str) -> None:
+        """Merge compiler settings from robot XML, adjusting meshdir to be relative to robot model."""
+        robot_compiler = source_xml.find("compiler")
+        main_compiler = root.find("compiler")
+
+        if robot_compiler is not None and main_compiler is not None:
+            # Get the directory containing the robot XML file
+            robot_dir = os.path.dirname(robot_path)
+
+            # Update meshdir if it exists in robot XML
+            robot_meshdir = robot_compiler.get("meshdir")
+            if robot_meshdir:
+                # Convert robot's relative meshdir to absolute path
+                # robot_path is like "assets/franka_fr3/fr3_pika_ati.xml"
+                # robot_meshdir is like "assets/"
+                # We need to resolve this relative to the robot XML file location
+                full_meshdir = os.path.join(self.root_path, robot_dir, robot_meshdir)
+                main_compiler.set("meshdir", full_meshdir)
+                log.debug(f"Set meshdir to: {full_meshdir}")
+
     def _merge_assets(self, root: ET.Element, source_xml: ET.Element) -> None:
         """Merge asset definitions from source XML into root."""
         main_asset = root.find("asset")
@@ -473,7 +497,7 @@ class MujocoEnvCreator:
         main_default = root.find("default")
         if main_default is None:
             main_default = ET.SubElement(root, "default")
-        
+
         source_default = source_xml.find("default")
         if source_default is not None:
             for child in source_default:
@@ -485,30 +509,111 @@ class MujocoEnvCreator:
                         if existing.get("class") == class_name:
                             existing_class = existing
                             break
-                    
+
                     if not existing_class:
                         # Add new default class
                         new_default = ET.SubElement(main_default, "default")
                         new_default.attrib.update(child.attrib)
                         if child.text and child.text.strip():
                             new_default.text = child.text
-                        # Copy all children recursively
-                        self._copy_element_tree(child, new_default)
+                        # Copy all children recursively, removing inheritrange to avoid conflicts
+                        self._copy_element_tree_without_inheritrange(child, new_default)
+
+    def _copy_element_tree_without_inheritrange(self, source: ET.Element, target: ET.Element) -> None:
+        """Recursively copy XML elements from source to target, removing inheritrange attribute."""
+        for child in source:
+            new_child = ET.SubElement(target, child.tag)
+
+            # Copy all attributes except inheritrange
+            for attr_name, attr_value in child.attrib.items():
+                if attr_name != "inheritrange":
+                    new_child.set(attr_name, attr_value)
+
+            if child.text and child.text.strip():
+                new_child.text = child.text
+            self._copy_element_tree_without_inheritrange(child, new_child)
     
     def _merge_actuators(self, root: ET.Element, source_xml: ET.Element) -> None:
         """Merge actuator definitions from source XML into root."""
         main_actuator = root.find("actuator")
         if main_actuator is None:
             main_actuator = ET.SubElement(root, "actuator")
-        
+
         source_actuator = source_xml.find("actuator")
         if source_actuator is not None:
             for child in source_actuator:
                 new_actuator = ET.SubElement(main_actuator, child.tag)
-                new_actuator.attrib.update(child.attrib)
+
+                # Copy attributes, but handle inheritrange/ctrlrange conflict
+                for attr_name, attr_value in child.attrib.items():
+                    # If this is a position actuator with a class that has inheritrange,
+                    # and we're trying to set ctrlrange, we need to remove inheritrange
+                    if attr_name == "ctrlrange" and child.tag == "position":
+                        actuator_class = child.get("class")
+                        if actuator_class:
+                            # Remove inheritrange from the default class to avoid conflict
+                            self._remove_inheritrange_from_class(root, actuator_class)
+                    new_actuator.set(attr_name, attr_value)
+
                 if child.text and child.text.strip():
                     new_actuator.text = child.text
-    
+
+    def _remove_inheritrange_from_class(self, root: ET.Element, class_name: str) -> None:
+        """Remove inheritrange attribute from a default class to avoid conflict with ctrlrange."""
+        default_section = root.find("default")
+        if default_section is not None:
+            for default_class in default_section.iter("default"):
+                if default_class.get("class") == class_name:
+                    # Find position element in this class
+                    for position_elem in default_class.findall("position"):
+                        if "inheritrange" in position_elem.attrib:
+                            del position_elem.attrib["inheritrange"]
+                            log.debug(f"Removed inheritrange from class {class_name} to avoid conflict with ctrlrange")
+
+    def _merge_tendons(self, root: ET.Element, source_xml: ET.Element) -> None:
+        """Merge tendon definitions from source XML into root."""
+        main_tendon = root.find("tendon")
+        if main_tendon is None:
+            main_tendon = ET.SubElement(root, "tendon")
+
+        source_tendon = source_xml.find("tendon")
+        if source_tendon is not None:
+            for child in source_tendon:
+                new_tendon = ET.SubElement(main_tendon, child.tag)
+                new_tendon.attrib.update(child.attrib)
+                if child.text and child.text.strip():
+                    new_tendon.text = child.text
+                # Copy all children recursively (for fixed tendons with joint references)
+                self._copy_element_tree(child, new_tendon)
+
+    def _merge_equality(self, root: ET.Element, source_xml: ET.Element) -> None:
+        """Merge equality constraints from source XML into root."""
+        main_equality = root.find("equality")
+        if main_equality is None:
+            main_equality = ET.SubElement(root, "equality")
+
+        source_equality = source_xml.find("equality")
+        if source_equality is not None:
+            for child in source_equality:
+                new_equality = ET.SubElement(main_equality, child.tag)
+                new_equality.attrib.update(child.attrib)
+                if child.text and child.text.strip():
+                    new_equality.text = child.text
+
+    def _merge_contact(self, root: ET.Element, source_xml: ET.Element) -> None:
+        """Merge contact exclusions from source XML into root."""
+        main_contact = root.find("contact")
+        if main_contact is None:
+            main_contact = ET.SubElement(root, "contact")
+
+        source_contact = source_xml.find("contact")
+        if source_contact is not None:
+            for child in source_contact:
+                new_contact = ET.SubElement(main_contact, child.tag)
+                new_contact.attrib.update(child.attrib)
+                if child.text and child.text.strip():
+                    new_contact.text = child.text
+
     def _add_gripper_attachments(self, root: ET.Element, robot_config: dict) -> None:
         """Add gripper attachments using MuJoCo's <attach> mechanism."""
         grippers = robot_config.get("grippers", {})
@@ -928,7 +1033,8 @@ class MujocoEnvCreator:
             name_prefix = f"{position}_{gripper_type}_" if gripper_type else f"{position}_"
             
             # Find the corresponding gripper home keyframe
-            gripper_keyframe_name = f"{gripper_name}_gripper_home"
+            # gripper_keyframe_name = f"{gripper_name}_gripper_home"
+            gripper_keyframe_name = f"home"
             if gripper_keyframe_name not in self.collected_keyframes:
                 log.warning(f"Gripper keyframe not found: {gripper_keyframe_name}")
                 continue
@@ -957,73 +1063,6 @@ class MujocoEnvCreator:
             
             log.info(f"Applied {applied_joints}/{len(gripper_qpos)} values for {gripper_name}")
     
-    def apply_keyframe_by_name(self, keyframe_name: str) -> bool:
-        """Apply a specific collected keyframe by name."""
-        if not hasattr(self, 'collected_keyframes') or keyframe_name not in self.collected_keyframes:
-            log.error(f"Keyframe '{keyframe_name}' not found in collected keyframes")
-            return False
-        
-        keyframe_data = self.collected_keyframes[keyframe_name]
-        qpos = keyframe_data["qpos"]
-        
-        if len(qpos) <= self.mj_model.nq:
-            # Apply the specific keyframe
-            for i, qpos_val in enumerate(qpos):
-                if i < self.mj_model.nq:
-                    self.mj_data.qpos[i] = qpos_val
-            
-            # Update controls
-            if self.mj_model.nu > 0:
-                joint_ids = self.mj_model.actuator_trnid[:, 0]
-                qpos_addrs = self.mj_model.jnt_qposadr[joint_ids]
-                valid_indices = qpos_addrs < len(self.mj_data.qpos)
-                self.mj_data.ctrl[valid_indices] = self.mj_data.qpos[qpos_addrs[valid_indices]]
-            
-            mujoco.mj_forward(self.mj_model, self.mj_data)
-            log.info(f"Applied keyframe: {keyframe_name}")
-            return True
-        else:
-            log.error(f"Keyframe size mismatch: {len(qpos)} values for {self.mj_model.nq} DOFs")
-            return False
-    
-    def set_keyframe(self, keyframe_id: int) -> None:
-        """Set the model to a specific keyframe."""
-        if self.mj_model is None or self.mj_data is None:
-            log.error("Model not initialized")
-            return
-        
-        if keyframe_id < 0 or keyframe_id >= self.mj_model.nkey:
-            log.error(f"Invalid keyframe ID: {keyframe_id}, available: 0-{self.mj_model.nkey-1}")
-            return
-        
-        mujoco.mj_resetDataKeyframe(self.mj_model, self.mj_data, keyframe_id)
-        
-        # Update controls to match the keyframe
-        if self.mj_model.nu > 0:
-            joint_ids = self.mj_model.actuator_trnid[:, 0]
-            qpos_addrs = self.mj_model.jnt_qposadr[joint_ids]
-            self.mj_data.ctrl[:] = self.mj_data.qpos[qpos_addrs]
-        
-        mujoco.mj_forward(self.mj_model, self.mj_data)
-        
-        keyframe_name = mujoco.mj_id2name(self.mj_model, mujoco.mjtObj.mjOBJ_KEY, keyframe_id)
-        log.info(f"Set to keyframe {keyframe_id}: {keyframe_name if keyframe_name else 'unnamed'}")
-    
-    def get_collected_keyframe_names(self) -> list:
-        """Get list of collected keyframe names."""
-        if not hasattr(self, 'collected_keyframes'):
-            return []
-        
-        return list(self.collected_keyframes.keys())
-    
-    def get_keyframe_info(self) -> Dict[str, Dict[str, any]]:
-        """Get detailed information about all collected keyframes."""
-        if not hasattr(self, 'collected_keyframes'):
-            return {}
-        
-        return self.collected_keyframes.copy()
-
-
 def main():
     """Main function for testing the environment creator with command line config selection."""
     parser = argparse.ArgumentParser(description='MuJoCo Environment Creator')

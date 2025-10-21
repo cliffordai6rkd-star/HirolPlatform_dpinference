@@ -1,0 +1,70 @@
+robot:
+  name: "fr3"
+  model_path: "assets/franka_fr3/fr3_pika_ati.xml"
+  initial_position: [0.0, 0.0, 0.0]
+  initial_orientation: [1.0, 0.0, 0.0, 0.0]
+  fix_base: true  # false for floating base, true for fixed base
+
+scene_objects:
+  - name: "table"
+    model_path: "assets/scene_objects/cube_like/side_table_simple.xml"
+    initial_position: [0.6, 0.0, 0.0]
+    initial_orientation: [0.0, 0.0, 0.0, 1.0]
+    fix_base: true  # table is fixed to ground
+  
+  - name: "box_1"
+    model_path: "assets/scene_objects/box/box_red.xml"
+    initial_position: [0.4, 0.2, 0.5]
+    initial_orientation: [0.0, 0.0, 0.0, 1.0]
+    fix_base: false  # box can move freely
+
+  - name: "box_2"
+    model_path: "assets/scene_objects/box/box_blue.xml"
+    initial_position: [0.6, 0, 0.5]
+    initial_orientation: [0.0, 0.0, 0.0, 1.0]
+    fix_base: false  # box can move freely
+
+  - name: "box_3"
+    model_path: "assets/scene_objects/box/box_yellow.xml"
+    initial_position: [0.4, -0.2, 0.5]
+    initial_orientation: [0.0, 0.0, 0.0, 1.0]
+    fix_base: false  # box can move freely
+
+  # Mocap objects for teleoperation visualization
+  - name: "target"
+    model_path: "assets/scene_objects/mocap/target_mocap.xml"
+    initial_position: [0.3, 0.0, 0.45]
+    initial_orientation: [0.0, 1.0, 0.0, 0.0]  # x,y,z,w format
+    fix_base: true  # mocap objects don't need free joints
+    mocap: true  # Special flag to indicate this is a mocap object (preserve original site names)
+
+  - name: "TCP"
+    model_path: "assets/scene_objects/mocap/tcp_mocap.xml"
+    initial_position: [0.365, 0.0, 0.4]
+    initial_orientation: [0.0, 1.0, 0.0, 0.0]  # x,y,z,w format
+    fix_base: true  # mocap objects don't need free joints
+    mocap: true  # Special flag to indicate this is a mocap object (preserve original site names)
+
+# Camera configurations
+cameras:
+  # Fixed cameras in world coordinate system
+  - name: "side_cam"
+    position: [0.5, 0.8, 0.4]
+    xyaxes: [-1, 0,  0, 0, -0.5, 0.866]
+    fovy: 45
+
+  - name: "third_person_cam"
+    position: [1.2, 0.0, 0.8]
+    xyaxes: [0, 1, 0,  -0.866, 0, 0.5]
+    fovy: 45
+
+  # End-effector camera (attached to robot gripper)
+  # Note: This camera is already defined in the robot XML (fr3_pika_ati.xml)
+  # and will be automatically included when the robot is loaded.
+  # We keep this entry here for documentation and consistency with sensor_dict in mujoco config.
+  # If you need to override the camera parameters, you can do so in the robot XML file.
+
+simulation:
+  timestep: 0.001
+  viewer_dt: 0.02
+  gravity: [0.0, 0.0, -9.81]

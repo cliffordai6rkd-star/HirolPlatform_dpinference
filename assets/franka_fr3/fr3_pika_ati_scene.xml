@@ -31,7 +31,6 @@
     
     <!-- Third person camera in front of the robot base, looking at the workspace -->
     <camera name="third_person_cam" pos="1.5 0.0 0.8" euler="0.785 1.57 0.785" fovy="60"/>
-    <!-- <camera name="third_person_cam" pos="0.8 0.0 0.8" euler="-0.785 0 3.14" fovy="60"/> -->
 
     <!-- Mocap object as target -->
     <body name="target" pos="0.3 0 0.45" quat="0 1 0 0" mocap="true">

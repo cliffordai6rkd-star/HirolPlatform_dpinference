@@ -17,6 +17,8 @@ class TaskType(Enum):
     BLOCK_STACKING = "block_stacking"
     LIQUID_TRANSFER = "liquid_transfer"
     SOLID_TRANSFER = "solid_transfer"
+    PICK_AND_PLACE = "pick_and_place"
+    INSERT_TUBE = "insert_tube"
 
     def __str__(self) -> str:
         return self.value
@@ -28,7 +30,9 @@ class TaskType(Enum):
             TaskType.PEG_IN_HOLE: "插孔任务",
             TaskType.BLOCK_STACKING: "叠方块任务",
             TaskType.LIQUID_TRANSFER: "倒水任务",
-            TaskType.SOLID_TRANSFER: "固体转移任务"
+            TaskType.SOLID_TRANSFER: "固体转移任务",
+            TaskType.PICK_AND_PLACE: "抓放任务",
+            TaskType.INSERT_TUBE: "插管任务"
         }
         return display_names[self]
 
@@ -79,8 +83,20 @@ class TaskType(Enum):
             TaskType.SOLID_TRANSFER: [
                 r'solid.*transfer',
                 r'object.*transfer',
+                r'st_'  # fr3_st_xxx
+            ],
+            TaskType.PICK_AND_PLACE: [
+                r'pick.*and.*place',
                 r'pick.*place',
-                r'pickplace'
+                r'pp_',  # fr3_pp_xxx
+                r'pickplace',
+                r'pickandplace'
+            ],
+            TaskType.INSERT_TUBE: [
+                r'insert.*tube',
+                r'tube.*insert',
+                r'it_',  # fr3_it_xxx
+                r'inserttube'
             ]
         }
 
@@ -166,7 +182,9 @@ class TaskTypeFactory:
             TaskType.PEG_IN_HOLE: 600,      # 插孔任务需要精确控制
             TaskType.BLOCK_STACKING: 550,   # 叠方块任务步数适中
             TaskType.LIQUID_TRANSFER: 800,  # 倒水任务需要更多步数
-            TaskType.SOLID_TRANSFER: 500    # 固体转移任务步数较少
+            TaskType.SOLID_TRANSFER: 500,   # 固体转移任务步数较少
+            TaskType.PICK_AND_PLACE: 500,   # 抓放任务步数适中
+            TaskType.INSERT_TUBE: 600       # 插管任务需要精确控制
         }
         return default_steps.get(task_type, 500)
 
@@ -205,6 +223,18 @@ class TaskTypeFactory:
                 "gripper_control_type": "always_closed",
                 "completion_detection": False,
                 "force_open_after_completion": False
+            },
+            TaskType.PICK_AND_PLACE: {
+                "requires_precision": True,
+                "gripper_control_type": "act_driven",
+                "completion_detection": True,
+                "force_open_after_completion": True
+            },
+            TaskType.INSERT_TUBE: {
+                "requires_precision": True,
+                "gripper_control_type": "act_driven",
+                "completion_detection": True,
+                "force_open_after_completion": True
             }
         }
         return characteristics.get(task_type, {})

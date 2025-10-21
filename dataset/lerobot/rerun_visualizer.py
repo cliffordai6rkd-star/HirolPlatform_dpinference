@@ -13,11 +13,6 @@ from dataset.lerobot.reader import RerunEpisodeReader, ActionType
 from datetime import datetime
 import logging_mp
 os.environ["RUST_LOG"] = "error"
-import logging_mp
-logger_mp = logging_mp.get_logger(__name__, level=logging_mp.INFO)
-
-
-# Initialize logger for the module
 logger_mp = logging_mp.get_logger(__name__, level=logging_mp.INFO)
 
 def transform_pose(pose1, pose2):
@@ -61,13 +56,6 @@ class RerunLogger:
         for joint_key in joint_states.keys():
             joint_view = rrb.TimeSeriesView(
                 origin = f"{self.prefix}{joint_key}/joint_states",
-                time_ranges=[
-                    rrb.VisibleTimeRange(
-                        "idx",
-                        start = rrb.TimeRangeBoundary.cursor_relative(seq = -self.IdxRangeBoundary),
-                        end = rrb.TimeRangeBoundary.cursor_relative(),
-                    )
-                ],
                 plot_legend = rrb.PlotLegend(visible = True),
             )
             joint_states_views.append(joint_view)
@@ -79,13 +67,6 @@ class RerunLogger:
             if actions[action_key] is not None:
                 action_view = rrb.TimeSeriesView(
                     origin = f"{self.prefix}{action_key}/actions",
-                    time_ranges=[
-                        rrb.VisibleTimeRange(
-                            "idx",
-                            start = rrb.TimeRangeBoundary.cursor_relative(seq = -self.IdxRangeBoundary),
-                            end = rrb.TimeRangeBoundary.cursor_relative(),
-                        )
-                    ],
                     plot_legend = rrb.PlotLegend(visible = True),
                 )
                 action_views.append(action_view)
@@ -95,13 +76,6 @@ class RerunLogger:
             for action_key in actions.keys():
                 action_pose_view = rrb.Spatial3DView(
                     origin = f"{self.prefix}{action_key}_action_pose/actions/pose",
-                    time_ranges=[
-                        rrb.VisibleTimeRange(
-                            "idx",
-                            start = rrb.TimeRangeBoundary.cursor_relative(seq = -self.IdxRangeBoundary),
-                            end = rrb.TimeRangeBoundary.cursor_relative(),
-                        )
-                    ],
                 )
                 action_pose_views.append(action_pose_view)
                 logger_mp.info(f'Created action view for: {action_key} pose')
@@ -112,13 +86,6 @@ class RerunLogger:
             # Create 3D spatial view for end-effector pose
             ee_spatial_view = rrb.Spatial3DView(
                 origin = f"{self.prefix}{ee_key}/ee_states/pose",
-                time_ranges=[
-                    rrb.VisibleTimeRange(
-                        "idx",
-                        start = rrb.TimeRangeBoundary.cursor_relative(seq = -self.IdxRangeBoundary),
-                        end = rrb.TimeRangeBoundary.cursor_relative(),
-                    )
-                ],
             )
             ee_states_views.append(ee_spatial_view)
             logger_mp.info(f'Created ee_states spatial view for: {ee_key}')
@@ -129,13 +96,6 @@ class RerunLogger:
             if colors[color_key] is not None:
                 image_view = rrb.Spatial2DView(
                     origin = f"{self.prefix}colors/{color_key}",
-                    time_ranges=[
-                        rrb.VisibleTimeRange(
-                            "idx",
-                            start = rrb.TimeRangeBoundary.cursor_relative(seq = -self.IdxRangeBoundary),
-                            end = rrb.TimeRangeBoundary.cursor_relative(),
-                        )
-                    ],
                 )
                 image_views.append(image_view)
                 logger_mp.info(f'Created image view for: {color_key}')
@@ -225,7 +185,7 @@ class RerunLogger:
             positions = joint_state["position"]
             # logger_mp.info(f'{key} joint_state: {positions}')
             for idx, val in enumerate(positions):
-                rr.log(f"{self.prefix}{key}/joint_states/qpos/{idx}", rr.Scalar(val))
+                rr.log(f"{self.prefix}{key}/joint_states/qpos/{idx}", rr.Scalars(val))
 
         # Log actions
         actions = item_data.get('actions', {}) or {}
@@ -234,7 +194,7 @@ class RerunLogger:
             if action_val is not None:
                 logger_mp.info(f'Logging action {action_key} with shape: {action_val.shape if hasattr(action_val, "shape") else type(action_val)}')
                 for idx, val in enumerate(action_val):
-                    rr.log(f"{self.prefix}{action_key}/actions/qpos/{idx}", rr.Scalar(val))
+                    rr.log(f"{self.prefix}{action_key}/actions/qpos/{idx}", rr.Scalars(val))
             else:
                 logger_mp.warning(f'Could not find {action_key} for action_key')
                 
@@ -425,8 +385,9 @@ if __name__ == "__main__":
     # # TEST DATA OF data_dir
     # data_dir = "/home/yuxuan/Code/hirol/teleoperated_trajectory/fr3/0910/picking_up_kiwi_0910_fr3_50ep_side"
     # /workspace/dataset/data/peg_in_hole
-    data_dir = "/workspace/dataset/data/block_stacking"
-    episode_data_number = 2
+    data_dir = "/home/hanyu/Data_Collection/1018_block_stacking_interrupted_fr3_3Dmouse_49eps/1018_block_stacking_intrtupted_fr3_3Dmouse_49eps"
+    # data_dir = "/home/hanyu/Data_Collection/1018_block_stacking_fr3_3Dmosue_110eps"
+    episode_data_number = 38
     fps = 40
     skip_step_nums = 1
     episode_dir = f"episode_{str(episode_data_number).zfill(4)}"
@@ -434,20 +395,17 @@ if __name__ == "__main__":
         logger_mp.info(f'Found the {episode_dir} in {data_dir}')
         episode_reader2 = RerunEpisodeReader(task_dir = data_dir, action_type=ActionType.END_EFFECTOR_POSE,
                                              action_prediction_step=1, action_ori_type="quaternion")
-        user_input = input("Please enter the start signal (enter 'on' to start the subsequent program):\n")
         episode_data = episode_reader2.return_episode_data(episode_data_number, skip_step_nums)
         logger_mp.info(f'Successfully load the episode data')
-        if user_input.lower() == 'on':
-            # logger_mp.info("Starting offline visualization with fixed idx size...")
-            # Use first episode data as example for blueprint setup
-            example_data = episode_data[0] if episode_data else None
-            online_logger = RerunLogger(task_dir=data_dir, prefix="offline/", IdxRangeBoundary = 60, memory_limit="2GB", 
-                    example_item_data=example_data, action_type=ActionType.END_EFFECTOR_POSE)
-            for item_data in episode_data:
-                # logger_mp.info(f'item data: {item_data}')
-                online_logger.log_item_data(item_data)
-                time.sleep(1/fps) # 30hz
-            logger_mp.info("Offline visualization completed.")
+        # Use first episode data as example for blueprint setup
+        example_data = episode_data[0] if episode_data else None
+        online_logger = RerunLogger(task_dir=data_dir, prefix="offline/", IdxRangeBoundary = 60, memory_limit="20GB", 
+                example_item_data=example_data, action_type=ActionType.END_EFFECTOR_POSE)
+        for item_data in episode_data:
+            # logger_mp.info(f'item data: {item_data}')
+            online_logger.log_item_data(item_data)
+            time.sleep(1/fps) # 30hz
+        logger_mp.info("Offline visualization completed.")
     else:
         logger_mp.warning(f'Could not find {data_dir}/{episode_dir}')
         

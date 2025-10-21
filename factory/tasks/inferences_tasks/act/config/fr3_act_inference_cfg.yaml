@@ -2,13 +2,13 @@
 # Unified configuration for ACT inference task following factory pattern
 
 # Gym interface configuration (replaces direct RobotFactory/MotionFactory usage)
-motion_config: !include factory/components/motion_configs/fr3_with_franka_hand_ik.yaml
+motion_config: !include factory/components/motion_configs/left_fr3_with_pika_ati_ik.yaml
 
 # Robot type configuration
 robot_type: "fr3"
 
 # Checkpoint path for ACT model
-checkpoint_path: "factory/tasks/inferences_tasks/act/ckpts/fr3_bs_0916_50ep_ds"
+checkpoint_path: "learning/ckpts/fr3_bs_1013_50ep"
 # checkpoint_path: "learning/ckpts/fr3_pih_0918_48ep_ds"
 # checkpoint_path: "learning/ckpts/fr3_liquid_transfer_0920_50ep_ds"
 # checkpoint_path: "learning/ckpts/fr3_st_0928_56ep_rs"
@@ -92,10 +92,6 @@ gripper_postprocess:
   closing_trend_threshold: -0.0005
   opening_trend_threshold: 0.0005
 
-  # Wave pattern detection for gripper opening
-  # target_peak_count: 999  # Set very high to effectively disable peak-based opening for liquid transfer
-  # target_peak_count: 3
-
   # Holding state parameters
   holding_stability_threshold: 0.003
   min_holding_steps: 45
@@ -103,29 +99,6 @@ gripper_postprocess:
   # End-effector stability detection
   stability_threshold: 0.03
   min_stable_steps: 5
-
-  # Grasp failure detection
-  # grasp_check_enabled: true
-  # grasp_check_delay: 60
-  # max_grasp_retries: 3
-  # retry_wait_time: 23
-  # min_grasp_width: 0.005
-  # max_grasp_width: 0.070
-
-  # solid/liquid transfer task specific settings
-  # grasp_check_enabled: false  # Disable for liquid transfer - tight grip is expected
-  # grasp_check_delay: 60
-  # max_grasp_retries: 3
-  # retry_wait_time: 23
-  # min_grasp_width: 0.0001  # Set very low for liquid transfer (allows tight gripping)
-  # max_grasp_width: 0.070
-
-  # Task completion detection
-  # task_completion_enabled: true
-  # task_completion_stable_time: 20
-  # task_completion_position_threshold: 0.005
-  # task_completion_max_holding: 90
-  # task_completion_force_open: false  # CRITICAL: Set to false for liquid transfer to prevent spilling
 
 # Joint position visualization
 joint_position_visualization:

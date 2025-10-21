@@ -9,7 +9,7 @@
         <geom type="mesh" group="2" contype="0" conaffinity="0"/>
       </default>
       <default class="collision">
-        <geom type="mesh" group="3" mass="0" density="0"/>
+        <geom type="mesh" group="3" mass="0" density="0" friction="0.9 0.15 0.01" solref="0.004 1.2" solimp="0.95 0.98 0.001"/>
       </default>
       <site size="0.001" rgba="0.5 0.5 0.5 0.3" group="3"/>
     </default>
@@ -135,19 +135,37 @@
                         <geom pos="-0.046 0.076 0.1865" quat="-0.5 0.5 -0.5 0.5" type="mesh" mesh="ati_pika_new" class="collision"/>
                         <geom pos="-0.001 -2.67949e-10 0.1765" quat="0.25564 0.659279 -0.25564 0.659279" type="mesh" material="black" class="visual" mesh="pika_gripper_base_link"/>
                         <geom pos="-0.001 -2.67949e-10 0.1765" quat="0.25564 0.659279 -0.25564 0.659279" type="mesh" mesh="pika_gripper_base_link" class="collision"/>
-                        <camera name="ee_cam" pos="0 0 0.255" euler="0 3.1415926 1.5708" fovy="120"/>
+                        <camera name="ee_cam" mode="track" pos="0.04 0 0.255" euler="0 3.1415926 1.57" fovy="60"/>
                       </body>
                       <body name="gripper_left_link" pos="-0.0559287 -0.0696997 0.258" quat="0.25564 0.659279 -0.25564 0.659279">
                         <inertial pos="0.033255 -0.014661 -0.0057614" quat="0.606445 0.607197 0.362695 0.363302" mass="0.033674" diaginertia="4.22483e-05 3.9744e-05 7.51567e-06"/>
                         <joint name="gripper_left_joint" pos="0 0 0" axis="0 1 0" type="slide" range="-0.05 0" actuatorfrcrange="-100 100"/>
                         <geom type="mesh" material="black" class="visual" mesh="pika_gripper_left_link"/>
-                        <geom type="mesh" mesh="pika_gripper_left_link" class="collision"/>
+                        <!-- 夹爪指尖：橡胶材质高摩擦配置
+                             friction: 极高摩擦系数
+                             condim: 4 = 摩擦椭圆模型（防止横向滑动）
+                             solref: 硬接触，快速响应
+                             solimp: 高刚度，最小穿透
+                             priority: 2 = 最高优先级（确保夹持力正确传递）
+                        -->
+                        <geom name="gripper_left_collision" type="mesh" mesh="pika_gripper_left_link" class="collision"
+                              friction="2.0 0.4 0.03"
+                              condim="4"
+                              solref="0.001 0.6"
+                              solimp="0.995 0.9995 0.00005"
+                              priority="2"/>
                       </body>
                       <body name="gripper_right_link" pos="0.0634224 0.0610601 0.258" quat="0.25564 0.659279 -0.25564 0.659279">
                         <inertial pos="0.033255 0.014661 -0.0058113" quat="0.362693 0.363304 0.606443 0.607199" mass="0.033674" diaginertia="4.22483e-05 3.9744e-05 7.51567e-06"/>
                         <joint name="gripper_right_joint" pos="0 0 0" axis="0 1 0" type="slide" range="0 0.05" actuatorfrcrange="-100 100"/>
                         <geom type="mesh" material="black" class="visual" mesh="pika_gripper_right_link"/>
-                        <geom type="mesh" mesh="pika_gripper_right_link" class="collision"/>
+                        <!-- 夹爪指尖：橡胶材质高摩擦配置 -->
+                        <geom name="gripper_right_collision" type="mesh" mesh="pika_gripper_right_link" class="collision"
+                              friction="2.0 0.4 0.03"
+                              condim="4"
+                              solref="0.001 0.6"
+                              solimp="0.995 0.9995 0.00005"
+                              priority="2"/>
                       </body>
                     </body>
                   </body>

@@ -19,9 +19,6 @@ except ImportError as e:
     log.warning(f"⚠️ 任务类型系统不可用: {e}")
     TASK_SYSTEM_AVAILABLE = False
 
-
-
-
 class TaskGripperController:
     """基于任务类型的统一夹爪控制器"""
 
@@ -191,12 +188,12 @@ class TaskGripperController:
         获取夹爪位置值（用于状态向量）
 
         Returns:
-            float: 夹爪位置值 (0.0=闭合, 0.08=打开)
+            float: 夹爪位置值 (0.0=闭合, 1=打开)
         """
         if self.state in ['CLOSED', 'CHECKING', 'HOLDING']:
             return 0.0
         else:
-            return 0.08
+            return 1.0
 
     def reset(self):
         """重置控制器状态"""

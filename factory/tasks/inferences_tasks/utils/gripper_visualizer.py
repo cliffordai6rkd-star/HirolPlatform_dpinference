@@ -232,15 +232,15 @@ class GripperVisualizer:
         self.ax.set_ylim(-0.05, 1.1)  # 适应归一化值范围 0-1
 
         # 初始化绘图线条
-        # self.lines['raw'] = self.ax.plot([], [], 'b-', linewidth=2, label='Raw Value (0-0.08)', alpha=0.8)[0]
+        # self.lines['raw'] = self.ax.plot([], [], 'b-', linewidth=2, label='Raw Value (0-GRIPPER_OPEN)', alpha=0.8)[0]
         self.lines['normalized'] = self.ax.plot([], [], 'g-', linewidth=2, label='Normalized Value (0-1)', alpha=0.8)[0]
 
         # 添加阈值线（同时显示原始值和归一化值的阈值）
         # self.lines['close_threshold'] = self.ax.axhline(y=0.03, color='r', linestyle='--', alpha=0.6, label='Close Threshold(0.03)')
         # self.lines['open_threshold'] = self.ax.axhline(y=0.035, color='orange', linestyle='--', alpha=0.6, label='Open Threshold(0.035)')
         # 归一化阈值线
-        # self.lines['close_norm_threshold'] = self.ax.axhline(y=0.03/0.08, color='r', linestyle=':', alpha=0.4, label='Close Norm(0.375)')
-        # self.lines['open_norm_threshold'] = self.ax.axhline(y=0.035/0.08, color='orange', linestyle=':', alpha=0.4, label='Open Norm(0.438)')
+        # self.lines['close_norm_threshold'] = self.ax.axhline(y=0.03/GRIPPER_OPEN, color='r', linestyle=':', alpha=0.4, label='Close Norm(0.375)')
+        # self.lines['open_norm_threshold'] = self.ax.axhline(y=0.035/GRIPPER_OPEN, color='orange', linestyle=':', alpha=0.4, label='Open Norm(0.438)')
 
         # 新增条件阈值线
         # self.lines['close_condition_threshold'] = self.ax.axhline(y=0.1, color='darkred', linestyle='-', alpha=0.7, linewidth=2, label='Close Condition(<0.1)')

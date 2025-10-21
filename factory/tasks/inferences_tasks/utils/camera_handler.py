@@ -12,7 +12,7 @@ import glog as log
 from typing import Dict, Any, Optional
 from pathlib import Path
 
-
+GRIPPER_OPEN=90
 class CameraHandler:
     """Handles camera observations and image processing for ACT inference"""
 
@@ -57,12 +57,13 @@ class CameraHandler:
         gripper_raw = gym_action.get('tool', [1.0])[0] if 'tool' in gym_action else 1.0
 
         # Normalize command value
-        max_gripper_width = 0.08
+        max_gripper_width = GRIPPER_OPEN
         if gripper_raw <= max_gripper_width:
             normalized_command = min(1.0, max(0.0, gripper_raw / max_gripper_width))
         else:
             normalized_command = gripper_raw
 
+        # TODO: pika夹爪不适用此处规则，@hph
         # Detect action type based on value thresholds
         action_detected = None
         if normalized_command < 0.02:
