@@ -2,10 +2,12 @@ import enum
 
 class ObservationType(enum.Enum):
     JOINT_POSITION_ONLY = "joint_position"
+    DELTA_JOINT_POSITION = "delta_joint_position"
     END_EFFECTOR_POSE = "ee_pose"
     DELTA_END_EFFECTOR_POSE = "delta_ee_pose"
     JOINT_POSITION_END_EFFECTOR = "joint_position_ee_pose"
     MASK = "mask"
+    FT_ONLY = "ft"
 
 class ActionType(enum.Enum):
     JOINT_POSITION = 0

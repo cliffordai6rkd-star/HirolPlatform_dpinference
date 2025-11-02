@@ -1,6 +1,6 @@
 realsense_camera:
   image_shape: [480, 640]
-  fps: 15
+  fps: 30
   serial_number: "243122071795"
   contain_depth: false
   contain_imu: false

@@ -38,36 +38,24 @@ tasks:
 
 
 - id: 3
-  name: "Peg in Hole"
-  save_path_prefix: "peg_in_hole"
-  task_description: "pick up the peg on the table and put it in the hole"
-  task_description_goal: "pick up the peg on the table and place it in the correct hole"
+  name: "Insert Pinboard"
+  save_path_prefix: "insert_pinboard"
+  task_description: "Pick up the pinboard and insert it into the base"
+  task_description_goal: "Insert the pinboard into the base"
   task_description_step: |
-    step1: find the peg on the table.
-    step2: go to the location of the peg
-    step3: pick up the only peg on the table.
-    step4: find the only hole in the peg station.
-    step5: go to the top of the hole.
-    step6: place the peg into the hole.
+    step1: Find the Pinboard on the table and pick it up.
+    step2: Go to the location of the base.
+    step3: Insert the pinboard in the base.
+    step4: Rise up.
 
 
 - id: 4
-  name: "Folding Towels"
-  save_path_prefix: "folding_towels"
-  task_description: "fold the towel symmetrically with both grippers"
-  task_description_goal: "fold the towel in half along its length"
+  name: "Discern Target"
+  save_path_prefix: "discern_target"
+  task_description: "find the target and discern it"
+  task_description_goal: "discern the target"
   task_description_step: |
-    step1: left gripper grasps the left 1/3 of the towel.
-    step2: right gripper grasps the right 1/3 of the towel.
-    step3: bring both sides together to complete the fold.
-
-
-- id: 5
-  name: "Dual-arm Powder Transfer"
-  save_path_prefix: "dual_arm_powder_transfer"
-  task_description: "scoop powder from the ampoule and transfer it to a container"
-  task_description_goal: "use the spoon in the left arm to transfer powder from the ampoule held by the right arm"
-  task_description_step: |
-    step1: left arm picks up the spoon; right arm picks up the ampoule.
-    step2: scoop powder from the ampoule with the spoon.
-    step3: transfer the powder to another container.
+    step1: Find the target on the table.
+    step2: Adjust the actuator's posture.
+    step3: Discern the target.
+    

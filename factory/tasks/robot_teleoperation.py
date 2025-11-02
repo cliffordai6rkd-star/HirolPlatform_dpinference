@@ -397,7 +397,7 @@ class TeleoperationFactory:
                 
     def _keyboard_on_press(self, key):
         if key == 'h':
-            self._reset_hardware()         
+            self._reset_hardware()     
         elif key == 'q' and self._is_initialized:
             self.close()
         elif key == 'r':

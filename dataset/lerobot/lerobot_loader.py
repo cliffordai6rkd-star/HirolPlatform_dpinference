@@ -5,7 +5,7 @@ import os
 import numpy as np
 from tqdm import tqdm
 import glog as log
-import cv2
+# import cv2
 
 class LerobotLoader(DataLoaderBase):
     def __init__(self, config, task_dir, json_file_name = "data.json", action_type = ActionType.JOINT_POSITION,
@@ -155,7 +155,7 @@ class LerobotLoader(DataLoaderBase):
                 log.info(f'{len(self._lack_data_json_list)} lacks the data.json files: {self._lack_data_json_list}')
                 log.info(f'state: {state_dismatch_list}, len: {state_step_list}')
                 log.info(f'action: {action_dismatch_list}, len: {action_step_list}')
-        cv2.destroyAllWindows()
+        # cv2.destroyAllWindows()
             
         log.info(f'{len(self._lack_data_json_list)} lacks the data.json files: {self._lack_data_json_list}')
         log.info(f'state: {state_dismatch_list}, len: {state_step_list}')
@@ -173,18 +173,8 @@ class LerobotLoader(DataLoaderBase):
     
 if __name__ == '__main__':
     import yaml
-    task_list = [{'name': "insert_tube", 'task_dir': '/boot/common_data/2025/fr3/1013_inserttube_fr3_pika_50ep', 
-                  'cfg_file': 'config/lerobot_insert_tube_config.yaml'},
-                 {'name': "insert_tube_jps2pose_euler", 'task_dir': '/boot/common_data/2025/fr3/1013_inserttube_fr3_pika_50ep', 
-                  'cfg_file': 'config/lerobot_insert_tube_jps2pose_euler_config.yaml'},
-                 {'name': "insert_tube_jps2delPose_euler", 'task_dir': '/boot/common_data/2025/fr3/1013_inserttube_fr3_pika_50ep', 
-                  'cfg_file': 'config/lerobot_insert_tube_jps2delPose_euler_config.yaml'},
-                 {'name': "insert_tube_pose2delPose_euler", 'task_dir': '/boot/common_data/2025/fr3/1013_inserttube_fr3_pika_50ep', 
-                  'cfg_file': 'config/lerobot_insert_tube_pose2delPose_euler_config.yaml'},
-                 {'name': "pick_n_place", 'task_dir': '/boot/common_data/2025/fr3/zyx_pick_n_place_500eps', 
-                  'cfg_file': 'config/lerobot_pick_n_place_config.yaml'},
-                 {'name': "block_stacking", 'task_dir': '/boot/common_data/2025/fr3/1013_stack_blocks_fr3_pika_3dmouse_50ep', 
-                  'cfg_file': 'config/lerobot_block_stacking_config.yaml'},
+    task_list = [{'name': "insert_pinboard", 'task_dir': '/boot/common_data/2025/fr3/1030_left_fr3_insert_pinboard_fixed_3dmouse_56ep', 
+                  'cfg_file': 'config/insert_pinboard.yaml'},
                 ]
     
     num_task = len(task_list)

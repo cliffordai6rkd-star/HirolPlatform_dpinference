@@ -1,2 +1,2 @@
-FROM ghcr.io/linkage-x/hirol-robots:v6
+FROM ghcr.io/linkage-x/hirol-robots:v8
 

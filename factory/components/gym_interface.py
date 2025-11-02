@@ -18,11 +18,16 @@ class GymApi(gym.Env):
         self._action_type = config.get("action_type", "joint_position")
         self._action_type = Action_Type_Mapping_Dict[self._action_type]
         self._action_ori_type = config.get("action_orientation_type", "euler")
-        self._obs_type = config.get("observation_type", ObservationType.JOINT_POSITION_ONLY)
+        self._delta_action_target = {}
+        self._obs_type = config.get("observation_type", "jonit_position")
+        self._obs_type = ObservationType(self._obs_type)
+        self._contain_ft = config.get('contain_ft', False)
+        self._last_ee = {}
         self._use_relative_pose = config.get("use_relative_pose", False)
         self._init_pose = {}
         robot_motion_cfg = config["motion_config"]
         self._tool_position_dof = config.get("tool_position_dof", 1)
+        self._tool_state_max = config.get("tool_state_max", 1)
         
         self._reset_space = config.get("reset_space", "joint")
         self._reset_space = Robot_Space.JOINT_SPACE if self._reset_space== 'joint' else Robot_Space.CARTESIAN_SPACE
@@ -30,15 +35,11 @@ class GymApi(gym.Env):
         self._reset_tool_command = config.get("reset_tool_command", [[1]])
         self._is_debug = config.get("is_debug", False)
         self._use_hardware = config.get("enable_hardware", True)
-        log.info(f'execute hardware: {self._use_hardware}')
         
         self._robot_system = RobotFactory(robot_motion_cfg)
         self._robot_motion = MotionFactory(robot_motion_cfg, self._robot_system)
         self._robot_motion.create_motion_components()
-        if self._use_hardware:
-            self._robot_motion.update_execute_hardware(True)
-            self._robot_system._use_hardware = True
-        log.info("The robot motion component is successfully created in gym api!")
+        log.info(f"The robot motion component is successfully created in gym api! {self._obs_type} : {self._action_type}")
         
         # variable used for gym api
         self._step_counter = 0
@@ -46,11 +47,16 @@ class GymApi(gym.Env):
         
     def set_init_pose(self):
         time.sleep(1.0)
-        if self._use_relative_pose:
-            ee_states = self.get_ee_state()
-            for key, cur_ee_state in ee_states.items():
+        ee_states = self.get_ee_state()
+        for key, cur_ee_state in ee_states.items():
+            self._delta_action_target[key] = cur_ee_state["pose"]
+            self._last_ee[key] = cur_ee_state["pose"]
+            log.info(f'Updated delta action, {self._delta_action_target[key]} for {key}!!!')
+            if self._use_relative_pose:
                 self._init_pose[key] = cur_ee_state["pose"]
-    
+                self._last_ee[key] = pose_diff(self._last_ee[key], self._init_pose[key])
+                log.info(f'Updated init pose!!!')
+                
     def set_action_type(self, action_type: ActionType):
         self._action_type = action_type
         
@@ -58,7 +64,7 @@ class GymApi(gym.Env):
         # action execution
         arm_action = action['arm']
         execute_arm_action = np.array([]); execute_tool_action = []
-              
+        # log.info(f'action type: {self._action_type} ori type: {self._action_ori_type}')
         # @TODO: hack
         gripper_position_dof = self._tool_position_dof
         if self._action_type in [ActionType.JOINT_POSITION, ActionType.JOINT_POSITION_DELTA]:
@@ -78,7 +84,7 @@ class GymApi(gym.Env):
         elif self._action_type in [ActionType.END_EFFECTOR_POSE, ActionType.END_EFFECTOR_POSE_DELTA]:
             cur_ee_pose = self.get_ee_state()
             action_index = 0
-            for j, pose in enumerate(list(cur_ee_pose.values())):
+            for j, (key, pose) in enumerate(list(cur_ee_pose.items())):
                 pose = pose["pose"]
                 if self._action_ori_type == "euler":
                     index_l = 6 * j + action_index
@@ -92,7 +98,12 @@ class GymApi(gym.Env):
                     cur_arm_action = np.hstack((cur_arm_action, [0]))
                     cur_arm_action[3:] = R.from_euler("xyz", cur_arm_action[3:6]).as_quat()
                 if self._action_type == ActionType.END_EFFECTOR_POSE_DELTA:
-                   cur_arm_action = transform_pose(pose, cur_arm_action, True)
+                    # try to use the fixed reset pose
+                   cur_arm_action = transform_pose(self._delta_action_target[key], cur_arm_action, True)
+                   self._delta_action_target[key] = cur_arm_action
+                    # @TODO: how to deal with delta pose with umi
+                        
+                # for umi absolute relative pose
                 elif self._use_relative_pose:
                     # for relative pose action representation
                     cur_arm_action = transform_pose(self._init_pose[key], cur_arm_action)
@@ -113,7 +124,7 @@ class GymApi(gym.Env):
                 else:
                     execute_tool_action.append(np.array(tool_action[tool_index:index_r]))
                 tool_index = index_r
-            log.info(f'tool action: {tool_action}')
+            # log.info(f'tool action: {tool_action}')
             self._robot_motion.set_tool_command(np.array(tool_action))
         
         # obs
@@ -129,6 +140,11 @@ class GymApi(gym.Env):
         return observation, reward, done, False, info
         
     def reset(self, *, seed = None, options = None):
+        if self._use_hardware:
+            self._robot_motion.update_execute_hardware(True)
+            self._robot_system._enable_hardware = True
+            time.sleep(0.3)
+            log.info("The robot hardware all enabled!!!!!!")
         self._robot_motion.reset_robot_system(arm_command=self._reset_arm_command,
                                               space=self._reset_space,
                                               tool_command=self._reset_tool_command)
@@ -178,7 +194,7 @@ class GymApi(gym.Env):
         relative_pose = {}
         for key, cur_ee_state in ee_states.items():
             pose = cur_ee_state["pose"]
-            relative_pose[key] = pose_diff(pose, self._init_pose[key])
+            relative_pose[key] = dict(pose=pose_diff(pose, self._init_pose[key]))
         return relative_pose
 
     def get_camera_infos(self):
@@ -199,15 +215,35 @@ class GymApi(gym.Env):
         cameras_data = {"color": cur_colors, "depth": cur_depths, "imu": cur_imus}
         return cameras_data
     
+    def get_ft_infos(self):
+        ft_data = self._robot_system.get_ft_data()
+        if not ft_data: return ft_data
+        
+        key = ["single"] if len(ft_data) == 1 else ["left", "right"]
+        ft_dict = {}
+        for i, cur_key in enumerate(key):
+            if cur_key == "single":
+                ft_dict[cur_key] = ft_data[i]["data"]
+            else:
+                for j, cur_ft_data in enumerate(ft_data):
+                    if cur_key in cur_ft_data[i]["name"]:
+                        ft_dict[cur_key] = cur_ft_data["data"]
+                        ft_data.pop(j) # increase the efficency
+                        break
+        return ft_dict
+    
     @abc.abstractmethod
     def get_observation(self):
         obs_state = {}
         joint_states = self.get_joint_state()
-        if self._obs_type == ObservationType.JOINT_POSITION_ONLY or self._obs_type == ObservationType.JOINT_POSITION_END_EFFECTOR:
+        joint_check = [ObservationType.JOINT_POSITION_ONLY, ObservationType.JOINT_POSITION_END_EFFECTOR]
+        if self._obs_type in joint_check:
             if len(joint_states) == 0:
                 raise ValueError(f'Cur {self._obs_type} do not get joint states!!!')
-        ee_states = self.get_ee_state()
-        if self._obs_type == ObservationType.END_EFFECTOR_POSE or self._obs_type == ObservationType.JOINT_POSITION_END_EFFECTOR:
+        ee_states = self.get_ee_state() if not self._use_relative_pose else self.get_relative_ee_pose()
+        ee_check = [ObservationType.DELTA_END_EFFECTOR_POSE, ObservationType.END_EFFECTOR_POSE, 
+                    ObservationType.JOINT_POSITION_END_EFFECTOR]
+        if self._obs_type in ee_check:
             if len(ee_states) == 0:
                 raise ValueError(f'Cur {self._obs_type} do not get ee states!!!')
         visual_ee_poses = {}
@@ -215,16 +251,39 @@ class GymApi(gym.Env):
             visual_ee_poses[key] = pose["pose"]
         self._robot_motion.sim_visualize_tcp(visual_ee_poses)
         tools_dict = self.get_tool_state()
+        ft_dict = self.get_ft_infos()
+        # log.info(f'ft dict: {ft_dict}, obs type: {self._obs_type}, contain ft: {self._contain_ft}')
         for key, joint_state in joint_states.items():
             obs_state[key] = np.array([])
             if self._obs_type == ObservationType.JOINT_POSITION_ONLY or self._obs_type == ObservationType.JOINT_POSITION_END_EFFECTOR:
                 obs_state[key] = np.hstack((obs_state[key], joint_state["position"]))
             if self._obs_type == ObservationType.END_EFFECTOR_POSE or self._obs_type == ObservationType.JOINT_POSITION_END_EFFECTOR:
                 obs_state[key] = np.hstack((obs_state[key], ee_states[key]["pose"]))
-            obs_state[key] = np.hstack((obs_state[key], tools_dict[key]["position"]))
-        
-        # other sensors: @TODO: zyx
-        
+            if self._obs_type == ObservationType.DELTA_END_EFFECTOR_POSE:
+                delta_ee = pose_diff(ee_states[key]["pose"], self._last_ee[key])
+                obs_state[key] = np.hstack((obs_state[key], delta_ee))
+                self._last_ee[key] = ee_states[key]["pose"]
+            if self._obs_type == ObservationType.MASK:
+                obs_state[key] = np.hstack((obs_state[key], np.zeros(7)))
+            if self._contain_ft or self._obs_type == ObservationType.FT_ONLY:
+                if ft_dict is None:
+                    raise ValueError(f'The obs contain ft {self._contain_ft} with obs type {self._obs_type} need ft data from hardware!!!')
+                obs_state[key] = np.hstack((obs_state[key], ft_dict[key]))
+            # tool state
+            # Training datasets (e.g., q2q) record the tool/gripper position as a real scalar
+            # (in mm for Pika, range roughly [0, 90]). To match dataset stats at inference,
+            # we must append the same physical quantity here (not a constant 0), otherwise
+            # the last dimension's z-score will explode and harm predictions.
+            if self._obs_type == ObservationType.MASK:
+                # For MASK observations, keep a normalized mask value (0..1) if available
+                tool_state = tools_dict[key]["position"] / self._tool_state_max
+                obs_state[key] = np.hstack((obs_state[key], [0]))
+            else:
+                # Append the real tool position in the same units used by the dataset (e.g., mm)
+                # tool_state = tools_dict[key]["position"] if tools_dict is not None else 0.0
+                tool_state = tools_dict[key]["position"] / self._tool_state_max
+                obs_state[key] = np.hstack((obs_state[key], [tool_state]))
+                # log.info(f'obs tool state for {key} {tool_state}')
         camera_data = self.get_camera_infos()
         obs_dict = {'state': obs_state, 'colors': camera_data["color"], 
                     'depths': camera_data["depth"]}

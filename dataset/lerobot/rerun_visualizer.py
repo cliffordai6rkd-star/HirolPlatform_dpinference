@@ -392,9 +392,9 @@ if __name__ == "__main__":
     # # TEST DATA OF data_dir
     # data_dir = "/home/yuxuan/Code/hirol/teleoperated_trajectory/fr3/0910/picking_up_kiwi_0910_fr3_50ep_side"
     # /workspace/dataset/data/peg_in_hole
-    data_dir = "/home/hanyu/Data_Collection/1018_block_stacking_interrupted_fr3_3Dmouse_49eps/1018_block_stacking_intrtupted_fr3_3Dmouse_49eps"
+    data_dir = "dataset/data/insert_pinboard"
     # data_dir = "/home/hanyu/Data_Collection/1018_block_stacking_fr3_3Dmosue_110eps"
-    episode_data_number = 38
+    episode_data_number = 1
     fps = 40
     skip_step_nums = 1
     action_ori_type = "quaternion"

@@ -21,6 +21,12 @@ class InferenceBase(abc.ABC, metaclass=abc.ABCMeta):
         
         self._action_type = config["action_type"]
         self._action_type = Action_Type_Mapping_Dict[self._action_type]
+        # Command action types share the same execution semantics as their state-based
+        # counterparts; normalize for downstream slicing and GymApi execution.
+        self._exec_action_type = self._normalize_action_type(self._action_type)
+        if self._exec_action_type != self._action_type:
+            log.info(f'Normalize action type from {self._action_type} to {self._exec_action_type} for execution')
+        self._gym_robot.set_action_type(self._exec_action_type)
         self._action_ori_type = config.get("action_orientation_type", "euler")
         self._obs_type = config.get("observation_type", ObservationType.JOINT_POSITION_ONLY)
         
@@ -62,6 +68,16 @@ class InferenceBase(abc.ABC, metaclass=abc.ABCMeta):
         # Check if plotting should be enabled (can be disabled for performance)
         self._enable_plotting = config.get("enable_plotting", False)
         self._plotter = None
+
+    @staticmethod
+    def _normalize_action_type(action_type: ActionType) -> ActionType:
+        command_to_state = {
+            ActionType.COMMAND_JOINT_POSITION: ActionType.JOINT_POSITION,
+            ActionType.COMMAND_JOINT_POSITION_DELTA: ActionType.JOINT_POSITION_DELTA,
+            ActionType.COMMAND_END_EFFECTOR_POSE: ActionType.END_EFFECTOR_POSE,
+            ActionType.COMMAND_END_EFFECTOR_POSE_DELTA: ActionType.END_EFFECTOR_POSE_DELTA,
+        }
+        return command_to_state.get(action_type, action_type)
         
     def update_plotter(self, state, action):
         if self._enable_plotting:
@@ -101,17 +117,17 @@ class InferenceBase(abc.ABC, metaclass=abc.ABCMeta):
         action = {'arm': np.array([]), 'tool': np.array([])}
         action_index = 0
         gripper_position_dof = self._tool_position_dof
-        log.info(f'len dof: {len(dofs)}')
+        # log.info(f'len dof: {len(dofs)}')
         for j in range(len(dofs)):
-            if self._action_type in [ActionType.JOINT_POSITION, ActionType.JOINT_POSITION_DELTA]:
+            if self._exec_action_type in [ActionType.JOINT_POSITION, ActionType.JOINT_POSITION_DELTA]:
                 index_l = gripper_position_dof*j + action_index
                 index_r = gripper_position_dof*j + dofs[j] + action_index
                 action_index = index_r+gripper_position_dof
-                log.info(f'arm index for joint: {index_l}, {index_r}')
+                # log.info(f'arm index for joint: {index_l}, {index_r}')
                 cur_arm_action = cur_action[index_l:index_r]
-            elif self._action_type in [ActionType.END_EFFECTOR_POSE, ActionType.END_EFFECTOR_POSE_DELTA]:
+            elif self._exec_action_type in [ActionType.END_EFFECTOR_POSE, ActionType.END_EFFECTOR_POSE_DELTA]:
                 pose_dof = 6 if self._action_ori_type == "euler" else 7
-                log.info(f'arm index for pose: {action_index}')
+                # log.info(f'arm index for pose: {action_index}')
                 cur_arm_action = cur_action[action_index:action_index+pose_dof].copy()
                 cur_arm_action[3:] = raw_action[action_index+3:action_index+pose_dof]
                 index_r = action_index+pose_dof
@@ -121,7 +137,7 @@ class InferenceBase(abc.ABC, metaclass=abc.ABCMeta):
 
             action["arm"] = np.hstack((action["arm"], cur_arm_action))
             cur_tool_action = cur_action[index_r:index_r+gripper_position_dof].copy()
-            log.info(f'cur tool action from model action for {j}: {cur_tool_action}, len {len(cur_tool_action)}')
+            # log.info(f'cur tool action from model action for {j}: {cur_tool_action}, len {len(cur_tool_action)}')
             
             if self._tool_control_mode == ToolControlMode.BINARY:
                 if self._last_gripper_open[j]:
@@ -164,13 +180,13 @@ class InferenceBase(abc.ABC, metaclass=abc.ABCMeta):
             # log.info(f'len dof: {len(dofs)}')
             convert_start = time.perf_counter()
             for j in range(len(dofs)):
-                if self._action_type in [ActionType.JOINT_POSITION, ActionType.JOINT_POSITION_DELTA]:
+                if self._exec_action_type in [ActionType.JOINT_POSITION, ActionType.JOINT_POSITION_DELTA]:
                     index_l = gripper_position_dof*j + action_index
                     index_r = gripper_position_dof*j + dofs[j] + action_index
                     action_index = index_r+gripper_position_dof
                     # log.info(f'arm index for joint: {index_l}, {index_r}')
                     cur_arm_action = cur_action[index_l:index_r]
-                elif self._action_type in [ActionType.END_EFFECTOR_POSE, ActionType.END_EFFECTOR_POSE_DELTA]:
+                elif self._exec_action_type in [ActionType.END_EFFECTOR_POSE, ActionType.END_EFFECTOR_POSE_DELTA]:
                     pose_dof = 6 if self._action_ori_type == "euler" else 7
                     # log.info(f'arm index for pose: {action_index}')
                     cur_arm_action = cur_action[action_index:action_index+pose_dof]
@@ -237,7 +253,6 @@ class InferenceBase(abc.ABC, metaclass=abc.ABCMeta):
     def start_common_inference(self):
         # rollout episodes
         query_frequency = int(50 / self._infer_frequency)
-        query_frequency = 25
         for episode_id in range(self._num_episodes):
             if self._quit: break
             
@@ -252,6 +267,7 @@ class InferenceBase(abc.ABC, metaclass=abc.ABCMeta):
             # inference timestamp
             pred_action_chunk = None
             for t in range(self._max_timestamps):
+                step_loop_start = time.perf_counter()
                 # if self._action_ori_type == "quaternion" and self._weight_mode != WeightMode.NO_WEIGHT:
                 #     raise ValueError(f'Action aggregation does not support quaternion action orientation')
                     
@@ -262,23 +278,37 @@ class InferenceBase(abc.ABC, metaclass=abc.ABCMeta):
                     obs = self.convert_from_gym_obs(obs)
                 
                 if t % query_frequency == 0:
+                    # 仅在查询周期到达时预测并追加新的动作块
                     pred_action_chunk = self.policy_prediction(obs)
-                if self._action_aggregation is None:
-                    predicted_action_chunk_size = pred_action_chunk.shape[0]
-                    self._action_aggregation = ActionAggregator(query_frequency=query_frequency,
-                        chunk_size=predicted_action_chunk_size, max_timestamps=self._max_timestamps,
-                        action_size=pred_action_chunk.shape[1], k=self._weight_gain)
-                # update action chunk
-                self._action_aggregation.add_action_chunk(t, pred_action_chunk)
+                    # log.info(f'predicted action shape: {pred_action_chunk.shape}')
+                    if self._action_aggregation is None:
+                        predicted_action_chunk_size = pred_action_chunk.shape[0]
+                        self._action_aggregation = ActionAggregator(
+                            query_frequency=query_frequency,
+                            chunk_size=predicted_action_chunk_size,
+                            max_timestamps=self._max_timestamps,
+                            action_size=pred_action_chunk.shape[1],
+                            k=self._weight_gain,
+                        )
+                    # 追加最新的动作块（以当前全局时间 t 作为块起点）
+                    self._action_aggregation.add_action_chunk(t, pred_action_chunk)
                 # calculate aggregated action
                 aggregated_action = self._action_aggregation.aggregation_action(t, self._weight_mode)
                 
-                log.info(f'aggregated action: {aggregated_action}')
-                gym_action = self.convert_to_gym_action_single_step(aggregated_action, pred_action_chunk[t%query_frequency])
+                # log.info(f'aggregated action: {aggregated_action}')
+                # 与聚合动作对应的原始行（用于姿态类动作的原始旋转覆盖等）
+                row_idx = t % query_frequency
+                raw_row = pred_action_chunk[row_idx] if pred_action_chunk is not None else aggregated_action
+                gym_action = self.convert_to_gym_action_single_step(aggregated_action, raw_row)
                 res = self._gym_robot.step(gym_action)
                 gym_obs = res[0]
                 obs = self.convert_from_gym_obs(gym_obs)
-                t += 1
+                # 上层循环节流到约50Hz
+                elapsed = time.perf_counter() - step_loop_start
+                target_dt = 1.0 / 50.0
+                if elapsed < target_dt:
+                    time.sleep(target_dt - elapsed)
+                # for 循环自动递增 t，无需手动自增
                                 
     @abc.abstractmethod
     def close(self):
