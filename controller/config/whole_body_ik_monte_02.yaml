@@ -1,0 +1,30 @@
+whole_body_ik:
+  # Updated with actual URDF link names
+  tracking_frames:
+    - name: "link_l_sensor_ft"
+      dim: [4,4]
+      require_trans: true
+      trans_scalar: 1.0
+      require_rot: true
+      rot_scalar: 1.0
+    - name: "link_r_sensor_ft"
+      dim: [4, 4]
+      require_trans: true
+      trans_scalar: 1.0
+      require_rot: true
+      rot_scalar: 1.0
+  nullspace_tracking:
+    - joint_name: "joint_t1_knee_pitch"
+      position_target: 0.0 # range: [-0.3, 0.3]
+      scalar: 1.0
+  #   - joint_name: "body_joint_1"
+  #     position_target: -0.2 # range: [-0.4, 0.2]
+  #     scalar: 30.0
+  nullspace_weight: 1.0
+  show_debug: false
+  trans_weight: 0.7
+  rot_weight: 0.3
+  smooth_weight: 0.045
+  regularization_weight: 0.0001
+
+  

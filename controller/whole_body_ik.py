@@ -35,6 +35,7 @@ class WholeBodyIk(ControllerBase):
             @return: return the actuated joint positions (dim: nv)
         """
         # init of the problem
+        log.info(target)
         init_q = robot_state._positions
         self.opti.set_initial(self.var_q, init_q)
         
@@ -69,9 +70,9 @@ class WholeBodyIk(ControllerBase):
             q_target = self.opti.value(self.var_q)
             self.filter.add_data(q_target)
             q_target = self.filter.filtered_data
-            return True, q_target, "position"
+            return True, q_target, ["position"] * len(target)
         except Exception as e:
-            print(f"ERROR in convergence{e}")
+            log.info(f"ERROR in convergence{e}")
             return False, None, "position"
     
     
@@ -175,8 +176,8 @@ class WholeBodyIk(ControllerBase):
         opts = {
             'ipopt':{
                 'print_level':0,
-                'max_iter':100, # 增加最大迭代次数
-                'tol':1e-8,     # 更严格的收敛条件
+                'max_iter':30, # 增加最大迭代次数
+                'tol':1e-4,     # 更严格的收敛条件
                 # 以下参数可以删除
                 'acceptable_tol':1e-6, # 可接受的容差
                 'mu_strategy':'adaptive', # 自适应障碍参数

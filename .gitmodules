@@ -19,3 +19,6 @@
 [submodule "dependencies/pika_sdk"]
 	path = dependencies/pika_sdk
 	url = git@github.com:linkage-x/pika_sdk.git
+[submodule "dependencies/monte02_sdk"]
+	path = dependencies/monte02_sdk
+	url = git@github.com:linkage-x/monte02_sdk.git

@@ -361,8 +361,14 @@ class MujocoEnvCreator:
                         if element.tag in ["inertial", "geom", "joint", "site"]:
                             new_element = ET.SubElement(parent_body, element.tag)
                             for attr_name, attr_value in element.attrib.items():
-                                if attr_name == "name" and not preserve_names:
-                                    new_element.set(attr_name, f"{obj_name}_{attr_value}")
+                                if attr_name == "name":
+                                    if element.tag == "site":
+                                        # For site elements, always use obj_name_site format to avoid conflicts
+                                        new_element.set(attr_name, f"{obj_name}_site")
+                                    elif not preserve_names:
+                                        new_element.set(attr_name, f"{obj_name}_{attr_value}")
+                                    else:
+                                        new_element.set(attr_name, attr_value)
                                 elif attr_name == "mesh" and not preserve_names:
                                     # Also prefix mesh references to match the prefixed asset name
                                     new_element.set(attr_name, f"{obj_name}_{attr_value}")
@@ -401,8 +407,14 @@ class MujocoEnvCreator:
                                     for sub_element in body_element:
                                         new_element = ET.SubElement(parent_body, sub_element.tag)
                                         for attr_name, attr_value in sub_element.attrib.items():
-                                            if attr_name == "name" and not preserve_names:
-                                                new_element.set(attr_name, f"{obj_name}_{attr_value}")
+                                            if attr_name == "name":
+                                                if sub_element.tag == "site":
+                                                    # For site elements, always use obj_name_site format to avoid conflicts
+                                                    new_element.set(attr_name, f"{obj_name}_site")
+                                                elif not preserve_names:
+                                                    new_element.set(attr_name, f"{obj_name}_{attr_value}")
+                                                else:
+                                                    new_element.set(attr_name, attr_value)
                                             elif attr_name == "mesh" and not preserve_names:
                                                 # Also prefix mesh references to match the prefixed asset name
                                                 new_element.set(attr_name, f"{obj_name}_{attr_value}")
@@ -438,8 +450,14 @@ class MujocoEnvCreator:
                                     if body_element.tag in ["geom", "site", "joint", "inertial"]:
                                         new_element = ET.SubElement(parent_body, body_element.tag)
                                         for attr_name, attr_value in body_element.attrib.items():
-                                            if attr_name == "name" and not preserve_names:
-                                                new_element.set(attr_name, f"{obj_name}_{attr_value}")
+                                            if attr_name == "name":
+                                                if body_element.tag == "site":
+                                                    # For site elements, always use obj_name_site format to avoid conflicts
+                                                    new_element.set(attr_name, f"{obj_name}_site")
+                                                elif not preserve_names:
+                                                    new_element.set(attr_name, f"{obj_name}_{attr_value}")
+                                                else:
+                                                    new_element.set(attr_name, attr_value)
                                             elif attr_name == "mesh" and not preserve_names:
                                                 # Also prefix mesh references to match the prefixed asset name
                                                 new_element.set(attr_name, f"{obj_name}_{attr_value}")

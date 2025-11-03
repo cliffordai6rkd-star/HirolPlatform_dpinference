@@ -179,7 +179,7 @@ class TeleoperationFactory:
             cur_tcp_pose = {}
             for i, cur_ee_link in enumerate(self.ee_link):
                 key = self._robot_index[i] if len(self._robot_index) > 1 else self._robot_index[0]
-                cur_tcp_pose[key] = self._robot_motion_system.get_frame_pose(cur_ee_link, key)
+                cur_tcp_pose[self._ee_index[i]] = self._robot_motion_system.get_frame_pose(cur_ee_link, key)
                 # log.info(f'tcp pose {cur_tcp_pose[key]} for {key}')
             self._robot_motion_system.sim_visualize_tcp(cur_tcp_pose)
             
