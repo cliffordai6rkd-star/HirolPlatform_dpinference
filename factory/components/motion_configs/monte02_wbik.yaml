@@ -1,10 +1,18 @@
 # Monte-01 3D Mouse Teleoperation Configuration
 # usage platform
-use_hardware: false
+use_hardware: true
 use_simulation: true
 
-sensor_dicts:
-  cameras:
+use_smoother: true
+smoother_type: "ruckig" #critical_damped
+smoother_config: !include smoother/config/smoother_config_monte02.yaml
+# Async control configuration
+# This creates true decoupling between low-freq planning and high-freq control
+async_control_frequency: 1000.0     # Async thread sends commands at this rate (Hz)
+auto_enable_async_control: true    # Auto-enable async mode on initialization (new!)
+
+# sensor_dicts:
+#   cameras:
     # - name: "ee_cam"
     #   type: "realsense_camera"
     #   cfg: !include hardware/sensors/cameras/config/d405_cfg.yaml
@@ -16,8 +24,8 @@ sensor_dicts:
 # from the project directory
 robot: "monte02"
 robot_config: !include hardware/monte02/config/monte02_cfg.yaml
-# gripper: "monte01_gripper"
-# gripper_config: !include hardware/monte01/config/monte01_gripper_cfg.yaml
+gripper: "duo_tool"
+gripper_config: !include hardware/config/duo_monte02_gripper_cfg.yaml
 
 control_frequency: 100  # Increased for better responsiveness
 controller_type: "whole_body_ik"

@@ -17,10 +17,19 @@ whole_body_ik:
     - joint_name: "joint_t1_knee_pitch"
       position_target: 0.0 # range: [-0.3, 0.3]
       scalar: 1.0
-  #   - joint_name: "body_joint_1"
-  #     position_target: -0.2 # range: [-0.4, 0.2]
-  #     scalar: 30.0
-  nullspace_weight: 1.0
+    - joint_name: "joint_h1_pitch"
+      position_target: 0.0 # range: [-0.4, 0.2]
+      scalar: 1.0
+    - joint_name: "joint_h2_yaw"
+      position_target: 0.0 # range: [-0.4, 0.2]
+      scalar: 1.0
+    - joint_name: "joint_t2_hip_pitch"
+      position_target: 0.0 # range: [-0.4, 0.2]
+      scalar: 1.0
+    - joint_name: "joint_t3_waist_yaw"
+      position_target: 0.0 # range: [-0.4, 0.2]
+      scalar: 1.0
+  nullspace_weight: 5.0
   show_debug: false
   trans_weight: 0.7
   rot_weight: 0.3

@@ -8,6 +8,8 @@ from hardware.fr3.fr3_arm import Fr3Arm
 from hardware.duo_arm import DuoArm
 from hardware.agibot_g1.agibot_g1 import AgibotG1
 from hardware.monte01.monte01 import Monte01
+from hardware.monte02.monte02 import Monte02
+from hardware.monte02.corenetic_gripper import CoreneticGripper2
 from hardware.fr3.franka_hand import FrankaHand
 from hardware.unitreeG1.unitree_g1 import UnitreeG1
 from hardware.unitreeG1.Dex3_Hand import Dex3Hand
@@ -86,6 +88,7 @@ class RobotFactory:
             'fr3': Fr3Arm,
             'agibot_g1': AgibotG1,
             'monte01': Monte01,
+            'monte02': Monte02,
             'duo_arm': DuoArm,
             'unitree_g1': UnitreeG1,
         }
@@ -95,6 +98,7 @@ class RobotFactory:
             'duo_tool': DuoTool,
             'dex3_hand': Dex3Hand,
             'pika_gripper': PikaGripper,
+            'corenetic_gripper2': CoreneticGripper2,
         }
         
         self._camera_classes = {
@@ -370,6 +374,7 @@ class RobotFactory:
     def set_robot_joint_command(self, joint_command, mode, execute_hardware:bool = True,
                                 update_action = False):
         # log.info(f'mode: {mode}')
+        # log.info(f"set_robot_joint_command: {joint_command}")
         dofs = self.get_robot_dofs()
         if len(dofs) > 2:
             arm_dofs = dofs[-2:]

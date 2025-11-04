@@ -1,0 +1,72 @@
+# Smoother Configuration
+# This file configures the joint command smoothing functionality
+
+# Basic Critical Damped Smoother (recommended for general use)
+critical_damped:
+  type: "critical_damped"
+  omega_n: 25.0           # Natural frequency (rad/s) - Controls response speed
+                          # 15-20: Soft/compliant, slower response
+                          # 20-30: Balanced (default 25)
+                          # 30-40: Fast response, stiffer
+  zeta: 1.0              # Damping ratio (1.0 = critical damping, no overshoot)
+  control_frequency: 800  # Internal control loop frequency (Hz)
+
+# Adaptive Critical Damped Smoother (adjusts response based on error)
+adaptive_critical_damped:
+  type: "adaptive_critical_damped"
+  
+  # Base parameters
+  omega_n: 25.0           # Default natural frequency
+  zeta: 1.0              # Critical damping
+  control_frequency: 800  # Internal frequency (Hz)
+  
+  # Adaptive parameters
+  omega_n_min: 15.0      # Minimum omega_n (soft mode for small errors)
+  omega_n_max: 40.0      # Maximum omega_n (fast mode for large errors)
+  
+  error_thresholds:
+    low: 0.01            # Error below this = soft mode (rad, ~0.57°)
+    high: 0.1            # Error above this = fast mode (rad, ~5.7°)
+  
+  transition: "sigmoid"   # Transition type: "linear" or "sigmoid"
+  omega_change_limit: 5.0 # Max omega_n change per update (rad/s)
+
+# Ruckig Smoother (S-curve with jerk limiting)
+ruckig:
+  type: "ruckig"
+  control_frequency: 800  # Internal control loop frequency (Hz)
+  # Limits are aligned to Monte02 URDF (19 DoF: trunk 3 + head 2 + left arm 7 + right arm 7)
+  # Position ranges kept here for reference; velocities/acc/jerk below use URDF values
+  min_position: [-0.1, -0.3, -2.97, -0.31, -1.54, -2.61799, -0.26180, -2.61800,  0.08727, -2.26890, -0.99484, -1.57080, -2.61800, -0.26180, -2.61800,  0.08727, -2.26890, -0.99484, -1.57080] # rad
+  max_position: [ 0.1,  0.2,  2.97,  0.51,  1.54, 3.14159,  3.14160,  2.61800,  2.44350,  2.26890,  0.87266,  1.57080, 3.14160,  3.14160,  2.61800,  2.44350,  2.26890,  0.87266,  1.57080]
+  # Joint velocity limits from URDF (rad/s) for 19 DoF
+  max_velocity:  [3.14159, 3.14159, 3.14159, 3.14159, 3.14159,
+                  2.09440, 2.09440, 3.14160, 3.14160, 5.23599, 5.23599, 5.23599,
+                  2.09440, 2.09440, 3.14160, 3.14160, 5.23599, 5.23599, 5.23599]
+  # Heuristic acceleration/jerk limits derived from velocity:
+  #   max_acceleration = 6 * max_velocity; max_jerk = 25 * max_acceleration
+  max_acceleration: [18.84954, 18.84954, 18.84954, 18.84954, 18.84954,
+                     12.56640, 12.56640, 18.84960, 18.84960, 31.41594, 31.41594, 31.41594,
+                     12.56640, 12.56640, 18.84960, 18.84960, 31.41594, 31.41594, 31.41594]
+  max_jerk: [471.23850, 471.23850, 471.23850, 471.23850, 471.23850,
+             314.16000, 314.16000, 471.24000, 471.24000, 785.39850, 785.39850, 785.39850,
+             314.16000, 314.16000, 471.24000, 471.24000, 785.39850, 785.39850, 785.39850]
+  synchronization: true   # Enable synchronization
+  sync_mode: "time"      # Sync mode: "phase", "time", or "none"
+                          # - "phase": Synchronize velocity profiles (smooth coordinated motion)
+                          # - "time": All joints finish at same time (may cause sudden starts/stops)
+                          # - "none": Each joint optimizes independently (fastest per-joint)
+
+# Usage Examples in motion_config.yaml:
+# 
+# motion_factory:
+#   use_smoother: true
+#   smoother_config:
+#     type: "adaptive_critical_damped"  # or "critical_damped"
+#     omega_n: 25.0
+#     omega_n_min: 15.0
+#     omega_n_max: 40.0
+#     error_thresholds:
+#       low: 0.01
+#       high: 0.1
+#     transition: "sigmoid"

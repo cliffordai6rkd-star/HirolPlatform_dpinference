@@ -16,7 +16,7 @@ class SpaceMouse(TeleoperationDeviceBase):
         self._enable_rotation = config["enable_rotation"]
         self._tool_control_mode = config.get("tool_mode", "binary")
         self._tool_control_mode = ToolControlMode(self._tool_control_mode)
-        print(f'space tool control mode: {self._tool_control_mode}')
+        log.info(f'space tool control mode: {self._tool_control_mode}')
         self._tool_incremental_step = config.get("incremental_step", 0.05)
         self._move_time = config.get("move_time", 0.005)
         if self._tool_control_mode == ToolControlMode.BINARY:
@@ -125,7 +125,9 @@ class SpaceMouse(TeleoperationDeviceBase):
                 self._data.roll, self._data.pitch, self._data.yaw])
         # data = [0,0,0,
         #         0, self._data.roll,0]
-        buttons = np.array([self._data.buttons[0], self._data.buttons[1]])
+        buttons = np.zeros(2)
+        buttons[0] = self._data.buttons[0]
+        buttons[1] = self._data.buttons[1]
         self.lock.release()
         
         if 'absolute' in mode:
@@ -147,14 +149,11 @@ class SpaceMouse(TeleoperationDeviceBase):
                 buttons[0] = float(self._last_command)
             else:
                 # continous control
-                cur_time = time.perf_counter()
-                if (cur_time - self._last_change_time) > self._move_time:
-                    if buttons[0]:
-                        self._last_command += self._tool_incremental_step
-                    if buttons[1]:
-                        self._last_command -= self._tool_incremental_step
-                    self._last_command = np.clip(self._last_command, 0, 1)
-                    self._last_change_time = time.perf_counter()
+                if buttons[0]:
+                    self._last_command += self._tool_incremental_step
+                if buttons[1]:
+                    self._last_command -= self._tool_incremental_step
+                self._last_command = np.clip(self._last_command, 0, 1)
                 buttons[0] = self._last_command
             tool_target = {'single': buttons}
             self.target_updated = False

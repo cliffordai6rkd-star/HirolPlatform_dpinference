@@ -46,14 +46,14 @@ scene_objects:
     fix_base: true  # mocap objects don't need free joints
     mocap: true  # Special flag to indicate this is a mocap object (preserve original site names)
 
-  - name: "TCPL"
+  - name: "TCPL_site"
     model_path: "assets/scene_objects/mocap/tcp_mocap.xml"
     initial_position: [0.365, 0.2, 0.75]
     initial_orientation: [0.7071068, 0, 0.7071068, 0]  # x,y,z,w format
     fix_base: true  # mocap objects don't need free joints
     mocap: true  # Special flag to indicate this is a mocap object (preserve original site names)
 
-  - name: "TCPR"
+  - name: "TCPR_site"
     model_path: "assets/scene_objects/mocap/tcp_mocap.xml"
     initial_position: [0.365, -0.2, 0.75]
     initial_orientation: [0.7071068, 0, 0.7071068, 0]  # x,y,z,w format
