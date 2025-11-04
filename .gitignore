@@ -33,3 +33,5 @@ factory/tasks/inferences_tasks/act/ckpts
 /logs
 CLAUDE.md
 CLAUDE.local.md
+configcodex.sh
+AGENTS.md

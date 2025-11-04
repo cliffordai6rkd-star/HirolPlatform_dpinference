@@ -1,0 +1,21 @@
+monte_02_dual:
+  urdf_path: "assets/monte_02/urdf/monte02_description_V1_3.urdf"
+  mesh_offset: "assets/monte_02"
+  # Include all necessary frames but use minimal locking
+  frames: ["link_b0_base", "link_b_wheel_drive_left", "link_b_wheel_drive_right",
+          "link_t0_trunk_base", "link_t1_leg", "link_t2_hip", "link_t3_chest",
+          "link_h0_head_base", "link_h1_neck", "link_h2_head",
+          "link_l0_arm_base", "link_l1_shoulder_pitch", "link_l2_shoulder_roll", "link_l3_shoulder_yaw",
+          "link_l4_elbow_pitch", "link_l5_wrist_yaw", "link_l6_wrist_pitch", "link_l7_wrist_roll", "link_l_sensor_ft",
+          "link_r0_arm_base", "link_r1_shoulder_pitch", "link_r2_shoulder_roll", "link_r3_shoulder_yaw",
+          "link_r4_elbow_pitch", "link_r5_wrist_yaw", "link_r6_wrist_pitch", "link_r7_wrist_roll", "link_r_sensor_ft"]
+  # Dual end effectors
+  base_link: "link_b0_base"
+  ee_link: ["link_l_sensor_ft", "link_r_sensor_ft"]
+  fixed_base: true
+  # Lock only the wheel joints so the solver controls trunk/head + both arms
+  lock_joints:
+    - base: "link_b0_base"
+      end: "link_b_wheel_drive_left"
+    - base: "link_b0_base"
+      end: "link_b_wheel_drive_right"

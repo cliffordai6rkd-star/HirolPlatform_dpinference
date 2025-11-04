@@ -125,7 +125,7 @@ class MujocoSim(SimBase):
             qvel_adr = self._model.jnt_dofadr[joint_id]
             self._joint_states._velocities[i] = self._data.qvel[qvel_adr]
             self._joint_states._accelerations[i] = self._data.qacc[qvel_adr]
-            actuator_id = self._model.actuator(self._actuator_names[i]).id
+            actuator_id = mujoco.mj_name2id(self._model, mujoco.mjtObj.mjOBJ_ACTUATOR, self._actuator_names[i])
             self._joint_states._torques[i] = self._data.qfrc_actuator[actuator_id]
         # print(f'joint position: {self._joint_states._positions}')
         
@@ -184,7 +184,7 @@ class MujocoSim(SimBase):
             
             # command execution
             if mode[i] == 'position':
-                actuator_id = self._model.actuator(self._actuator_names[i]).id
+                actuator_id = mujoco.mj_name2id(self._model, mujoco.mjtObj.mjOBJ_ACTUATOR, self._actuator_names[i])
                 self._data.ctrl[actuator_id] = target
                 # qpos_adr = self._model.jnt_qposadr[joint_id]
                 # self._data.qpos[qpos_adr] = target
@@ -192,7 +192,7 @@ class MujocoSim(SimBase):
                 qvel_adr = self._model.jnt_dofadr[joint_id]
                 self._data.qvel[qvel_adr] = target
             elif mode[i] == "torque":
-                actuator_id = self._model.actuator(self._actuator_names[i]).id
+                actuator_id = mujoco.mj_name2id(self._model, mujoco.mjtObj.mjOBJ_ACTUATOR, self._actuator_names[i])
                 self._data.ctrl[actuator_id] = target
             else:
                 raise ValueError(f"Unsupported mode for {i}th actuator '{mode[i]}'. Supported modes are 'position', 'velocity', and 'torque'.")
@@ -339,6 +339,16 @@ class MujocoSim(SimBase):
         env_creator = MujocoEnvCreator(config_path=scene_config_path)
         self._model, self._data = env_creator.create_model()
         log.info(f'Successfully created dynamic scene with {self._model.nq} DoFs')
+
+        # Normalize possibly nested joint/actuator lists from config
+        def _flatten(xs):
+            return [y for x in xs for y in x] if isinstance(xs, (list, tuple)) and xs and isinstance(xs[0], (list, tuple)) else xs
+
+        # Overwrite names in base Sim with flattened versions (e.g., [[L7],[R7]] -> [L7+R7])
+        self._joint_names = _flatten(self._config['joint_names'])
+        self._actuator_names = _flatten(self._actuator_names)
+        self._actuator_mode = _flatten(self._actuator_mode)
+
 
         # Create render data copy for thread-safe camera access
         self._render_data = mujoco.MjData(self._model)

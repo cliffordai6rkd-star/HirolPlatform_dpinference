@@ -515,9 +515,10 @@ class MotionFactory:
         if not self._robot_system._use_simulation or not self._TCP_site:
             return 
         
-        robot_index = self.get_model_types()
+        ee_index = self._ee_index
+        # log.info(f'cur tcp {cur_tcp}, TCP site: {self._TCP_site}')
         for i in range(len(cur_tcp)):
-            key = robot_index[i] if len(robot_index) > 1 else robot_index[0]
+            key = ee_index[i] if len(ee_index) > 1 else ee_index[0]
             tcp = cur_tcp[key]
             cur_world2base = self._sim_world2base[0] if len(self._sim_world2base) == 1 else self._sim_world2base[i]
             tcp = transform_pose(cur_world2base, tcp)

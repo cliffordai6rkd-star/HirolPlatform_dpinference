@@ -374,7 +374,7 @@ class RobotFactory:
         if len(dofs) > 2:
             arm_dofs = dofs[-2:]
         else: arm_dofs = dofs
-        
+        # log.info(f'mode {mode} arm dof {arm_dofs}')
         if self._use_simulation:
             # mode assignment
             sim_mode = [mode[0]] * arm_dofs[0]

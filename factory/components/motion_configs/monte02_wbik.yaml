@@ -1,0 +1,43 @@
+# Monte-01 3D Mouse Teleoperation Configuration
+# usage platform
+use_hardware: false
+use_simulation: true
+
+sensor_dicts:
+  cameras:
+    # - name: "ee_cam"
+    #   type: "realsense_camera"
+    #   cfg: !include hardware/sensors/cameras/config/d405_cfg.yaml
+    # - name: "head_front_cam"
+    #   type: "ros2_camera"
+    #   cfg: !include hardware/sensors/cameras/config/obec_bolt_config.yaml
+
+# Notice: the config file path should contain to locate the file 
+# from the project directory
+robot: "monte02"
+robot_config: !include hardware/monte02/config/monte02_cfg.yaml
+# gripper: "monte01_gripper"
+# gripper_config: !include hardware/monte01/config/monte01_gripper_cfg.yaml
+
+control_frequency: 100  # Increased for better responsiveness
+controller_type: "whole_body_ik"
+controller_config: !include controller/config/whole_body_ik_monte_02.yaml
+
+model_type: "model"
+model_config:
+  name: "monte_02_dual"
+  cfg: !include motion/config/robot_model_cfg_monte_02_dual.yaml
+
+use_trajectory_planner: false
+buffer_type: "duo_buffer"
+trajectory_planner_type: "cart_polynomial"
+plan_type: "cartesian"
+trajectory_config: !include trajectory/config/cartesian_polynomial_traj_cfg.yaml
+traj_frequency: 50  # Lower for dual-arm coordination
+
+simulation: "mujoco"
+simulation_config: !include simulation/config/mujoco_monte02_blockstacking.yaml
+
+# Target sites for left and right arms
+target_site_name: ["targetL_site", "targetR_site"]
+tcp_visualization_site: ["TCPL_site", "TCPR_site"]

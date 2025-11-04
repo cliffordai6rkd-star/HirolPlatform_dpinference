@@ -1,0 +1,45 @@
+mujoco:
+  # Use scene_config_file to dynamically generate the scene
+  scene_config_file: "simulation/scene_config/monte02_block_stacking.yaml"
+
+  # Alternative: Use pre-generated XML file (comment out scene_config_file if using this)
+  # base_xml_file: "generated_scene.xml"
+
+  robot_xml: "assets/monte_02/urdf/monte02.xml"
+  quat_sequence: "xyzw"
+  dt: 0.002
+  # Control all DoFs except wheels: include trunk/head (5 joints) + 7 left arm + 7 right arm
+  dof: [5, 7, 7]
+  joint_names: [
+    ["joint_t1_knee_pitch", "joint_t2_hip_pitch", "joint_t3_waist_yaw", "joint_h1_pitch", "joint_h2_yaw"],
+    ["joint_l1_shoulder_pitch", "joint_l2_shoulder_roll", "joint_l3_shoulder_yaw", "joint_l4_elbow_pitch", "joint_l5_wrist_yaw", "joint_l6_wrist_pitch", "joint_l7_wrist_roll"],
+    ["joint_r1_shoulder_pitch", "joint_r2_shoulder_roll", "joint_r3_shoulder_yaw", "joint_r4_elbow_pitch", "joint_r5_wrist_yaw", "joint_r6_wrist_pitch", "joint_r7_wrist_roll"]
+  ]
+  actuator_names: [
+    # Skip wheel actuators (likely 1,2); use 3..7 for trunk/head
+    ["monte02_actuator3", "monte02_actuator4", "monte02_actuator5", "monte02_actuator6", "monte02_actuator7"],
+    ["monte02_actuator8", "monte02_actuator9", "monte02_actuator10", "monte02_actuator11", "monte02_actuator12", "monte02_actuator13", "monte02_actuator14"],
+    ["monte02_actuator15", "monte02_actuator16", "monte02_actuator17", "monte02_actuator18", "monte02_actuator19", "monte02_actuator20", "monte02_actuator21"]
+  ]
+  actuator_mode: [
+    ["position", "position", "position", "position", "position"],
+    ["position", "position", "position", "position", "position", "position", "position"],
+    ["position", "position", "position", "position", "position", "position", "position"]
+  ]
+  # tool_infos:
+  #   single:
+  #     type: "gripper"
+  #     joint_names: ["gripper_left_joint"]
+  #     actuator_names: ["pika_gripper_actuator"]
+  ee_site_name: ["left_ee_site", "right_ee_site"]
+  base_body: ["base_car"]
+  extra_render: true
+  max_traj_len: 80
+  use_custom_key_frame: false
+  sensor_dict:
+    ee_cam:
+     resolution: [480, 640]
+    side_cam:
+     resolution: [480, 640]
+    third_person_cam:
+     resolution: [480, 640]
