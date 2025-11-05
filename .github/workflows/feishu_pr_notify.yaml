@@ -1,0 +1,53 @@
+name: Notify Feishu on Pull Requests
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, closed]
+
+jobs:
+  notify-feishu:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Install jq
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y jq
+
+      - name: Prepare Feishu message
+        id: prep
+        run: |
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          TITLE="${{ github.event.pull_request.title }}"
+          URL="${{ github.event.pull_request.html_url }}"
+          STATE="${{ github.event.action }}"
+          MERGED="${{ github.event.pull_request.merged }}"
+          AUTHOR="${{ github.event.pull_request.user.login }}"
+          BASE="${{ github.event.pull_request.base.ref }}"
+          HEAD="${{ github.event.pull_request.head.ref }}"
+          LABELS=$(printf '%s' '${{ toJson(github.event.pull_request.labels) }}' | jq -r 'map(.name) | join(", ")')
+
+          if [ "$STATE" = "closed" ] && [ "$MERGED" = "true" ]; then
+            EVENT="merged"
+          else
+            EVENT="$STATE"
+          fi
+
+          TEXT=$(printf '[PR #%s] %s\nTitle: %s\nAuthor: %s\nBranches: %s -> %s\nLabels: %s\nLink: %s\n' \
+                 "$PR_NUMBER" "$EVENT" "$TITLE" "$AUTHOR" "$HEAD" "$BASE" "${LABELS:-none}" "$URL")
+
+          PAYLOAD=$(jq -c -n --arg text "$TEXT" '{msg_type:"text", content:{text:$text}}')
+          echo "payload=$PAYLOAD" >> $GITHUB_OUTPUT
+
+      - name: Send to Feishu
+        env:
+          FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+          PAYLOAD: ${{ steps.prep.outputs.payload }}
+        run: |
+          if [ -z "$FEISHU_WEBHOOK" ]; then
+            echo "FEISHU_WEBHOOK secret not set" >&2
+            exit 1
+          fi
+          curl -sS -X POST -H 'Content-Type: application/json' -d "$PAYLOAD" "$FEISHU_WEBHOOK"
