@@ -8,7 +8,7 @@ smoother_type: "ruckig" #critical_damped
 smoother_config: !include smoother/config/smoother_config_monte02.yaml
 # Async control configuration
 # This creates true decoupling between low-freq planning and high-freq control
-async_control_frequency: 1000.0     # Async thread sends commands at this rate (Hz)
+async_control_frequency: 150.0     # Async thread sends commands at this rate (Hz)
 auto_enable_async_control: true    # Auto-enable async mode on initialization (new!)
 
 # sensor_dicts:

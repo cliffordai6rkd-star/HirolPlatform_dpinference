@@ -1,0 +1,14 @@
+motion_config: !include factory/components/motion_configs/monte02_duo_ik.yaml
+
+target_site_name: ["targetL_site", "targetR_site"]
+tcp_visualization_site: ["TCPL_site", "TCPR_site"]
+
+teleop_interface: "duo_space_mouse"
+interface_config: !include teleop/space_mouse/duo_space_mouse_cfg.yaml
+inteface_output_mode: "relative"
+
+# teleoperation used parameter
+# if you are using mujoco simulation target instead of teleoperation device,
+# set use_simulation_target as true
+use_simulation_target: false
+teleoperation_loop_time: 0.01

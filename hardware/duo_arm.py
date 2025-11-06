@@ -1,5 +1,6 @@
 from hardware.fr3.fr3_arm import Fr3Arm
 from hardware.monte01.xarm7_arm import Xarm7Arm
+from hardware.monte02.monte02_arm import Monte02_Arm
 from hardware.base.arm import ArmBase
 from hardware.base.utils import RobotJointState, combine_two_joint_states
 import threading
@@ -9,7 +10,8 @@ class DuoArm(ArmBase):
     def __init__(self, config):
         self.single_arm_classes = {
             'fr3': Fr3Arm,
-            'xarm7': Xarm7Arm
+            'xarm7': Xarm7Arm,
+            'monte02arm': Monte02_Arm,
         }
         self.arm = {}
         left_config = config["left"]

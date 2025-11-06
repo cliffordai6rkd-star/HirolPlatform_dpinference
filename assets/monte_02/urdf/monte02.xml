@@ -250,13 +250,20 @@
   </actuator>
 
   <keyframe>
-    <!-- Home pose - robot in neutral standing position -->
-    <key name="home"
+    <key name="zero"
          qpos="0 0
                0 0 0
                0 0
                0 0 0 0 0 0 0
                0 0 0 0 0 0 0"/>
+
+    <!-- Home pose - robot in neutral standing position -->
+    <key name="home"
+         qpos="0 0
+               0 0 0
+               0 0
+               0.01174976211041212, 0.17985449731349945, 0.17040130496025085, 1.5592831373214722, 0.12087556719779968, 0.06636597961187363, -0.16235961019992828
+               -0.009328235872089863, 0.37675273418426514, -0.24538300931453705, 1.6782840490341187, 0.21086378395557404, 0.11790347844362259, 0.16573384404182434"/>
 
     <!-- Arms forward pose - useful for manipulation tasks -->
     <key name="arms_forward"

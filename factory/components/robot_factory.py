@@ -9,6 +9,7 @@ from hardware.duo_arm import DuoArm
 from hardware.agibot_g1.agibot_g1 import AgibotG1
 from hardware.monte01.monte01 import Monte01
 from hardware.monte02.monte02 import Monte02
+from hardware.monte02.monte02_arm import Monte02_Arm
 from hardware.monte02.corenetic_gripper import CoreneticGripper2
 from hardware.fr3.franka_hand import FrankaHand
 from hardware.unitreeG1.unitree_g1 import UnitreeG1
@@ -91,6 +92,7 @@ class RobotFactory:
             'monte02': Monte02,
             'duo_arm': DuoArm,
             'unitree_g1': UnitreeG1,
+            
         }
        
         self._gripper_classes = {

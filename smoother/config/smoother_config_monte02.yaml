@@ -9,7 +9,7 @@ critical_damped:
                           # 20-30: Balanced (default 25)
                           # 30-40: Fast response, stiffer
   zeta: 1.0              # Damping ratio (1.0 = critical damping, no overshoot)
-  control_frequency: 800  # Internal control loop frequency (Hz)
+  control_frequency: 150  # Internal control loop frequency (Hz)
 
 # Adaptive Critical Damped Smoother (adjusts response based on error)
 adaptive_critical_damped:
@@ -18,7 +18,7 @@ adaptive_critical_damped:
   # Base parameters
   omega_n: 25.0           # Default natural frequency
   zeta: 1.0              # Critical damping
-  control_frequency: 800  # Internal frequency (Hz)
+  control_frequency: 150  # Internal frequency (Hz)
   
   # Adaptive parameters
   omega_n_min: 15.0      # Minimum omega_n (soft mode for small errors)
@@ -34,7 +34,7 @@ adaptive_critical_damped:
 # Ruckig Smoother (S-curve with jerk limiting)
 ruckig:
   type: "ruckig"
-  control_frequency: 800  # Internal control loop frequency (Hz)
+  control_frequency: 150  # Internal control loop frequency (Hz)
   # Limits are aligned to Monte02 URDF (19 DoF: trunk 3 + head 2 + left arm 7 + right arm 7)
   # Position ranges kept here for reference; velocities/acc/jerk below use URDF values
   min_position: [-0.1, -0.3, -2.97, -0.31, -1.54, -2.61799, -0.26180, -2.61800,  0.08727, -2.26890, -0.99484, -1.57080, -2.61800, -0.26180, -2.61800,  0.08727, -2.26890, -0.99484, -1.57080] # rad
