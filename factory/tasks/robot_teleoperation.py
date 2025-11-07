@@ -277,8 +277,8 @@ class TeleoperationFactory:
                 if slow_loop_count % 100 == 1:
                     expected_freq = 1.0 / target_period
                     actual_freq = 1.0 / actual_time
-                    log.warning(f"Teleoperation frequency slow: expected {expected_freq:.1f}Hz, "
-                                f"actual {actual_freq:.1f}Hz (warning #{slow_loop_count})")
+                    # log.warning(f"Teleoperation frequency slow: expected {expected_freq:.1f}Hz, "
+                                # f"actual {actual_freq:.1f}Hz (warning #{slow_loop_count})")
 
                 # 重置时间基准，避免更大的延迟
                 next_run_time = current_time
@@ -336,7 +336,7 @@ class TeleoperationFactory:
                     joint_states[key]["torque"] = sliced_joint_states._torques.tolist()
                     joint_states[key]["time_stamp"] = sliced_joint_states._time_stamp
                     cur_ee_pose = self._robot_motion_system.get_frame_pose_with_joint_state(
-                                all_joint_states, cur_ee_link, key, need_vel=True)
+                                all_joint_states, cur_ee_link, robot_key, need_vel=True)
                     ee_states[key] = {}
                     ee_states[key]["pose"] = cur_ee_pose[:7].tolist()
                     ee_states[key]["twist"] = cur_ee_pose[7:13].tolist()

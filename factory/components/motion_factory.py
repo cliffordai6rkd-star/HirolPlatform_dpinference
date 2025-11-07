@@ -523,7 +523,8 @@ class MotionFactory:
             cur_world2base = self._sim_world2base[0] if len(self._sim_world2base) == 1 else self._sim_world2base[i]
             tcp = transform_pose(cur_world2base, tcp)
             cur_tcp_mocap = self._TCP_site[i]
-            tcp_mocap = cur_tcp_mocap.split('_')[0]
+            # tcp_mocap = cur_tcp_mocap.split('_')[0] # fixed, @TODO: check zyx
+            tcp_mocap = cur_tcp_mocap
             self._robot_system._simulation.set_target_mocap_pose(tcp_mocap, tcp)
                 
     def sim_visualize_targets(self, targets: dict[str, np.ndarray]):

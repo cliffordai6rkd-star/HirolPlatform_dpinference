@@ -199,7 +199,7 @@ class MujocoSim(SimBase):
     
     def set_tool_command(self, tool_action):
         if not self._tool_actuator_names:
-            log.warn("The tool actuator names are not correctly configured in the mujoco config")
+            # log.warn("The tool actuator names are not correctly configured in the mujoco config")
             return False
         
         if len(tool_action) != len(self._tool_actuator_names):

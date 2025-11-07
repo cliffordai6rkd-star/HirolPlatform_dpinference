@@ -1,6 +1,6 @@
 monte02:
   # Single arm configuration (if needed)
-  dof: [7, 7]  # 7 DOF per arm * 2 arms
+  dof: [5, 7, 7]  # 7 DOF per arm * 2 arms
   ip: "192.168.11.3:50051"  # Base station IP
-  control_body: false
-  control_chassis: false
+  # control_body: false
+  # control_chassis: false

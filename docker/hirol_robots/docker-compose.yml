@@ -19,7 +19,7 @@ services:
       - /var/run/dbus:/var/run/dbus
       - /run/dbus:/run/dbus
     environment:
-      - ROS_DOMAIN_ID=13
+      - ROS_DOMAIN_ID=26
       - DISPLAY=$DISPLAY
       - http_proxy=
       - https_proxy=

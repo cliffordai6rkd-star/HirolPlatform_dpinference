@@ -35,7 +35,6 @@ class WholeBodyIk(ControllerBase):
             @return: return the actuated joint positions (dim: nv)
         """
         # init of the problem
-        log.info(target)
         init_q = robot_state._positions
         self.opti.set_initial(self.var_q, init_q)
         
