@@ -1,0 +1,10 @@
+ros2_camera:
+  image_shape: [720, 1280]
+  fps: 30
+  # ROS2 topic names for different data streams
+  image_topic: "/camera_head_front/color/video"
+
+  # Data capabilities
+  contain_depth: false
+  contain_imu: false
+

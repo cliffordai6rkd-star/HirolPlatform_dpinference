@@ -39,6 +39,8 @@ class CoreneticGripper2(ToolBase):
         CHECK(self.hardware.set_gripper_enable(self._component_type, GRIPPER_ENABLE))
         CHECK(self.hardware.set_gripper_mode(self._component_type, GRIPPER_MODE_POSITION_CTRL))
 
+        CHECK(self.hardware.set_gripper_position(self._component_type, CORENETIC_GRIPPER_MAX_POSITION))
+        time.sleep(1)
         log.info("Corenetic gripper initialized successfully")
             
         return True
