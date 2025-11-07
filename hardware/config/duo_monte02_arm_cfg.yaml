@@ -1,0 +1,12 @@
+duo_arm:
+  dof: [7,7]
+  left:
+      type: "monte02arm"
+      dof: 7
+      ip: "192.168.11.3:50051"
+      side: "left"
+  right:
+      type: "monte02arm"
+      dof: 7
+      ip: "192.168.11.3:50051"
+      side: "right"

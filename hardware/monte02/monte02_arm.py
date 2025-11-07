@@ -1,11 +1,3 @@
-"""
-Monte02 robot control class
-
-Provides unified control interface for Monte02 dual-arm robot,
-following AgibotG1's interface design.
-Based on hardware/Monte02/config/Monte02_cfg.yaml configuration.
-"""
-
 import importlib.util
 import inspect
 import os
@@ -104,23 +96,10 @@ except (ImportError, AttributeError, OSError) as e:
     Robot = MockRobotLib
 
 
-class Monte02(ArmBase): #TODO: rename ArmBase to RobotBase, adjust related methods
-    """
-    Monte02 dual-arm robot unified control interface
-    
-    Provides AgibotG1-compatible interface for 14DOF dual-arm control.
-    Based on RobotLib SDK with Mock mode fallback.
-    """
-    
+class Monte02_Arm(ArmBase):
     def __init__(self, config: Dict[str, Any]):
-        """
-        Initialize Monte02 robot controller
-        
-        Args:
-            config: Configuration dictionary containing 'Monte02' section
-        """
         self._ip = config['ip']  # "192.168.11.3:50051"
-        
+        self.component_type = 1 if config['side'] == 'left' else 2
         self._comm_freq = 200
 
         # Thread control
@@ -131,14 +110,7 @@ class Monte02(ArmBase): #TODO: rename ArmBase to RobotBase, adjust related metho
         self._robot = None
 
         super().__init__(config)
-        self._total_dof = sum(self._dof)  # Sum of all DOF elements, e.g., [7, 7] -> 14
-        # TODO: check
-        self._joint_states._positions = np.zeros(self._total_dof)
-        self._joint_states._velocities = np.zeros(self._total_dof)
-        self._joint_states._accelerations = np.zeros(self._total_dof)
-        self._joint_states._torques = np.zeros(self._total_dof)
 
-    
     def initialize(self) -> bool:
         """
         Initialize robot hardware connection and control parameters
@@ -149,53 +121,28 @@ class Monte02(ArmBase): #TODO: rename ArmBase to RobotBase, adjust related metho
         if self._is_initialized:
             return True
         
-        try:
-            # Initialize RobotLib instance via singleton
-            from hardware.monte02.robotlib_manager import RobotAPI
-            self._robot = RobotAPI.get_robot(self._ip, "", "")
-            # Some SDK versions require trunk/head to be enabled before arm commands
-            try:
-                log.info(f"set_trunk_joint_enable")
-                self._robot.set_trunk_joint_enable(ENABLE)
-                log.info(f"set_head_joint_enable")
-                self._robot.set_head_joint_enable(ENABLE)
-                
-                time.sleep(0.05)
-            except Exception as _e:
-                log.info(f"Non-fatal: pre-arm enable trunk/head setup failed: {_e}")
-            # Clear error and warning codes
-            CHECK(self._robot.clean_arm_err_warn_code(COM_TYPE_LEFT))
-            CHECK(self._robot.clean_arm_err_warn_code(COM_TYPE_RIGHT), "Right arm clean_arm_err_warn_code")
-            
-            # Enable dual arms
-            CHECK(self._robot.set_arm_enable(COM_TYPE_LEFT, ARM_ENABLE))
-            CHECK(self._robot.set_arm_enable(COM_TYPE_RIGHT, ARM_ENABLE))
-            
-            # Set control mode to servo motion mode
-            CHECK(self._robot.set_arm_mode(COM_TYPE_LEFT, ARM_MODE_SERVO_MOTION))
-            CHECK(self._robot.set_arm_mode(COM_TYPE_RIGHT, ARM_MODE_SERVO_MOTION))
-            
-            # Set motion state
-            CHECK(self._robot.set_arm_state(COM_TYPE_LEFT, ARM_STATE_SPORT))
-            CHECK(self._robot.set_arm_state(COM_TYPE_RIGHT, ARM_STATE_SPORT))
-            
-            
-            # Start state update thread
-            self._update_thread = threading.Thread(target=self.update_state_task)
-            self._update_thread.start()
-            
-            log.info(f"Monte02 robot initialized successfully (IP: {self._ip}) _robot: {self._robot}")
-            return True
-            
-        except Exception as e:
-            log.info(f"Warning: Monte02 initialization failed: {e}")
-            log.info("Continuing with mock implementation")
-            if self._robot is None:
-                from hardware.monte02.robotlib_manager import RobotAPI
-                self._robot = RobotAPI.get_robot(self._ip, "", "")  # singleton (mock if needed)
-            
-            
-            return True
+        # Initialize RobotLib instance via singleton
+        from hardware.monte02.robotlib_manager import RobotAPI
+        self._robot = RobotAPI.get_robot(self._ip, "", "")
+        
+        # Clear error and warning codes
+        CHECK(self._robot.clean_arm_err_warn_code(self.component_type))
+        
+        # Enable dual arms
+        CHECK(self._robot.set_arm_enable(self.component_type, ARM_ENABLE))
+        
+        # Set control mode to servo motion mode
+        CHECK(self._robot.set_arm_mode(self.component_type, ARM_MODE_SERVO_MOTION))
+        
+        # Set motion state
+        CHECK(self._robot.set_arm_state(self.component_type, ARM_STATE_SPORT))
+        
+        # Start state update thread
+        self._update_thread = threading.Thread(target=self.update_state_task)
+        self._update_thread.start()
+        
+        log.info(f"Monte02 robot initialized successfully (IP: {self._ip}) _robot: {self._robot}")
+        return True
     
     def update_state_task(self) -> None:
       """
@@ -263,52 +210,49 @@ class Monte02(ArmBase): #TODO: rename ArmBase to RobotBase, adjust related metho
               actual_dt = read_period  # 重置为目标周期
 
       log.info(f'Monte02 robot {self._ip} stopped update thread!')
-    
+
     def _get_current_joint_positions(self) -> Tuple[bool, np.ndarray]:
         """
         Private method: Get current joint positions from both arms
         
         Returns:
             Tuple[bool, np.ndarray]: (success, joint_positions) 
-                                   joint_positions is 14D array or zeros on failure
+                                    joint_positions is 14D array or zeros on failure
         """
         # Start optimistic, AND with each subsystem read result
         ret = True
         
-        success_body, body_positions, _, _, _ = self._robot.get_body_joint_state()
-        if not success_body:
-            log.warn("Read body joint positions failed!")
-        ret &= success_body
-
         # Get left arm joint positions
-        success_left, left_positions = self._robot.get_arm_servo_angle(COM_TYPE_LEFT)
-        if not success_left:
+        ret, jps = self._robot.get_arm_servo_angle(self.component_type)
+        if not ret:
             log.warn("Read left arm joint positions failed!")
-        ret &= success_left
         
-        # Get right arm joint positions  
-        success_right, right_positions = self._robot.get_arm_servo_angle(COM_TYPE_RIGHT)
-        if not success_right:
-            log.warn("Read right arm joint positions failed!")
-        ret &= success_right
-
-        # Merge into 19D array: [body_5dof, left_7dof, right_7dof]
-        if ret:
-            all_positions = np.concatenate([body_positions, left_positions, right_positions])
-        return ret, all_positions
+        return ret, jps
     
     def update_arm_states(self) -> None:
         """
         Update dual-arm joint states
-        
-        Get left and right arm joint positions from RobotLib, merge into 14D state vector
         """
-        success, all_positions = self._get_current_joint_positions()
-        
+        success, jps = self._get_current_joint_positions()
+
         if success:
-            self._joint_states._positions = all_positions
+            # Ensure numpy array for downstream arithmetic
+            try:
+                jps_arr = np.asarray(jps, dtype=float)
+            except Exception:
+                jps_arr = np.array(list(jps), dtype=float)
+
+            # Defensive: enforce 7-DoF vector for a single arm
+            if jps_arr.ndim != 1:
+                jps_arr = jps_arr.flatten()
+            if jps_arr.size > 7:
+                jps_arr = jps_arr[:7]
+            elif jps_arr.size < 7:
+                raise Exception(f"jps size{jps_arr.size} < 7, this is NOT allowed!")
+            
+            self._joint_states._positions = jps_arr
     
-    def set_joint_command(self, mode: List[str], command: np.ndarray) -> None:
+    def set_joint_command(self, mode: Any, command: np.ndarray) -> None:
         """
         Set joint command
         
@@ -317,49 +261,29 @@ class Monte02(ArmBase): #TODO: rename ArmBase to RobotBase, adjust related metho
             command: Joint command array, length should be total_dof
         """
         
+        # Normalize control mode to list[str]
+        if isinstance(mode, str):
+            mode_list = [mode]
+        else:
+            mode_list = list(mode)
+
         # Check control mode
-        for cur_mode in mode:
+        for cur_mode in mode_list:
             if cur_mode != 'position':
                 raise ValueError(f'Monte02 only supports position control, got: {cur_mode}')
         
-        # Check command length
-        if len(command) != self._total_dof:
-            raise ValueError(f'Monte02 joint command length should be {self._total_dof}, '
-                             f'but got {len(command)}')
-        
-        
         # Decompose dual-arm command: first 7D to left arm, next 7D to right arm
-        body_dof = self._dof[0]
-        left_dof = self._dof[1]  # Left arm DOF (7)
-        # right_dof = self._dof[2]  # Right arm DOF (7)
-        body_command = command[:body_dof]
-        left_command = command[body_dof:body_dof + left_dof]   # command[0:7]
-        right_command = command[body_dof + left_dof:]  # command[7:14]
-        
-        # self._robot.set_trunk_joint_mode(TRUNK_JOINT_MODE_SERVOJ) # Dangerous ...
-        self._robot.set_trunk_joint_mode(TRUNK_JOINT_MODE_PROFILE)
-        self._robot.set_trunk_joint_position([1,2,3], body_command[:3].tolist())
-        self._robot.set_head_joint_position([1,2], body_command[3:5].tolist())
-        # Send left arm command
-        success_left = self._robot.set_arm_servo_angle_j(
-            COM_TYPE_LEFT, 
-            left_command.tolist(),
+        sync = True if self.component_type == 1 else False
+        success = self._robot.set_arm_servo_angle_j(
+            self.component_type, 
+            command.tolist(),
             1.0,  # velocity
             0,    # acceleration 
-            0     # sync
+            sync     # sync
         )
         
-        # Send right arm command
-        success_right = self._robot.set_arm_servo_angle_j(
-            COM_TYPE_RIGHT, 
-            right_command.tolist(), 
-            1.0,  # velocity
-            0,    # acceleration
-            1     # sync
-        )
-        
-        if not (success_left and success_right):
-            log.warn(f"Joint command partially failed - Left: {success_left}, Right: {success_right}")
+        if not success:
+            log.warn(f"Joint command partially failed")
     
     def close(self) -> None:
         """
@@ -375,105 +299,106 @@ class Monte02(ArmBase): #TODO: rename ArmBase to RobotBase, adjust related metho
         # Close robot connection
         if self._robot and ROBOTLIB_AVAILABLE:
             # Stop dual arm motion
-            self._robot.set_arm_state(COM_TYPE_LEFT, ARM_STATE_STOP)
-            self._robot.set_arm_state(COM_TYPE_RIGHT, ARM_STATE_STOP)
-            
+            self._robot.set_arm_state(self.component_type, ARM_STATE_STOP)
             # Disable dual arms
-            self._robot.set_arm_enable(COM_TYPE_LEFT, DENABLE)
-            self._robot.set_arm_enable(COM_TYPE_RIGHT, DENABLE)
-
-            self._robot.set_trunk_joint_enable(DENABLE)
-            self._robot.set_head_joint_enable(DENABLE)
-            
+            self._robot.set_arm_enable(self.component_type, DENABLE)
             log.info("Monte02 robot closed successfully")
         else:
             log.info("Monte02 mock robot closed")
-    
+
     def move_to_start(self):
-        self._robot.set_trunk_joint_mode(TRUNK_JOINT_MODE_PROFILE)
-
-        success, pos, vel, acc, tor = self._robot.get_body_joint_state()
-        log.info(f"Success: {success}")
-        log.info(f"pos: {pos}")
-
-        log.info(f"set_trunk_joint_position")
-        CHECK(self._robot.set_trunk_joint_position([1,2,3], [0] * 3))
-        # time.sleep(0.5)
-
-        log.info(f"set_head_joint_position")
-        CHECK(self._robot.set_head_joint_position([1,2], [0.2] * 2))
-
-        success, pos, vel, acc, tor = self._robot.get_body_joint_state()
-        log.info(f"Success: {success}")
-        log.info(f"pos: {pos}")
-        # time.sleep(0.5)
 
         positions_left_start = [0.01174976211041212, 0.17985449731349945, 0.17040130496025085, 1.5592831373214722, 0.12087556719779968, 0.06636597961187363, -0.16235961019992828]
         positions_right_start = [-0.009328235872089863, 0.37675273418426514, -0.24538300931453705, 1.6782840490341187, 0.21086378395557404, 0.11790347844362259, 0.16573384404182434]
+        jp = positions_left_start if self.component_type == 1 else positions_right_start
+        sync = 0 if self.component_type == 1 else 1
         speed = 0.3
         acc = 0
-        self._robot.set_arm_servo_angle(1, positions_left_start, speed, acc, 0)
-        self._robot.set_arm_servo_angle(2, positions_right_start, speed, acc, 1)
+        self._robot.set_arm_servo_angle(self.component_type, jp, speed, acc, sync)
 
     def move_to_zero(self):
-        positions_left_start = [0]*7
-        positions_right_start = [0]*7
-        speed = 0.3
-        acc = 0
-        self._robot.set_arm_servo_angle(1, positions_left_start, speed, acc, 0)
-        self._robot.set_arm_servo_angle(2, positions_right_start, speed, acc, 1)
+        sync = 0 if self.component_type == 1 else 1
+        self._robot.set_arm_servo_angle(self.component_type, [0]*7, 0.3, 0, sync)
 
-    
 def __main__():
-    """Simple CLI for quick bring-up and state inspection.
-
-    Example:
-        python hardware/monte02/monte02.py --config hardware/monte02/config/monte02_cfg.yaml \
-        --duration 5 --rate 5
+    """
+    Simple smoke test for Monte02_Arm. Uses MockRobotLib if SDK is unavailable.
+    Steps:
+      - construct arm (left/right)
+      - read initial joint state
+      - move_to_start -> small position nudge -> move_to_zero
     """
     import argparse
-    import yaml
+    import signal
+    import sys
 
-    parser = argparse.ArgumentParser("Monte02 quick test")
-    default_cfg = os.path.join(os.path.dirname(__file__), "config", "monte02_cfg.yaml")
-    parser.add_argument("-c", "--config", default=default_cfg, help="path to monte02 yaml config")
-    parser.add_argument("--duration", type=float, default=3.0, help="seconds to print joint states")
-    parser.add_argument("--rate", type=float, default=5.0, help="print rate (Hz)")
-    parser.add_argument("--demo-move", action="store_true",
-                        help="after sampling states, resend current q as a position command (no motion)")
+    parser = argparse.ArgumentParser(description="Monte02_Arm smoke test")
+    parser.add_argument("--ip", default=os.getenv("MONTE02_IP", "192.168.11.3:50051"))
+    parser.add_argument("--side", choices=["left", "right"], default="left")
+    parser.add_argument("--hold", type=float, default=1.0, help="hold time after each motion (s)")
     args = parser.parse_args()
 
-    # Load config
-    with open(args.config, "r") as f:
-        raw_cfg = yaml.safe_load(f) or {}
-    cfg = raw_cfg.get("monte02", raw_cfg)
+    # For this single-arm wrapper, pass dof as a list to match sum(self._dof)
+    config = {
+        "ip": args.ip,
+        "side": args.side,
+        "dof": [7],
+    }
 
-    robot = Monte02(cfg)
+    arm = None
+
+    def _cleanup(*_):
+        try:
+            if arm is not None:
+                arm.close()
+        finally:
+            sys.exit(0)
+
+    signal.signal(signal.SIGINT, _cleanup)
+    signal.signal(signal.SIGTERM, _cleanup)
 
     try:
-        robot.move_to_start()
-        # robot.move_to_zero()
+        log.info(f"Creating Monte02_Arm for side={args.side}, ip={args.ip}")
+        arm = Monte02_Arm(config)
 
-        # # Allow background read thread to populate first sample
-        # time.sleep(0.2)
-        # log.info(f"DOF groups: {robot.get_dof()} (total={sum(robot.get_dof())})")
+        # Let state thread populate first reading
+        time.sleep(0.2)
+        js = arm.get_joint_states()
+        try:
+            q0 = np.round(np.array(js._positions, dtype=float), 3).tolist()
+        except Exception:
+            q0 = list(js._positions)
+        log.info(f"Initial q: {q0}")
 
-        # period = 1.0 / max(args.rate, 1e-3)
-        # t_end = time.time() + max(args.duration, 0.0)
-        # while time.time() < t_end:
-        #     js = robot.get_joint_states()
-        #     # Print compact
-        #     log.info(f"q={np.round(js._positions, 3).tolist()}")
-        #     time.sleep(period)
+        log.info("Move to start...")
+        arm.move_to_start()
+        time.sleep(args.hold)
+        js = arm.get_joint_states()
+        try:
+            q1 = np.round(np.array(js._positions, dtype=float), 3).tolist()
+        except Exception:
+            q1 = list(js._positions)
+        log.info(f"After start q: {q1}")
 
-        # if args.demo_move:
-        #     q = robot.get_joint_states()._positions
-        #     # Use a single 'position' mode token; API accepts list[str]
-        #     robot.set_joint_command(['position'], q)
-        #     log.info("Re-sent current joint positions as a no-op command")
+        # Small position nudge
+        try:
+            cmd = np.array(js._positions, dtype=float).copy()
+        except Exception:
+            cmd = np.array(list(js._positions), dtype=float)
+        if cmd.shape[0] == 7:
+            cmd[0] += 0.05 if args.side == "left" else -0.05
+        log.info("Send small position offset command...")
+        arm.set_joint_command(["position"], cmd)
+        time.sleep(args.hold)
 
+        log.info("Move to zero...")
+        arm.move_to_zero()
+        time.sleep(args.hold)
+
+        log.info("Test finished OK.")
     finally:
-        robot.close()
+        if arm is not None:
+            arm.close()
 
 if __name__ == "__main__":
     __main__()
