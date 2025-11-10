@@ -1,0 +1,77 @@
+# =========================================
+# LeRobot 数据集转换配置（模板）
+# =========================================
+
+# 是否在转换完成后推送至 Hugging Face Hub
+push_to_repo: false
+
+# 自定义任务描述；可为单个字符串或与 task_list 长度一致的数组
+custom_prompt:
+  - "pick up the object and place it into the target container"
+
+# -----------------------------------------
+# 动作 / 观测设置
+# -----------------------------------------
+
+# 动作类型 (Action_Type_Mapping_Dict)：
+# joint_position | joint_position_delta | end_effector_pose | end_effector_pose_delta
+# joint_torque | command_joint_position | command_joint_position_delta
+# command_end_effector_pose | command_end_effector_pose_delta
+action_type: "joint_position"
+
+# 动作姿态表示：euler 或 quaternion
+action_ori_type: "euler"
+
+# 预测步数，决定增量动作使用的未来帧
+action_prediction_step: 1
+
+# 观测类型 (ObservationType)：
+# joint_position | joint_position_ee_pose | ee_pose | delta_ee_pose | mask
+obs_type: "joint_position"
+
+# 是否包含力/扭矩或工具附加信息
+contain_ft: false
+
+# 是否加载深度图像
+contain_depth: false
+
+# -----------------------------------------
+# 输出目录与元数据
+# -----------------------------------------
+
+# 输出数据集名称；同时作为 Hugging Face repo_id
+repo_name: "your_dataset_name"
+
+# 机器人名称标签
+robot_name: "fr3"
+
+# 输出根路径（相对 lerobot_loader.py）
+root_path: "../assets"
+
+# 目标帧率，用于下采样
+fps: 15
+
+# LeRobotDataset 图像写入线程数 / 进程数
+num_writer_thread: 4
+num_writer_process: 2
+
+# -----------------------------------------
+# 输入数据源
+# -----------------------------------------
+
+# 任务根目录（包含 episode_0000 / data.json 等）
+task_dir: "/path/to/your/task_dir"
+
+# 可选：指定子任务目录列表（位于 task_dir 内）；省略则遍历 task_dir 直接下的 episode
+# task_list:
+#   - "sub_task_a"
+#   - "sub_task_b"
+
+# -----------------------------------------
+# 使用说明
+# -----------------------------------------
+# 1. 将上述配置保存为 YAML，例如 config/your_config.yaml。
+# 2. 在 lerobot_loader.py 的 task_list 中指向该配置：
+#    {'name': "your_task", 'task_dir': "/path/to/your/task_dir", 'cfg_file': "config/your_config.yaml"}
+# 3. 运行 python HIROLRobotPlatform/dataset/lerobot/lerobot_loader.py 并选择任务编号。
+# 4. 输出结果存放在 root_path/repo_name 目录，可根据 push_to_repo 设置上传 Hugging Face。

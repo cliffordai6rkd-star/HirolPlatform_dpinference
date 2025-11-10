@@ -1,0 +1,80 @@
+# RobotMotion Configuration for FR3 Robot
+# Motion planning task with complete data collection
+
+# ============= 运动控制配置 =============
+# 继承MotionFactory完整配置（包含RobotFactory配置）
+# 默认包含 use_smoother: true, 可根据需求覆盖
+motion_config: !include factory/components/motion_configs/fr3_single_sim.yaml
+
+# 如果需要禁用smoother（如已有外部轨迹规划），取消注释以下行：
+# motion_config:
+#   use_smoother: false
+#   auto_enable_async_control: false
+
+# ============= 数据采集配置 =============
+data_collection:
+  # 数据保存路径（相对于HIROLRobotPlatform/dataset/data/）
+  save_path_prefix: "robot_motion_test"
+
+  # 采集频率（Hz）
+  # 建议30Hz，与图像采集频率匹配
+  data_record_frequency: 30
+
+  # 可视化配置
+  image_visualization: false      # OpenCV实时显示相机图像
+  rerun_visualization: false     # Rerun 3D可视化（数据回放）- 暂时禁用避免API兼容性问题
+
+  # 任务描述（用于数据集标注）
+  # 这些信息会保存在data.json的text字段中
+  task_description: "Robot motion planning with sensor data collection"
+  task_description_goal: "Execute motion commands and collect complete sensor data for robot learning"
+  task_description_steps: "step1: Initialize robot system. step2: Move robot to target poses. step3: Record sensor data (colors, depths, joint states, end effector states, tactiles, actions)."
+
+# ============= 运动控制参数 =============
+motion_control:
+  # 控制循环时间（秒）
+  # 对应50Hz控制频率（与遥操一致）
+  control_loop_time: 0.02
+
+  # 键盘监听器配置
+  # true = 启用键盘控制 (h/r/o/q)，适用于交互式调试
+  # false = 禁用键盘监听，防止意外触发，适用于自动化脚本/生产环境
+  enable_keyboard_listener: false
+
+  # 重置机械臂命令（关节空间，7D数组，单位：弧度）
+  # FR3 默认home位置
+  reset_arm_command: [0.369019823, 0.000199873044, 0.364437265,
+                      0.999989858, -0.00265401198, -0.00143284955, 0.00334460145]
+  reset_space: "cartesian"
+
+
+
+  # 重置空间（"joint" 或 "cartesian"）
+  # 对应 Robot_Space.JOINT_SPACE 或 Robot_Space.CARTESIAN_SPACE
+  # reset_space: "joint"
+
+  # 重置工具命令（夹爪开口，归一化 0-1）
+  # 1.0 = 完全打开，0.0 = 完全关闭
+  reset_tool_command:
+    single: 1.0
+
+# ============= 使用说明 =============
+# 1. 单臂机器人（FR3）：
+#    - send_pose_command(pose): pose.shape=(7,)
+#    - send_joint_command(joints): joints.shape=(7,)
+#    - send_gripper_command({"single": 0.5})
+#
+# 2. 双臂机器人（Duo XArm）：
+#    - send_pose_command(pose): pose.shape=(14,)
+#    - send_joint_command(joints): joints.shape=(14,)
+#    - send_gripper_command({"left": 0.3, "right": 0.8})
+#
+# 3. Smoother控制：
+#    - 默认启用（use_smoother: true），50Hz命令→800Hz平滑
+#    - 如需禁用，覆盖motion_config.use_smoother: false
+#
+# 4. 键盘控制：
+#    - 'h': 切换硬件执行使能
+#    - 'r': 开始/停止数据记录
+#    - 'o': 重置机器人到home位置
+#    - 'q': 退出程序

@@ -1,0 +1,44 @@
+{
+  "dataset": {
+    "repo_id": "fr3_pick_and_place_3dmouse",
+    "root": "/home/hanyu/code/HIROLRobotPlatform/dataset/assets/fr3_pick_and_place_3dmouse",
+    "episodes": null,
+    "streaming": false,
+    "use_imagenet_stats": true,
+    "image_transforms": {
+      "enable": false
+    },
+    "video_backend": "pyav"
+  },
+  "policy": {
+    "type": "pi0",
+    "device": "cuda",
+    "use_amp": false,
+    "chunk_size": 50,
+    "n_action_steps": 25,
+    "max_state_dim": 8,
+    "max_action_dim": 8,
+    "image_resolution": [
+      224,
+      224
+    ],
+    "tokenizer_max_length": 48,
+    "optimizer_lr": 2.5e-05,
+    "optimizer_weight_decay": 0.01
+  },
+  "optimizer": null,
+  "scheduler": null,
+  "batch_size": 8,
+  "num_workers": 4,
+  "steps": 60000,
+  "eval_freq": -1,
+  "log_freq": 10,
+  "save_checkpoint": true,
+  "save_freq": 10000,
+  "seed": 1000,
+  "use_policy_training_preset": true,
+  "output_dir": "outputs/train/fr3_pi0_local",
+  "wandb": {
+    "enable": true
+  }
+}

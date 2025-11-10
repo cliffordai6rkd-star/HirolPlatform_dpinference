@@ -243,13 +243,14 @@ class RobotMotion:
         # Get gripper state
         gripper_pos = 0.0
         tool_state = self._robot_system.get_tool_dict_state()
-        if tool_state and 'single' in tool_state:
-            tool_state_obj = tool_state['single']
-            if hasattr(tool_state_obj, '_position'):
-                gripper_pos = float(tool_state_obj._position)
-                # Normalize if in meters (Franka hand: 0-0.08m)
-                if gripper_pos <= 0.1:
-                    gripper_pos = min(1.0, gripper_pos / 0.08)
+        if tool_state and "single" in tool_state:
+            tool_state_obj = tool_state["single"]
+            if hasattr(tool_state_obj, "_position"):
+                raw_pos = np.asarray(tool_state_obj._position, dtype=np.float64).reshape(-1)
+                if raw_pos.size > 0:
+                    gripper_pos = float(raw_pos[0])
+                    if gripper_pos <= 0.1:
+                        gripper_pos = min(1.0, gripper_pos / 0.08)
 
         return {
             "pose": tcp_pose,
@@ -632,7 +633,7 @@ class RobotMotion:
             log.info("Hardware already disabled")
 
     def reset_to_home(self, home_pose: Optional[np.ndarray] = None,
-                     space: Robot_Space = Robot_Space.JOINT_SPACE) -> None:
+                     space: Robot_Space = None) -> None:
         """
         Reset robot to home position
 
@@ -652,6 +653,10 @@ class RobotMotion:
         self._update_motion_state = False
 
         try:
+            # Ensure controller thread can accept new targets
+            self._motion_factory.release_blocking_motion()
+            self._motion_factory.clear_high_level_command()
+
             # Use configured defaults if not provided
             if home_pose is None:
                 home_pose = self._reset_arm_command

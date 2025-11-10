@@ -1,6 +1,6 @@
 "ik": 
   damping_weight: 0.3
-  # ["gaussian_newtown", "pyroki"， "dls", "lm","curobo","pink"]
+  # ["gaussian_newton", "pyroki"， "dls", "lm","curobo","pink"]
   # pyroki 慎用， 关节会有跳变；可以用于执行单个位置的IK求解（相对来说求解成功率高）
   ik_type: "lm"
   tolerance: 0.000001

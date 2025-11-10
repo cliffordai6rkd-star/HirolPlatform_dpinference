@@ -1,0 +1,44 @@
+{
+  "dataset": {
+    "repo_id": "fr3_pick_and_place_3dmouse",
+    "root": "/home/hanyu/code/HIROLRobotPlatform/dataset/assets/fr3_pick_and_place_3dmouse_delta_ee",
+    "episodes": null,
+    "streaming": false,
+    "use_imagenet_stats": true,
+    "image_transforms": {
+      "enable": false
+    },
+    "video_backend": "torchcodec"
+  },
+  "policy": {
+    "type": "diffusion",
+    "device": "cuda",
+    "use_amp": false,
+    "n_obs_steps": 2,
+    "horizon": 16,
+    "n_action_steps": 8,
+    "vision_backbone": "resnet18",
+    "crop_shape": [
+      84,
+      84
+    ],
+    "use_separate_rgb_encoder_per_camera": false,
+    "optimizer_lr": 0.0001,
+    "optimizer_weight_decay": 1e-06
+  },
+  "optimizer": null,
+  "scheduler": null,
+  "batch_size": 16,
+  "num_workers": 4,
+  "steps": 200000,
+  "eval_freq": -1,
+  "log_freq": 1,
+  "save_checkpoint": true,
+  "save_freq": 20000,
+  "seed": 42,
+  "use_policy_training_preset": true,
+  "output_dir": "outputs/train/fr3_dp_delta_ee_local",
+  "wandb": {
+    "enable": true
+  }
+}
