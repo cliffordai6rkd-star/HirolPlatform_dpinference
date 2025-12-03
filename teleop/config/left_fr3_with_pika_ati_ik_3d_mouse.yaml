@@ -12,3 +12,11 @@ inteface_output_mode: "relative"
 # set use_simulation_target as true
 use_simulation_target: false
 teleoperation_loop_time: 0.005
+
+
+reset_arm_command: [-0.0016708960744338654, -0.7861180279768628, 
+                      0.0011242960248884306, -2.3515749674770583, 
+                      -0.0019059956649008665, 1.581831610375827, 
+                      0.7904221443917989]
+reset_space: "joint"
+# reset_tool_command: [[1]] @TODO: have some bugs, set to 0 will behave like 1 => 0 => 1

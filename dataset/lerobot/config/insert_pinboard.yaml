@@ -1,0 +1,15 @@
+push_to_repo: false
+# task_list: ["1015_pick_and_place_fr3_3dmouse_250ep", "1016_pick_and_place_fr3_3dmouse_242ep"]
+# custom_prompt: ["pick up the cube and place it into the box"]
+
+action_type: "end_effector_pose_delta"
+action_ori_type: "quaternion"
+action_prediction_step: 1
+obs_type: "delta_ee_pose"
+contain_ft: false
+contain_depth: false
+repo_name: "fr3_insert_pinboard"
+root_path: "/boot/common_data/2025/fr3_lerobot"
+fps: 15
+num_writer_thread: 8
+num_writer_process: 4

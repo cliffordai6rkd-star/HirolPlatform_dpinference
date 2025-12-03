@@ -1,0 +1,54 @@
+motion_config: !include factory/components/motion_configs/left_fr3_with_pika_ati_ik.yaml
+robot_type: "fr3"
+
+# pi0.5 也是 EE pose + quaternion，一般用 dee2dee/q2q 等映射
+# 实际的 obs/action 类型会根据 checkpoint_path 后缀自动解析（*_dee2dee, *_q2q 等）
+action_orientation_type: "quaternion"  # 对关节动作会被忽略
+
+# Episode / runtime
+num_episodes: 20
+max_timestamps: 650
+# 是否在 episode 之间自动复位到 home 位姿。对于连续推理建议关闭，
+# 否则每个 episode 结束都会出现明显的“回缩”动作。
+reset_between_episodes: false
+
+max_step_nums: 60000          # Gym 内部的最大 step 数
+enable_display: false
+display_window_name: "LeRobot_Inference_PI05"
+
+tool_control_mode: "incremental"
+tool_min: 0
+tool_max: 90
+
+dataset:
+  # 替换成你训练 pi0.5 时使用的 LeRobot 数据集标识
+  # 比如：1119_mix_left_fr3_ip_351ep_dee2dee 或你自己的 repo_id
+  repo_id: 1121_ip_ft_82ep_qft2q_pi05
+  # 本地缓存目录（包含 meta/ 等），可以是相对路径或绝对路径
+  # 比如：factory/tasks/inferences_tasks/lerobot/ckpts/YOUR_PI05_DATASET_REPO_ID
+  root: factory/tasks/inferences_tasks/lerobot/ckpts/1121_ip_ft_82ep_qft2q_pi05
+
+# 这里可以是：
+#  - 本地 checkpoint 目录（目录下包含 config.json / model.safetensors / meta/）
+#  - 或 HuggingFace 模型名，例如：lerobot/pi05_base、lerobot/pi05_libero_finetuned
+# 注意：如果想自动用 dee2dee 映射，建议在路径或名字末尾带上 *_dee2dee / *_q2q 等后缀
+checkpoint_path: "factory/tasks/inferences_tasks/lerobot/ckpts/1121_ip_ft_82ep_qft2q_pi05"
+
+# ==== RTC 配置（Pi0 / Pi0.5 / SmolVLA 共用）====
+rtc:
+  enabled: true
+  # execution_horizon: 8     # 推荐 8–12
+  # max_guidance_weight: 4.0 # 官方文档对 10-step flow matching 推荐 10.0
+  # debug: true
+  # debug_maxlen: 100
+
+# ActionQueue 中剩余动作少于这个阈值时，请求新的 action chunk
+# 要 >= execution_horizon + 推理 delay
+# rtc_action_queue_size_to_get_new_actions: 20
+
+# start_common_inference
+# Aggregation/execution (50 Hz control loop inside InferenceBase)
+# infer_frequency: 2        # policy query rate in Hz (50 / infer_frequency steps); 1.0 => every 50 steps
+# execution_chunk_steps: 50  # kept for reference; aggregation path uses per-step execution
+# action_weight_mode: "uniform"   # enable temporal aggregation at inference; alternatives: "exp_by_age", "triangular_by_offset", "no"
+# action_weight_gain: -0.01

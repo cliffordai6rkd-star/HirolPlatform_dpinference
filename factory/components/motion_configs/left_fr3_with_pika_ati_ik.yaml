@@ -1,6 +1,6 @@
 # usage platform
 use_hardware: true
-use_simulation: true
+use_simulation: false
 
 robot: "fr3"
 robot_config: !include hardware/fr3/config/left_fr3_cfg.yaml
@@ -15,6 +15,7 @@ smoother_config: !include smoother/config/smoother_config_fr3_.yaml
 async_control_frequency: 1000.0     # Async thread sends commands at this rate (Hz)
 auto_enable_async_control: true    # Auto-enable async mode on initialization (new!)
 
+
 # sensor infos
 sensor_dicts:
   cameras:
@@ -27,10 +28,10 @@ sensor_dicts:
     - name: "side_cam"
       type: "realsense_camera"
       cfg: !include hardware/sensors/cameras/config/rs_cfg_left_sidecam.yaml
-  # ft_sensors:
-  #   - name: "ee_ft"
-  #     type: "ati_ft"
-  #     cfg: !include hardware/sensors/ft_sensor/config/left_ati_cfg.yaml
+  ft_sensors:
+    - name: "ee_ft"
+      type: "ati_ft"
+      cfg: !include hardware/sensors/ft_sensor/config/left_ati_cfg.yaml
   
 control_frequency: 1000.0
 controller_type: "ik"

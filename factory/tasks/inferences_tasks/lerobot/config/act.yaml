@@ -1,0 +1,39 @@
+motion_config: !include factory/components/motion_configs/left_fr3_with_pika_ati_ik.yaml
+robot_type: "fr3"
+
+# Match this to the dataset conversion used for training (default: q2q)
+action_orientation_type: "quaternion"  # ignored for joint actions
+# Dataset includes force/torque readings; keep them in observation.state to match training stats.
+# contain_ft: true
+
+# Episode/runtime
+num_episodes: 20
+max_timestamps: 140
+
+max_step_nums: 60000
+enable_display: false
+display_window_name: "LeRobot_Inference"
+
+tool_control_mode: "incremental"
+tool_min: 0
+tool_max: 1
+tool_state_max: 90  # physical gripper range (mm) used to normalize to 0..1, matching training stats
+
+dataset:
+  repo_id: 1127_pp_q2cq_295ep_act
+  # Use the actual converted dataset root so stats/fps match training
+  root: factory/tasks/inferences_tasks/lerobot/ckpts/1127_pp_q2cq_295ep_act
+checkpoint_path: "factory/tasks/inferences_tasks/lerobot/ckpts/1127_pp_q2cq_295ep_act"
+
+# start_common_inference
+# Aggregation/execution (50 Hz control loop inside InferenceBase)
+# infer_frequency: 10        # policy query rate in Hz (50 / infer_frequency steps); 1.0 => every 50 steps
+# execution_chunk_steps: 100  # kept for reference; aggregation path uses per-step execution
+# action_weight_mode: "uniform"   # enable temporal aggregation at inference; alternatives: "exp_by_age", "triangular_by_offset", "no"
+# action_weight_gain: -0.01
+
+# 使用 ACT 内置的时间聚合（temporal ensembling），0<coeff<1 越接近 1 越平滑
+execution_chunk_steps: 1  # kept for reference; aggregation path uses per-step execution
+temporal_ensemble_coeff: 0.7
+# Override inference control frequency if hardware is slower than dataset fps
+# target_fps: 5

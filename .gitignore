@@ -37,3 +37,8 @@ configcodex.sh
 AGENTS.md
 /dataset/assets/
 /outputs
+AGENTS.md
+config_codex.sh
+ckpts
+factory/tasks/inferences_tasks/lerobot/ckpts
+transformers-fix-lerobot_openpi

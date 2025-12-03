@@ -6,6 +6,7 @@ services:
       dockerfile: Dockerfile
     volumes:
       - ../../:/workspace
+      - /home/tele/Models:/data/model
       - /tmp/.X11-unix:/tmp/.X11-unix
       - /sys/bus/usb:/sys/bus/usb:ro
       - /sys/class/input:/sys/class/input:ro
@@ -28,6 +29,7 @@ services:
       - SDL_AUDIODRIVER=pulse
       # 设备权限相关
       - UDEV=1
+      - SHELL=/bin/bash
       # - http_proxy=http://127.0.0.1:7897
       # - https_proxy=http://127.0.0.1:7897
       # - no_proxy=localhost,127.0.0.1

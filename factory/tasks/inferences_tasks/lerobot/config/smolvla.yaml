@@ -1,0 +1,45 @@
+motion_config: !include factory/components/motion_configs/left_fr3_with_pika_ati_ik.yaml
+robot_type: "fr3"
+
+# Match this to the dataset conversion used for training (mask2ee -> obs: mask, act: ee)
+action_orientation_type: "quaternion"  # ignored for joint actions
+contain_ft: false
+
+# Episode/runtime
+num_episodes: 20
+max_timestamps: 180
+# 连续推理时不在 episode 之间自动复位，避免每轮结束都“回家”导致回缩
+reset_between_episodes: false
+
+max_step_nums: 60000
+enable_display: false
+display_window_name: "LeRobot_Inference"
+
+tool_control_mode: "incremental"
+tool_min: 0
+tool_max: 90
+
+dataset:
+  repo_id: left_fr3_pp_295ep_q2q_smvla
+  root: factory/tasks/inferences_tasks/lerobot/ckpts/left_fr3_pp_295ep_q2q_smvla
+checkpoint_path: "factory/tasks/inferences_tasks/lerobot/ckpts/left_fr3_pp_295ep_q2q_smvla"
+
+# start_common_inference
+# Aggregation/execution (50 Hz control loop inside InferenceBase)
+# infer_frequency: 2        # policy query rate in Hz (50 / infer_frequency steps); 1.0 => every 50 steps
+# execution_chunk_steps: 50  # kept for reference; aggregation path uses per-step execution
+# action_weight_mode: "uniform"   # enable temporal aggregation at inference; alternatives: "exp_by_age", "triangular_by_offset", "no"
+# action_weight_gain: -0.01
+
+# ==== RTC 配置（SmolVLA / pi0 / pi05 等支持 RTC 的策略使用）====
+rtc:
+  enabled: true           # 打开 RTC
+  # execution_horizon: 5   # 可按需要调整
+  # max_guidance_weight: 1.0
+  # debug: false
+  # debug_maxlen: 100
+
+# ActionQueue 中剩余动作少于这个阈值时，请求新的 action chunk
+# 需要 >= execution_horizon + 推理 delay
+# rtc_action_queue_size_to_get_new_actions: 20
+

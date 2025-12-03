@@ -50,8 +50,6 @@ class RobotFactory:
     _simulation: SimBase
     _smoother: Optional[SmootherBase]
     
-    _learning_inference_engine: Optional[Any]
-    _learning_data_adapter: Optional[Any]
     def __init__(self, config):
         self._config = config
         self._use_hardware = config['use_hardware']
@@ -79,11 +77,6 @@ class RobotFactory:
         self._last_robot_action_lock = threading.Lock()
         self._update_action = False
         
-        # @TODO: delete Learning inference components
-        self._learning_config = config.get("learning", None)
-        self._learning_inference_engine = None
-        self._learning_data_adapter = None
-            
         # object classes
         self._robot_classes = {
             'fr3': Fr3Arm,
@@ -206,8 +199,6 @@ class RobotFactory:
         
         # total dof
         total_dof = self.get_total_dofs()
-        # Comment out filter as we'll use smoother instead when enabled
-        # self.filter = WeightedMovingFilter([1.0/total_dof] * total_dof, total_dof)
         
         # Create smoother if enabled
         if self._use_smoother:
@@ -586,10 +577,19 @@ class RobotFactory:
         if joint_commands is not None and self._use_smoother and self._smoother is not None:
             if mode is None:
                 raise ValueError("Mode must be specified when using smoother for move_to_start")
-            log.info(f"Move to start mode: {mode}, command: {joint_commands} with smoother")
-            self.set_joint_commands(joint_commands, mode, execute_hardware=self._enable_hardware)
-            # @TODO: use detection method to ensure the time is enough for robot to reach the start configuration
-            time.sleep(1.5)
+            target_joints = np.array(joint_commands, dtype=float).flatten()
+            log.info(f"Move to start mode: {mode}, command: {target_joints} with smoother")
+            self.set_joint_commands(target_joints, mode, execute_hardware=self._enable_hardware)
+            
+            timeout_s = self._estimate_move_to_start_timeout()
+            reached = self._wait_for_joint_target(
+                target_joints,
+                timeout_sec=timeout_s,
+                position_tolerance=0.01,
+                velocity_tolerance=0.02
+            )
+            if not reached:
+                log.warning("Move to start timed out before reaching target configuration")
             
         else:
             # joint_commands is None: use robot's default move_to_start (immediate reset)
@@ -604,6 +604,88 @@ class RobotFactory:
             time.sleep(0.002)
             # Resume smoother and sync to current position
             self.resume_smoother()
+    
+    def _estimate_move_to_start_timeout(self) -> float:
+        """Estimate how long to wait for the robot to reach the start pose."""
+        if not (self._use_smoother and self._smoother is not None):
+            return 2.0
+        
+        expected_duration = 0.0
+        try:
+            expected_duration = float(self._smoother.get_expected_duration())
+        except Exception as e:
+            log.debug(f"Failed to query smoother expected duration: {e}")
+        
+        if (expected_duration <= 0.0) and hasattr(self._smoother, '_omega_n'):
+            omega_n = float(getattr(self._smoother, '_omega_n', 0.0))
+            if omega_n > 1e-3:
+                expected_duration = 4.6 / omega_n
+        
+        timeout = expected_duration * 1.5 + 0.5 if expected_duration > 0.0 else 2.0
+        return max(timeout, 2.0)
+    
+    def _wait_for_joint_target(self, target: np.ndarray, timeout_sec: float,
+                               position_tolerance: float = 0.01,
+                               velocity_tolerance: float = 0.02,
+                               check_frequency: float = 50.0,
+                               consecutive_successes: int = 5) -> bool:
+        """
+        Wait until the measured joints settle near the target or timeout expires.
+        """
+        target = np.array(target, dtype=float).flatten()
+        if target.size == 0:
+            return True
+        
+        deadline = time.perf_counter() + timeout_sec
+        success_counter = 0
+        last_error = None
+        warned_shape_mismatch = False
+        
+        while time.perf_counter() < deadline:
+            joint_state = self.get_joint_states()
+            
+            if joint_state is not None and hasattr(joint_state, '_positions'):
+                positions = np.atleast_1d(np.array(joint_state._positions, dtype=float).flatten())
+                compare_len = min(len(target), len(positions))
+                
+                if compare_len == 0:
+                    break
+                
+                if len(target) != len(positions) and not warned_shape_mismatch:
+                    log.warning(f"move_to_start target length {len(target)} != joint state length {len(positions)}, "
+                                "comparing minimum length for convergence check")
+                    warned_shape_mismatch = True
+                
+                error = np.linalg.norm(target[:compare_len] - positions[:compare_len])
+                last_error = error
+                
+                vel_norm = None
+                if hasattr(joint_state, '_velocities') and joint_state._velocities is not None:
+                    velocities = np.atleast_1d(np.array(joint_state._velocities, dtype=float).flatten())
+                    if velocities.size >= compare_len:
+                        vel_norm = np.linalg.norm(velocities[:compare_len])
+                
+                if error <= position_tolerance and (vel_norm is None or vel_norm <= velocity_tolerance):
+                    success_counter += 1
+                    if success_counter >= consecutive_successes:
+                        return True
+                else:
+                    success_counter = 0
+            
+            elif self._use_smoother and self._smoother is not None:
+                try:
+                    if self._smoother.is_trajectory_finished(tolerance=position_tolerance):
+                        return True
+                except Exception:
+                    pass
+            
+            time.sleep(max(0.0, 1.0 / max(check_frequency, 1e-3)))
+        
+        if last_error is not None:
+            log.warning(f"Move to start wait timeout. Final position error: {last_error:.4f} rad")
+        else:
+            log.warning("Move to start wait timeout. Joint states unavailable")
+        return False
     
     def pause_smoother(self) -> None:
         """Pause smoother (for reset/special operations)"""
