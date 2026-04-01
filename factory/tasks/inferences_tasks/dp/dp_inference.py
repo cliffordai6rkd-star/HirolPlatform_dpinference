@@ -18,9 +18,10 @@ from omegaconf import OmegaConf
 import sys, cv2, random
 
 # Add diffusion_policy to path
-dp_path = "/home/yuxuan/Code/hirol/new_dp/dp_hirol"
+# 考虑容器映射路径  在docker volume里映射dp_hirol_main
+dp_path = "/workspace/dp_hirol"
 sys.path.append(dp_path)
-sys.path.append("/home/yuxuan/Code/hirol/new_dp/dp_hirol/diffusion_policy")
+sys.path.append("/workspcae/dp_hirol/diffusion_policy")
 
 from diffusion_policy.common.pytorch_util import dict_apply
 from diffusion_policy.workspace.base_workspace import BaseWorkspace
@@ -100,14 +101,17 @@ class DP_Inferencer(InferenceBase):
                 execution_thread.start()
                 if not self._async_execution:
                     execution_thread.join()
-                    
+
+    # 获取gym格式的obs 转换成dp需要的torch.Tensor格式的obs
     def convert_from_gym_obs(self, gym_obs = None) -> Dict[str, torch.Tensor]:
         """Convert gym observations to DP format.
         
         Returns:
             Dict containing DP-formatted observations as tensors
         """
-        gym_obs = super().convert_from_gym_obs(gym_obs = None)
+        # 父类在inference_base里定义了convert_from_gym_obs方法，返回gym_obs的字典格式，包含state、colors
+        gym_obs = super().convert_from_gym_obs(gym_obs = None) 
+        # 取出gym_obs里的colors？？？
         self.image_display(gym_obs)
         
         # Convert to DP format
@@ -115,8 +119,9 @@ class DP_Inferencer(InferenceBase):
         
         # Add to observation queue
         if len(self._obs_queue) >= self._n_obs_steps:
-            self._obs_queue.popleft()
-        self._obs_queue.append(dp_obs_np)
+            # 如果队列已满，自动丢弃最旧的观测 将最新的观测添加到队列末尾
+            self._obs_queue.popleft() # popleft()方法从队列的左侧（即最旧的观测）移除一个元素
+        self._obs_queue.append(dp_obs_np) # append()方法将新的观测添加到队列的右侧（即末尾）
         
         # Wait until we have enough observations
         if len(self._obs_queue) < self._n_obs_steps:
@@ -128,16 +133,19 @@ class DP_Inferencer(InferenceBase):
         obs_dict_np = {}
         for i, obs in enumerate(self._obs_queue):
             for key, value in obs.items():
-                value = value[None] # Add time dimension
+                value = value[None] # Add time dimension 等价于value = np.expand_dims(value, axis=0)
                 if i == 0:
                     obs_dict_np[key] = value  
                 else:
                     obs_dict_np[key] = np.concatenate((obs_dict_np[key], value), axis=0)
+                # obs变成了(idx_time,state(),img())
                 # log.info(f'{i}th key: {key}, dp obs shape: {obs_dict_np[key].shape}')
         
         # Convert to torch tensors and add batch dimension[1, T, C, H, W]
         obs_dict = dict_apply(obs_dict_np, 
-            lambda x: torch.from_numpy(x).unsqueeze(0).to(self._device))
+            lambda x: torch.from_numpy(x).unsqueeze(0).to(self._device)) 
+        # unsqueeze(0)在第0维添加一个新的维度，即batch维度)
+        # torch的to(self._device)方法将张量移动到指定的设备上（如GPU或CPU）
         return obs_dict
         
     def _convert_gym_obs_to_dp_format(self, gym_obs: Dict[str, Any]) -> Dict[str, np.ndarray]:
@@ -149,6 +157,8 @@ class DP_Inferencer(InferenceBase):
         Returns:
             DP-formatted observation dictionary
         """
+        # dp格式见hiroldataset
+        # 具体而言 state拼成一维向量 ,color先resize再从HWC转置为CHW,再从uint8归一化为foloat32  最后统一为一个字典
         dp_obs = {}
         
         # Process robot state
@@ -183,13 +193,17 @@ class DP_Inferencer(InferenceBase):
             dp_obs[camera_name] = processed_img
         
         return dp_obs
+    
+        # 总结：上面两个函数最终输出的dp_obs为：batch=1, time=T, state[]和batch=1, time=T, color[C,H,W]的字典
+        
         
     def _load_dp_model(self, checkpoint_path: str, config: Dict[str, Any]) -> BaseImagePolicy:
+        # dp的baseworkspace里定义cfg和payload 用于取checkpoint里的模型参数和配置
         """Load DP model from checkpoint.
 
         Args:
             checkpoint_path: Path to checkpoint file
-            config: Configuration dictionary containing inference settings
+            config: Configuration dictionary containing inference setting
 
         Returns:
             Loaded DP model
@@ -197,22 +211,24 @@ class DP_Inferencer(InferenceBase):
         Raises:
             ValueError: If checkpoint file not found or invalid
         """
+        # 检查checkpoint路径是否存在
         assert os.path.exists(checkpoint_path), f"Checkpoint not found: {checkpoint_path}"
-        
         log.info(f"Loading DP checkpoint: {checkpoint_path}")
-        payload = torch.load(open(checkpoint_path, 'rb'), pickle_module=dill)
-        cfg = payload['cfg']
+        payload = torch.load(open(checkpoint_path, 'rb'), pickle_module=dill) # 加载模式：rb二进制和dill反序列化
+        cfg = payload['cfg'] # BaseWorkspace有详细定义
         
         # Create workspace and load model
-        cls = hydra.utils.get_class(cfg._target_)
-        workspace: BaseWorkspace = cls(cfg)
+        cls = hydra.utils.get_class(cfg._target_) # hydra.utils.get_class()函数根据config中的_target_字段取出指定的类
+        workspace: BaseWorkspace = cls(cfg) # 创建workspacer容器实例，传入配置对象cfg
+        # workspace的load_payload方法将payload中的模型参数加载到workspace中,exclude_keys和include_keys参数可以用来指定加载时要排除或包含的键，但这里都设置为None表示加载所有参数
         workspace.load_payload(payload, exclude_keys=None, include_keys=None)
-        
-        # Get policy (EMA if available)
+
+        ## 根据config选择ema_model或model作为policy
         policy: BaseImagePolicy = workspace.ema_model if cfg.training.use_ema else workspace.model
-        policy.eval().to(self._device)
+        # pytorc的相关方法
+        policy.eval().to(self._device)  #.eval()切换为推理模式  .toset_device(self._device)将模型移动到指定设备上（如GPU或CPU）
         
-        # Configure inference parameters
+        #如果有num_inference_steps属性，根据config设置推理步骤数，并根据需要设置DDIM调度器
         if hasattr(policy, 'num_inference_steps'):
             log.info(f"policy infer steps: {getattr(policy, 'num_inference_steps', 25)}")
 
