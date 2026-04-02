@@ -8,6 +8,7 @@ max_step_nums: 150 # for gym steps
 action_type: "joint_position"
 action_orientation_type: "euler"
 is_debug: false
+dp_path: "../../dp_hirol-main"        # 相对 HirolPlatform 根目录；若 DP 在上一层，可改为 "../dp_hirol-main"
 reset_space: "joint"
 # reset_arm_command: [-0.0016708960744338654, -0.7861180279768628, 
 #                       0.0011242960248884306, -2.3515749674770583, 

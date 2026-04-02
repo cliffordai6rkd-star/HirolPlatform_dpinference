@@ -1,0 +1,64 @@
+# DP package path
+# This path is resolved relative to the HirolPlatform project root when not absolute.
+# Common layouts:
+# - DP beside HirolPlatform's parent folder: "../dp_hirol-main"
+# - DP under /mnt/code while repo is /mnt/code/lcx_dp/HirolPlatform: "../../dp_hirol-main"
+
+
+# robot + motion factory
+motion_config: !include factory/components/motion_configs/left_fr3_with_pika_ati_ik.yaml
+max_step_nums: 150
+action_type: "joint_position"
+action_orientation_type: "euler"
+observation_type: "joint_position_only"
+contain_ft: false
+use_relative_pose: false
+
+# tool / gripper settings
+tool_position_dof: 1
+tool_state_max: 1
+tool_min: 0
+tool_max: 90
+tool_control_mode: "binary"
+tool_open_thresh: 45
+tool_close_thresh: 45
+
+# robot reset
+reset_space: "joint"
+reset_arm_command: null
+reset_tool_command: [[1]]
+enable_hardware: true
+is_debug: false
+
+# rollout / execution
+num_episodes: 45
+max_timestamps: 1500
+execution_chunk_steps: 4
+infer_frequency: 10
+action_weight_mode: "no"
+action_weight_gain: 0.01
+async_execution: false
+
+# display / plotting
+enable_display: true
+display_window_name: "dp ddim inference full"
+enable_plotting: false
+
+# image preprocessing
+image_width: 128
+image_height: 128
+# image_size: [128, 128]
+
+# diffusion policy model configuration
+checkpoint_path: "/home/yuxuan/Code/hirol/checkpoints/dp/fr3/0926/solid_transfer/latest.ckpt"
+seed: 42
+device: "cuda"
+
+# inference scheduler
+inference_scheduler_type: "ddim"   # "ddim" or "ddpm"
+ddim_inference_steps: 16
+ddim_eta: 0.0
+num_train_timesteps: 100
+
+# logging / misc
+log_level: "info"

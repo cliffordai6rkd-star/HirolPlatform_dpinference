@@ -3,12 +3,12 @@ import glog as log
 import numpy as np
 from typing import Dict, Any, List
 from collections import deque
-from pathlib import Path
 
 # Base class import
 from factory.tasks.inferences_tasks.inference_base import InferenceBase
 from dataset.utils import ActionType
 import matplotlib.pyplot as plt
+from pathlib import path
 from scipy.spatial.transform import Rotation as R
 
 # DP related imports
@@ -19,15 +19,8 @@ from omegaconf import OmegaConf
 import sys, cv2, random
 
 # Add diffusion_policy to path
-# 相对项目根目录定位 dp_hirol-main
 project_root = Path(__file__).resolve().parents[4]
-dp_path = project_root / "dp_hirol-main"
-if dp_path.exists():
-    sys.path.append(str(dp_path))
-
-dp_pkg_path = dp_path / "diffusion_policy"
-if dp_pkg_path.exists():
-    sys.path.append(str(dp_pkg_path))
+dp_path = project_root.parent / "dp_hirol-main"
 
 from diffusion_policy.common.pytorch_util import dict_apply
 from diffusion_policy.workspace.base_workspace import BaseWorkspace
@@ -71,7 +64,7 @@ class DP_Inferencer(InferenceBase):
     # 父类抽象函数的接口统一，具体实现在diffusion policy的policy里定义
     def policy_reset(self):
         self._dp_policy.reset()
-    # 同上 从policy中拿转成numpy的action chunk
+    # 同上 从policy中拿转成numpy的action
     def policy_prediction(self, obs):
         with torch.no_grad():
             result = self._dp_policy.predict_action(obs)  #这里的self._policy是load_dp_model加载出来的
@@ -130,7 +123,7 @@ class DP_Inferencer(InferenceBase):
         gym_obs = super().convert_from_gym_obs(gym_obs = None) 
         # 取出gym_obs里的colors？？？
         self.image_display(gym_obs)
-        factory/tasks/inferences_tasks/dp/dp_inference.py
+        
         # Convert to DP format
         dp_obs_np = self._convert_gym_obs_to_dp_format(gym_obs)
         
@@ -138,19 +131,19 @@ class DP_Inferencer(InferenceBase):
         if len(self._obs_queue) >= self._n_obs_steps:
             # 如果队列已满，自动丢弃最旧的观测 将最新的观测添加到队列末尾
             self._obs_queue.popleft() # popleft()方法从队列的左侧（即最旧的观测）移除一个元素
-        self._obs_queue.append(dp_obs_npfactory/tasks/inferences_tasks/dp/dp_inference.py) # append()方法将新的观测添加到队列的右侧（即末尾）
+        self._obs_queue.append(dp_obs_np) # append()方法将新的观测添加到队列的右侧（即末尾）
         
         # Wait until we have enough observations
         if len(self._obs_queue) < self._n_obs_steps:
             log.info(f"Collecting observations... ({len(self._obs_queue)}/{self._n_obs_steps})")
-            time.sleep(0.01)factory/tasks/inferences_tasks/dp/dp_inference.py
+            time.sleep(0.01)
             return self.convert_from_gym_obs()  # Recursive call until enough obs
-        factory/tasks/inferences_tasks/dp/dp_inference.py
+        
         # Stack observations across time dimension
         obs_dict_np = {}
         for i, obs in enumerate(self._obs_queue):
             for key, value in obs.items():
-                value = value[None] # Adfactory/tasks/inferences_tasks/dp/dp_inference.pyd time dimension 等价于value = np.expand_dims(value, axis=0)
+                value = value[None] # Add time dimension 等价于value = np.expand_dims(value, axis=0)
                 if i == 0:
                     obs_dict_np[key] = value  
                 else:
@@ -253,7 +246,7 @@ class DP_Inferencer(InferenceBase):
 
             # Setup DDIM scheduler if requested
             if config.get('inference_scheduler_type', 'ddpm').lower() == 'ddim':
-                self._setup_ddim_scheduler(policy, cofactory/tasks/inferences_tasks/dp/dp_inference.pynfig)
+                self._setup_ddim_scheduler(policy, config)
             else:
                 policy.num_inference_steps = min(70, getattr(policy, 'num_inference_steps', 16))
 
@@ -308,6 +301,9 @@ class DP_Inferencer(InferenceBase):
             # Replace the scheduler
             policy.noise_scheduler = ddim_scheduler
             policy.num_inference_steps = ddim_steps
+            if not hasattr(policy,"kwargs") or policy.kwargs is None:
+                policy.kwargs = {}
+            policy.kwargs["eta"] = ddim_eta
 
             log.info(f"Successfully setup DDIM scheduler with {ddim_steps} inference steps and eta={ddim_eta}")
 
