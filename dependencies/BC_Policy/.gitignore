@@ -1,0 +1,7 @@
+ckpts/
+dataset/test_data/
+dataset/data/
+dataset/1025-pick_and_place_fr3_295ep/
+__pycache__/
+*.pyc
+wandb/

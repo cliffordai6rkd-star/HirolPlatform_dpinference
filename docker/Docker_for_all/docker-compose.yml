@@ -1,7 +1,7 @@
 
 services:
   # zyx_development   hirol_platform:
-  zyx_development:
+  dp_inference:
     build:
       context: .  # Assuming the Dockerfile is in the current directory
       dockerfile: Dockerfile
@@ -14,6 +14,9 @@ services:
       # 使用以下指令来排查： ls -la /tmp/.docker.xauth和xauth -f /tmp/.docker.xauth list
     volumes:
       - ../../:/workspace
+      - ../../../dp_hirol_main:/workspace/dp_hirol_main
+      - ../../../dp_output:/workspace/dp_output
+
       # - $HOME/Code/hirol:/home/teleophost/zyx
       # - $HOME/.ssh/id_rsa:/home/teleophost/.ssh/id_rsa
       # - $HOME/.ssh/id_rsa.pub:/home/teleophost/.ssh/id_rsa.pub
@@ -73,4 +76,3 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu, graphics, display, utility, video, compute]
-

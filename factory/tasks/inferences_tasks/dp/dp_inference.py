@@ -3,12 +3,13 @@ import glog as log
 import numpy as np
 from typing import Dict, Any, List
 from collections import deque
+from pathlib import Path
 
 # Base class import
 from factory.tasks.inferences_tasks.inference_base import InferenceBase
 from dataset.utils import ActionType
 import matplotlib.pyplot as plt
-from pathlib import path
+# from pathlib import path
 from scipy.spatial.transform import Rotation as R
 
 # DP related imports
@@ -20,7 +21,27 @@ import sys, cv2, random
 
 # Add diffusion_policy to path
 project_root = Path(__file__).resolve().parents[4]
-dp_path = project_root.parent / "dp_hirol-main"
+dp_path_candidates = [
+    os.environ.get("DP_HIROL_PATH"),
+    "/workspace/dp_hirol_main",
+    str(project_root / "dp_hirol_main"),
+    str(project_root.parent / "dp_hirol_main"),
+    "/home/tele/Code/lcx/dp_hirol_main",
+]
+
+dp_path = next(
+    (os.path.abspath(path) for path in dp_path_candidates if path and os.path.isdir(path)),
+    None,
+)
+
+if dp_path is None:
+    raise ModuleNotFoundError(
+        "Unable to locate diffusion_policy source. "
+        f"Tried: {', '.join(path for path in dp_path_candidates if path)}"
+    )
+
+if dp_path not in sys.path:
+    sys.path.insert(0, dp_path)
 
 from diffusion_policy.common.pytorch_util import dict_apply
 from diffusion_policy.workspace.base_workspace import BaseWorkspace

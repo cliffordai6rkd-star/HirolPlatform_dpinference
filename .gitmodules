@@ -13,6 +13,9 @@
 [submodule "dependencies/a2d_sdk"]
 	path = dependencies/a2d_sdk
 	url = git@github.com:linkage-x/a2d_sdk.git
+[submodule "dependencies/act"]
+	path = dependencies/act
+	url = git@github.com:linkage-x/act.git
 [submodule "dependencies/pika_sdk"]
 	path = dependencies/pika_sdk
 	url = git@github.com:linkage-x/pika_sdk.git

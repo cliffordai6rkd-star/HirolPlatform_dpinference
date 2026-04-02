@@ -9,8 +9,8 @@
 motion_config: !include factory/components/motion_configs/left_fr3_with_pika_ati_ik.yaml
 max_step_nums: 150
 action_type: "joint_position"
-action_orientation_type: "euler"
-observation_type: "joint_position_only"
+action_orientation_type: "eluer"
+observation_type: "joint_position"
 contain_ft: false
 use_relative_pose: false
 
@@ -50,7 +50,7 @@ image_height: 128
 # image_size: [128, 128]
 
 # diffusion policy model configuration
-checkpoint_path: "/home/yuxuan/Code/hirol/checkpoints/dp/fr3/0926/solid_transfer/latest.ckpt"
+checkpoint_path: "dp_output/checkpoint/latest.ckpt"
 seed: 42
 device: "cuda"
 
