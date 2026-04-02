@@ -3,6 +3,7 @@ import glog as log
 import numpy as np
 from typing import Dict, Any, List
 from collections import deque
+from pathlib import Path
 
 # Base class import
 from factory.tasks.inferences_tasks.inference_base import InferenceBase
@@ -18,10 +19,15 @@ from omegaconf import OmegaConf
 import sys, cv2, random
 
 # Add diffusion_policy to path
-# 考虑容器映射路径  在docker volume里映射dp_hirol_main
-dp_path = "/workspace/dp_hirol"
-sys.path.append(dp_path)
-sys.path.append("/workspcae/dp_hirol/diffusion_policy")
+# 相对项目根目录定位 dp_hirol-main
+project_root = Path(__file__).resolve().parents[4]
+dp_path = project_root / "dp_hirol-main"
+if dp_path.exists():
+    sys.path.append(str(dp_path))
+
+dp_pkg_path = dp_path / "diffusion_policy"
+if dp_pkg_path.exists():
+    sys.path.append(str(dp_pkg_path))
 
 from diffusion_policy.common.pytorch_util import dict_apply
 from diffusion_policy.workspace.base_workspace import BaseWorkspace
@@ -51,17 +57,27 @@ class DP_Inferencer(InferenceBase):
         self._dp_policy = self._load_dp_model(config["checkpoint_path"], config)
         self._n_obs_steps = getattr(self._dp_policy, 'n_obs_steps', 2)
         self._n_action_steps = getattr(self._dp_policy, 'n_action_steps', 8)
-        self._execution_action_chunk_size = self._n_action_steps
+        self._execution_action_chunk_size = self._n_action_steps  # chunk的大小实际上就是policy的动作步数
         self._action_horizon = getattr(self._dp_policy, 'horizon', 16)
         log.info(f'To: {self._n_obs_steps}, Ta: {self._n_action_steps}, Tp: {self._action_horizon}')
         
-        img_w = config.get(f'image_width', 128)
+        img_w = config.get(f'image_width', 128)  
         img_h = config.get(f'image_height', 128)
         self._image_size = config.get(f'image_size', (img_w, img_h))
         self._obs_queue = deque(maxlen=self._n_obs_steps)
         
         log.info(f"DP model loaded. obs_steps: {self._n_obs_steps}, action_horizon: {self._action_horizon}")
-        
+    # 在每个episode开始时重置policy内部状态
+    # 父类抽象函数的接口统一，具体实现在diffusion policy的policy里定义
+    def policy_reset(self):
+        self._dp_policy.reset()
+    # 同上 从policy中拿转成numpy的action chunk
+    def policy_prediction(self, obs):
+        with torch.no_grad():
+            result = self._dp_policy.predict_action(obs)  #这里的self._policy是load_dp_model加载出来的
+        return result['action'][0][:self._n_action_steps].detach().cpu().numpy()
+    
+    # 推理控制实现    
     def start_inference(self) -> None:
         """Main inference loop following PI0 pattern."""
         execution_thread = None
@@ -70,7 +86,7 @@ class DP_Inferencer(InferenceBase):
                 break
                 
             self._gym_robot.reset()
-            self._dp_policy.reset()
+            self.policy.reset()
             self._obs_queue.clear()
             self._status_ok = True
             self._last_gripper_open = [True, True]
@@ -83,10 +99,11 @@ class DP_Inferencer(InferenceBase):
                 with timer("dp_inference_time", "dp_inferencer"):
                     with torch.no_grad():
                         start_time = time.perf_counter()
-                        result = self._dp_policy.predict_action(dp_obs)
+                        action_np = self.policy_prediction(dp_obs)
                         log.info(f'infer used time: {time.perf_counter() - start_time}s')
-                        log.info(f'dp result action: {result["action"].shape}')
-                        action_np = result['action'][0][:self._n_action_steps].detach().cpu().numpy()
+                        log.info(f'dp result action: {action_np.shape}')
+                        
+            # 得到dp action
                 
                 if execution_thread and execution_thread.is_alive():
                     self._execution_interruption = True
@@ -113,7 +130,7 @@ class DP_Inferencer(InferenceBase):
         gym_obs = super().convert_from_gym_obs(gym_obs = None) 
         # 取出gym_obs里的colors？？？
         self.image_display(gym_obs)
-        
+        factory/tasks/inferences_tasks/dp/dp_inference.py
         # Convert to DP format
         dp_obs_np = self._convert_gym_obs_to_dp_format(gym_obs)
         
@@ -121,19 +138,19 @@ class DP_Inferencer(InferenceBase):
         if len(self._obs_queue) >= self._n_obs_steps:
             # 如果队列已满，自动丢弃最旧的观测 将最新的观测添加到队列末尾
             self._obs_queue.popleft() # popleft()方法从队列的左侧（即最旧的观测）移除一个元素
-        self._obs_queue.append(dp_obs_np) # append()方法将新的观测添加到队列的右侧（即末尾）
+        self._obs_queue.append(dp_obs_npfactory/tasks/inferences_tasks/dp/dp_inference.py) # append()方法将新的观测添加到队列的右侧（即末尾）
         
         # Wait until we have enough observations
         if len(self._obs_queue) < self._n_obs_steps:
             log.info(f"Collecting observations... ({len(self._obs_queue)}/{self._n_obs_steps})")
-            time.sleep(0.01)
+            time.sleep(0.01)factory/tasks/inferences_tasks/dp/dp_inference.py
             return self.convert_from_gym_obs()  # Recursive call until enough obs
-        
+        factory/tasks/inferences_tasks/dp/dp_inference.py
         # Stack observations across time dimension
         obs_dict_np = {}
         for i, obs in enumerate(self._obs_queue):
             for key, value in obs.items():
-                value = value[None] # Add time dimension 等价于value = np.expand_dims(value, axis=0)
+                value = value[None] # Adfactory/tasks/inferences_tasks/dp/dp_inference.pyd time dimension 等价于value = np.expand_dims(value, axis=0)
                 if i == 0:
                     obs_dict_np[key] = value  
                 else:
@@ -157,7 +174,7 @@ class DP_Inferencer(InferenceBase):
         Returns:
             DP-formatted observation dictionary
         """
-        # dp格式见hiroldataset
+        # dp格式见hiroldataset  对齐即可
         # 具体而言 state拼成一维向量 ,color先resize再从HWC转置为CHW,再从uint8归一化为foloat32  最后统一为一个字典
         dp_obs = {}
         
@@ -218,9 +235,11 @@ class DP_Inferencer(InferenceBase):
         cfg = payload['cfg'] # BaseWorkspace有详细定义
         
         # Create workspace and load model
-        cls = hydra.utils.get_class(cfg._target_) # hydra.utils.get_class()函数根据config中的_target_字段取出指定的类
+        # hydra.utils.get_class()函数根据config中的_target_字段取出指定的类 即上文提到的_dp_policy对象
+        cls = hydra.utils.get_class(cfg._target_)
         workspace: BaseWorkspace = cls(cfg) # 创建workspacer容器实例，传入配置对象cfg
-        # workspace的load_payload方法将payload中的模型参数加载到workspace中,exclude_keys和include_keys参数可以用来指定加载时要排除或包含的键，但这里都设置为None表示加载所有参数
+        # workspace的load_payload方法将payload中的模型参数加载到workspace中
+        # exclude_keys和include_keys参数可以用来指定加载时要排除或包含的键，但这里都设置为None表示加载所有参数
         workspace.load_payload(payload, exclude_keys=None, include_keys=None)
 
         ## 根据config选择ema_model或model作为policy
@@ -234,7 +253,7 @@ class DP_Inferencer(InferenceBase):
 
             # Setup DDIM scheduler if requested
             if config.get('inference_scheduler_type', 'ddpm').lower() == 'ddim':
-                self._setup_ddim_scheduler(policy, config)
+                self._setup_ddim_scheduler(policy, cofactory/tasks/inferences_tasks/dp/dp_inference.pynfig)
             else:
                 policy.num_inference_steps = min(70, getattr(policy, 'num_inference_steps', 16))
 
@@ -252,7 +271,7 @@ class DP_Inferencer(InferenceBase):
             config: Configuration dictionary containing DDIM settings
         """
         try:
-            # Import DDIM scheduler
+            # Import DDIM scheduler  DDIM 采样器/调度器，用来控制扩散模型在去噪推理时每一步怎么更新样本。
             from diffusers.schedulers.scheduling_ddim import DDIMScheduler
 
             # Get DDIM configuration parameters
@@ -260,11 +279,11 @@ class DP_Inferencer(InferenceBase):
             ddim_eta = config.get('ddim_eta', 0.0)
 
             # Get original scheduler parameters if available
-            original_scheduler = getattr(policy, 'noise_scheduler', None)
+            original_scheduler = getattr(policy, 'noise_scheduler', None) # 噪声调度
             if original_scheduler is not None:
                 # Create DDIM scheduler with original parameters
                 ddim_scheduler = DDIMScheduler(
-                    num_train_timesteps=getattr(original_scheduler, 'config', {}).get('num_train_timesteps', 100),
+                    num_train_timesteps=getattr(original_scheduler, 'config', {}).get('num_train_timesteps', 100), # 训练时总时间步数
                     beta_start=getattr(original_scheduler, 'config', {}).get('beta_start', 0.0001),
                     beta_end=getattr(original_scheduler, 'config', {}).get('beta_end', 0.02),
                     beta_schedule=getattr(original_scheduler, 'config', {}).get('beta_schedule', 'squaredcos_cap_v2'),
@@ -277,7 +296,7 @@ class DP_Inferencer(InferenceBase):
                 # Create DDIM scheduler with default parameters
                 ddim_scheduler = DDIMScheduler(
                     num_train_timesteps=100,
-                    beta_start=0.0001,
+                    beta_start=0.0001, #
                     beta_end=0.02,
                     beta_schedule='squaredcos_cap_v2',
                     clip_sample=True,

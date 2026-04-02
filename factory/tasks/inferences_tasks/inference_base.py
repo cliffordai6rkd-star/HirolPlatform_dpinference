@@ -218,6 +218,12 @@ class InferenceBase(abc.ABC, metaclass=abc.ABCMeta):
             # time.sleep(0.01)
             step_start = time.perf_counter()
             res = self._gym_robot.step(action)
+            done = res[2] # 取GymApi.step()返回tuple的第三个值作为done（return observation, reward, done, False, info）
+            if done:
+                self._status_ok = False
+                break
+
+
             step_time = time.perf_counter() - step_start
             dt = time.perf_counter() - start_time
             if dt < 1.0 / 50.0:

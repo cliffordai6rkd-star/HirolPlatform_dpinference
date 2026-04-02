@@ -126,7 +126,7 @@ class GymApi(gym.Env):
                 tool_index = index_r
             # log.info(f'tool action: {tool_action}')
             self._robot_motion.set_tool_command(np.array(tool_action))
-        
+        self._step_counter += 1
         # obs
         start = time.perf_counter()
         observation = self.get_observation()
@@ -136,10 +136,11 @@ class GymApi(gym.Env):
         done = done or (self._step_counter >= self._max_step_nums)
         info = self.get_info()
         info['obs_time'] = obs_time
-        
+       
         return observation, reward, done, False, info
         
     def reset(self, *, seed = None, options = None):
+        self._step_counter = 0
         if self._use_hardware:
             self._robot_motion.update_execute_hardware(True)
             self._robot_system._enable_hardware = True
